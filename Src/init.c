@@ -45,7 +45,10 @@ int noexitct = 0;
 char *zunderscore;
 
 /**/
-int underscorelen, underscoreused;
+size_t underscorelen;
+
+/**/
+int underscoreused;
 
 /* what level of sourcing we are at */
  
@@ -94,6 +97,7 @@ mod_export struct hookdef zshhooks[] = {
     HOOKDEF("exit", NULL, HOOKF_ALL),
     HOOKDEF("before_trap", NULL, HOOKF_ALL),
     HOOKDEF("after_trap", NULL, HOOKF_ALL),
+    HOOKDEF("get_color_attr", NULL, HOOKF_ALL),
 };
 
 /* keep executing lists until EOF found */
@@ -105,6 +109,7 @@ loop(int toplevel, int justonce)
     Eprog prog;
     int err, non_empty = 0;
 
+    queue_signals();
     pushheap();
     if (!toplevel)
 	zcontext_save();
@@ -132,7 +137,7 @@ loop(int toplevel, int justonce)
 		else
 		    stophist = hstop;
 		/*
-		 * Reset all errors, including user interupts.
+		 * Reset all errors, including user interrupts.
 		 * This is what allows ^C in an interactive shell
 		 * to return us to the command line.
 		 */
@@ -156,7 +161,7 @@ loop(int toplevel, int justonce)
 		 * Handle that now.
 		 */
 		stopmsg = 1;
-		zexit(exit_pending >> 1, 0);
+		zexit(exit_val, ZEXIT_NORMAL);
 	    }
 	    if (tok == LEXERR && !lastval)
 		lastval = 1;
@@ -198,7 +203,7 @@ loop(int toplevel, int justonce)
 		 * that would be inconsistent with the case where
 		 * we didn't execute a preexec function.  This is
 		 * an implementation detail that an interrupting user
-		 * does't care about.
+		 * doesn't care about.
 		 */
 		errflag &= ~ERRFLAG_ERROR;
 	    }
@@ -214,13 +219,14 @@ loop(int toplevel, int justonce)
 	    clearerr(stderr);
 	}
 	if (subsh)		/* how'd we get this far in a subshell? */
-	    exit(lastval);
+	    realexit();
 	if (((!interact || sourcelevel) && errflag) || retflag)
 	    break;
 	if (isset(SINGLECOMMAND) && toplevel) {
+	    dont_queue_signals();
 	    if (sigtrapped[SIGEXIT])
 		dotrap(SIGEXIT);
-	    exit(lastval);
+	    realexit();
 	}
 	if (justonce)
 	    break;
@@ -229,6 +235,7 @@ loop(int toplevel, int justonce)
     if (!toplevel)
 	zcontext_restore();
     popheap();
+    unqueue_signals();
 
     if (err)
 	return LOOP_ERROR;
@@ -237,39 +244,28 @@ loop(int toplevel, int justonce)
     return LOOP_OK;
 }
 
-/* Shared among parseargs(), parseopts(), init_io(), and init_misc() */
-static char *cmd;
 static int restricted;
 
 /**/
 static void
-parseargs(char **argv, char **runscript)
+parseargs(char *zsh_name, char **argv, char **runscript, char **cmdptr)
 {
     char **x;
     LinkList paramlist;
+    int flags = PARSEARGS_TOPLEVEL;
+    if (**argv == '-')
+	flags |= PARSEARGS_LOGIN;
 
     argzero = posixzero = *argv++;
     SHIN = 0;
 
-    /* There's a bit of trickery with opts[INTERACTIVE] here.  It starts *
-     * at a value of 2 (instead of 1) or 0.  If it is explicitly set on  *
-     * the command line, it goes to 1 or 0.  If input is coming from     *
-     * somewhere that normally makes the shell non-interactive, we do    *
-     * "opts[INTERACTIVE] &= 1", so that only a *default* on state will  *
-     * be changed.  At the end of the function, a value of 2 gets        *
-     * changed to 1.                                                     */
-    opts[INTERACTIVE] = isatty(0) ? 2 : 0;
     /*
-     * MONITOR is similar:  we initialise it to 2, and if it's
-     * still 2 at the end, we set it to the value of INTERACTIVE.
+     * parseopts sets up some options after we deal with emulation in
+     * order to be consistent --- the code in parseopts_setemulate() is
+     * matched by code at the end of the present function.
      */
-    opts[MONITOR] = 2;   /* may be unset in init_io() */
-    opts[HASHDIRS] = 2;  /* same relationship to INTERACTIVE */
-    opts[USEZLE] = 1;    /* see below, related to SHINSTDIN */
-    opts[SHINSTDIN] = 0;
-    opts[SINGLECOMMAND] = 0;
 
-    if (parseopts(NULL, &argv, opts, &cmd, NULL))
+    if (parseopts(zsh_name, &argv, opts, cmdptr, NULL, flags))
 	exit(1);
 
     /*
@@ -287,7 +283,7 @@ parseargs(char **argv, char **runscript)
     if (*argv) {
 	if (unset(SHINSTDIN)) {
 	    posixzero = *argv;
-	    if (cmd)
+	    if (*cmdptr)
 		argzero = *argv;
 	    else
 		*runscript = *argv;
@@ -296,7 +292,7 @@ parseargs(char **argv, char **runscript)
 	}
 	while (*argv)
 	    zaddlinknode(paramlist, ztrdup(*argv++));
-    } else if (!cmd)
+    } else if (!*cmdptr)
 	opts[SHINSTDIN] = 1;
     if(isset(SINGLECOMMAND))
 	opts[INTERACTIVE] &= 1;
@@ -333,9 +329,45 @@ parseopts_insert(LinkList optlist, char *base, int optno)
 }
 
 /*
+ * This sets the global emulation plus the options we traditionally
+ * set immediately after that.  This is just for historical consistency
+ * --- I don't think those options actually need to be set here.
+ */
+static void parseopts_setemulate(char *nam, int flags)
+{
+    emulate(nam, 1, &emulation, opts);   /* initialises most options */
+    opts[LOGINSHELL] = ((flags & PARSEARGS_LOGIN) != 0);
+    opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
+
+    /* There's a bit of trickery with opts[INTERACTIVE] here.  It starts *
+     * at a value of 2 (instead of 1) or 0.  If it is explicitly set on  *
+     * the command line, it goes to 1 or 0.  If input is coming from     *
+     * somewhere that normally makes the shell non-interactive, we do    *
+     * "opts[INTERACTIVE] &= 1", so that only a *default* on state will  *
+     * be changed.  At the end of the function, a value of 2 gets        *
+     * changed to 1.                                                     */
+    opts[INTERACTIVE] = isatty(0) ? 2 : 0;
+    /*
+     * MONITOR is similar:  we initialise it to 2, and if it's
+     * still 2 at the end, we set it to the value of INTERACTIVE.
+     */
+    opts[MONITOR] = 2;   /* may be unset in init_io() */
+    opts[HASHDIRS] = 2;  /* same relationship to INTERACTIVE */
+    opts[USEZLE] = 1;    /* see below, related to SHINSTDIN */
+    opts[SHINSTDIN] = 0;
+    opts[SINGLECOMMAND] = 0;
+}
+
+/*
  * Parse shell options.
- * If nam is not NULL, this is called from a command; don't
- * exit on failure.
+ *
+ * If (flags & PARSEARGS_TOPLEVEL):
+ * - we are doing shell initialisation
+ * - nam is the name under which the shell was started
+ * - set up emulation and standard options based on that.
+ * Otherwise:
+ * - nam is a command name
+ * - don't exit on failure.
  *
  * If optlist is not NULL, it used to form a list of pointers
  * into new_opts indicating which options have been changed.
@@ -344,23 +376,26 @@ parseopts_insert(LinkList optlist, char *base, int optno)
 /**/
 mod_export int
 parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
-	  LinkList optlist)
+	  LinkList optlist, int flags)
 {
     int optionbreak = 0;
     int action, optno;
     char **argv = *argvp;
+    int toplevel = ((flags & PARSEARGS_TOPLEVEL) != 0u);
+    int emulate_required = toplevel;
+    char *top_emulation = nam;
 
     *cmdp = 0;
 #define WARN_OPTION(F, S)						\
     do {								\
-	if (nam)							\
+	if (!toplevel)							\
 	    zwarnnam(nam, F, S);					\
 	else								\
 	    zerr(F, S);							\
     } while (0)
 #define LAST_OPTION(N)	       \
     do {		       \
-	if (nam) {	       \
+	if (!toplevel) {       \
 	    if (*argv)	       \
 		argv++;	       \
 	    goto doneargv;     \
@@ -375,12 +410,12 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 	    *argv = "--";
 	while (*++*argv) {
 	    if (**argv == '-') {
-		if(!argv[0][1]) {
+		if (!argv[0][1]) {
 		    /* The pseudo-option `--' signifies the end of options. */
 		    argv++;
 		    goto doneoptions;
 		}
-		if(*argv != args+1 || **argv != '-')
+		if (!toplevel || *argv != args+1 || **argv != '-')
 		    goto badoptionstring;
 		/* GNU-style long options */
 		++*argv;
@@ -393,6 +428,19 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 		    printhelp();
 		    LAST_OPTION(0);
 		}
+		if (!strcmp(*argv, "emulate")) {
+		    ++argv;
+		    if (!*argv) {
+			zerr("--emulate: argument required");
+			exit(1);
+		    }
+		    if (!emulate_required) {
+			zerr("--emulate: must precede other options");
+			exit(1);
+		    }
+		    top_emulation = *argv;
+		    break;
+		}
 		/* `-' characters are allowed in long options */
 		for(args = *argv; *args; args++)
 		    if(*args == '-')
@@ -401,13 +449,22 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 	    }
 
 	    if (unset(SHOPTIONLETTERS) && **argv == 'b') {
+		if (emulate_required) {
+		    parseopts_setemulate(top_emulation, flags);
+		    emulate_required = 0;
+		}
 		/* -b ends options at the end of this argument */
 		optionbreak = 1;
 	    } else if (**argv == 'c') {
+		if (emulate_required) {
+		    parseopts_setemulate(top_emulation, flags);
+		    emulate_required = 0;
+		}
 		/* -c command */
 		*cmdp = *argv;
 		new_opts[INTERACTIVE] &= 1;
-		scriptname = scriptfilename = ztrdup("zsh");
+		if (toplevel)
+		    scriptname = scriptfilename = ztrdup("zsh");
 	    } else if (**argv == 'o') {
 		if (!*++*argv)
 		    argv++;
@@ -416,15 +473,20 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 		    return 1;
 		}
 	    longoptions:
+		if (emulate_required) {
+		    parseopts_setemulate(top_emulation, flags);
+		    emulate_required = 0;
+		}
 		if (!(optno = optlookup(*argv))) {
 		    WARN_OPTION("no such option: %s", *argv);
 		    return 1;
-		} else if (optno == RESTRICTED && !nam) {
+		} else if (optno == RESTRICTED && toplevel) {
 		    restricted = action;
-		} else if ((optno == EMACSMODE || optno == VIMODE) && nam) {
+		} else if ((optno == EMACSMODE || optno == VIMODE) && !toplevel) {
 		    WARN_OPTION("can't change option: %s", *argv);
 		} else {
-		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
+		    if (dosetopt(optno, action, toplevel, new_opts) &&
+			!toplevel) {
 			WARN_OPTION("can't change option: %s", *argv);
 		    } else if (optlist) {
 			parseopts_insert(optlist, new_opts, optno);
@@ -441,15 +503,21 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
 		    }
 		break;
 	    } else {
+		if (emulate_required) {
+		    parseopts_setemulate(top_emulation, flags);
+		    emulate_required = 0;
+		}
 	    	if (!(optno = optlookupc(**argv))) {
 		    WARN_OPTION("bad option: -%c", **argv);
 		    return 1;
-		} else if (optno == RESTRICTED && !nam) {
+		} else if (optno == RESTRICTED && toplevel) {
 		    restricted = action;
-		} else if ((optno == EMACSMODE || optno == VIMODE) && nam) {
+		} else if ((optno == EMACSMODE || optno == VIMODE) &&
+			   !toplevel) {
 		    WARN_OPTION("can't change option: %s", *argv);
 		} else {
-		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
+		    if (dosetopt(optno, action, toplevel, new_opts) &&
+			!toplevel) {
 			WARN_OPTION("can't change option: -%c", **argv);
 		    } else if (optlist) {
 			parseopts_insert(optlist, new_opts, optno);
@@ -469,6 +537,10 @@ parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
     }
  doneargv:
     *argvp = argv;
+    if (emulate_required) {
+	parseopts_setemulate(top_emulation, flags);
+	emulate_required = 0;
+    }
     return 0;
 }
 
@@ -494,7 +566,7 @@ printhelp(void)
 
 /**/
 mod_export void
-init_io(void)
+init_io(char *cmd)
 {
     static char outbuf[BUFSIZ], errbuf[BUFSIZ];
 
@@ -518,6 +590,8 @@ init_io(void)
 	for (i = 3; i < 10; i++)
 	    close(i);
     }
+#else
+    (void)cmd;
 #endif
 
     if (shout) {
@@ -709,7 +783,7 @@ init_term(void)
     if (tgetent(termbuf, term) != TGETENT_SUCCESS)
 #endif
     {
-	if (isset(INTERACTIVE))
+	if (interact)
 	    zerr("can't find terminal definition for %s", term);
 	errflag &= ~ERRFLAG_ERROR;
 	termflags |= TERM_BAD;
@@ -787,8 +861,10 @@ init_term(void)
 	    tcstr[TCCLEARSCREEN] = ztrdup("\14");
 	    tclen[TCCLEARSCREEN] = 1;
 	}
-	/* This might work, but there may be more to it */
-	rprompt_indent = ((hasam && !hasbw) || hasye || !tccan(TCLEFT));
+	rprompt_indent = 1; /* If you change this, update rprompt_indent_unsetfn() */
+	/* The following is an attempt at a heuristic,
+	 * but it fails in some cases */
+	/* rprompt_indent = ((hasam && !hasbw) || hasye || !tccan(TCLEFT)); */
     }
     return 1;
 }
@@ -797,7 +873,7 @@ init_term(void)
 
 /**/
 void
-setupvals(void)
+setupvals(char *cmd, char *runscript, char *zsh_name)
 {
 #ifdef USE_GETPWUID
     struct passwd *pswd;
@@ -806,7 +882,7 @@ setupvals(void)
     char *ptr;
     int i, j;
 #if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined (ADDITIONAL_FPATH) || defined(FIXED_FPATH_DIR)
-#define FPATH_NEEDS_INIT 1
+# define FPATH_NEEDS_INIT 1
     char **fpathptr;
 # if defined(FPATH_DIR) && defined(FPATH_SUBDIRS)
     char *fpath_subdirs[] = FPATH_SUBDIRS;
@@ -918,18 +994,29 @@ setupvals(void)
 # endif /* ADDITONAL_FPATH */
     fpath = fpathptr = (char **)zalloc((fpathlen+1)*sizeof(char *));
 # ifdef FIXED_FPATH_DIR
+    /* Zeroth: /usr/local/share/zsh/site-functions */
     *fpathptr++ = ztrdup(FIXED_FPATH_DIR);
     fpathlen--;
 # endif
 # ifdef SITEFPATH_DIR
+    /* First: the directory from --enable-site-fndir
+     *
+     * default: /usr/local/share/zsh/site-functions
+     * (but changeable by passing --prefix or --datadir to configure) */
     *fpathptr++ = ztrdup(SITEFPATH_DIR);
     fpathlen--;
 # endif /* SITEFPATH_DIR */
 # if defined(ADDITIONAL_FPATH)
+    /* Second: the directories from --enable-additional-fpath
+     * 
+     * default: empty list */
     for (j = 0; j < more_fndirs_len; j++)
 	*fpathptr++ = ztrdup(more_fndirs[j]);
 # endif
 # ifdef FPATH_DIR
+    /* Third: The directory from --enable-fndir
+     *
+     * default: /usr/local/share/zsh/${ZSH_VERSION}/functions */
 #  ifdef FPATH_SUBDIRS
 #   ifdef ADDITIONAL_FPATH
     for (j = more_fndirs_len; j < fpathlen; j++)
@@ -937,7 +1024,7 @@ setupvals(void)
 #   else
     for (j = 0; j < fpathlen; j++)
 	*fpathptr++ = tricat(FPATH_DIR, "/", fpath_subdirs[j]);
-#endif
+#   endif
 #  else
     *fpathptr++ = ztrdup(FPATH_DIR);
 #  endif
@@ -1065,7 +1152,7 @@ setupvals(void)
     sfcontext = SFC_NONE;
     trap_return = 0;
     trap_state = TRAP_STATE_INACTIVE;
-    noerrexit = -1;
+    noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_SIGNAL;
     nohistsave = 1;
     dirstack = znewlinklist();
     bufstack = znewlinklist();
@@ -1081,6 +1168,12 @@ setupvals(void)
 
     /* Colour sequences for outputting colours in prompts and zle */
     set_default_colour_sequences();
+
+    if (cmd)
+	setsparam("ZSH_EXECUTION_STRING", ztrdup(cmd));
+    if (runscript)
+        setsparam("ZSH_SCRIPT", ztrdup(runscript));
+    setsparam("ZSH_NAME", ztrdup(zsh_name)); /* NOTE: already metafied early in zsh_main() */
 }
 
 /*
@@ -1117,8 +1210,9 @@ setupshin(char *runscript)
 	    exit(127);
 	}
 	scriptfilename = sfname;
-	zsfree(argzero); /* ztrdup'd in parseargs */
-	argzero = runscript;
+	sfname = argzero; /* copy to avoid race condition */
+	argzero = ztrdup(runscript);
+	zsfree(sfname); /* argzero ztrdup'd in parseargs */
     }
     /*
      * We only initialise line numbering once there is a script to
@@ -1128,7 +1222,7 @@ setupshin(char *runscript)
     /*
      * Finish setting up SHIN and its relatives.
      */
-    bshin = SHIN ? fdopen(SHIN, "r") : stdin;
+    shinbufalloc();
     if (isset(SHINSTDIN) && !SHIN && unset(INTERACTIVE)) {
 #ifdef _IONBF
 	setvbuf(stdin, NULL, _IONBF, 0);
@@ -1153,6 +1247,15 @@ init_signals(void)
     sigchld_mask = signal_mask(SIGCHLD);
 
     intr();
+
+#ifdef POSIX_SIGNALS
+    {
+	struct sigaction act;
+	if (!sigaction(SIGQUIT, NULL, &act) &&
+	    act.sa_handler == SIG_IGN)
+	    sigtrapped[SIGQUIT] = ZSIG_IGNORED;
+    }
+#endif
 
 #ifndef QDEBUG
     signal_ignore(SIGQUIT);
@@ -1187,25 +1290,28 @@ init_signals(void)
 void
 run_init_scripts(void)
 {
-    noerrexit = -1;
+    noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_SIGNAL;
 
     if (EMULATION(EMULATE_KSH|EMULATE_SH)) {
 	if (islogin)
 	    source("/etc/profile");
 	if (unset(PRIVILEGED)) {
-	    char *s = getsparam("ENV");
 	    if (islogin)
 		sourcehome(".profile");
-	    noerrs = 2;
-	    if (s) {
-		s = dupstring(s);
-		if (!parsestr(&s)) {
-		    singsub(&s);
-		    noerrs = 0;
-		    source(s);
+
+	    if (interact) {
+		noerrs = 2;
+		char *s = getsparam("ENV");
+		if (s) {
+		    s = dupstring(s);
+		    if (!parsestr(&s)) {
+			singsub(&s);
+			noerrs = 0;
+			source(s);
+		    }
 		}
+		noerrs = 0;
 	    }
-	    noerrs = 0;
 	} else
 	    source("/etc/suid_profile");
     } else {
@@ -1215,7 +1321,7 @@ run_init_scripts(void)
 
 	if (isset(RCS) && unset(PRIVILEGED))
 	{
-	    if (isset(INTERACTIVE)) {
+	    if (interact) {
 		/*
 		 * Always attempt to load the newuser module to perform
 		 * checks for new zsh users.  Don't care if we can't load it.
@@ -1261,7 +1367,7 @@ run_init_scripts(void)
 
 /**/
 void
-init_misc(void)
+init_misc(char *cmd, char *zsh_name)
 {
 #ifndef RESTRICTED_R
     if ( restricted )
@@ -1271,12 +1377,12 @@ init_misc(void)
 	dosetopt(RESTRICTED, 1, 0, opts);
     if (cmd) {
 	if (SHIN >= 10)
-	    fclose(bshin);
+	    close(SHIN);
 	SHIN = movefd(open("/dev/null", O_RDONLY | O_NOCTTY));
-	bshin = fdopen(SHIN, "r");
+	shinbufreset();
 	execstring(cmd, 0, 1, "cmdarg");
 	stopmsg = 1;
-	zexit(lastval, 0);
+	zexit((exit_pending || shell_exiting) ? exit_val : lastval, ZEXIT_NORMAL);
     }
 
     if (interact && isset(RCS))
@@ -1296,7 +1402,6 @@ source(char *s)
     int tempfd = -1, fd, cj;
     zlong oldlineno;
     int oldshst, osubsh, oloops;
-    FILE *obshin;
     char *old_scriptname = scriptname, *us;
     char *old_scriptfilename = scriptfilename;
     unsigned char *ocs;
@@ -1313,7 +1418,6 @@ source(char *s)
 
     /* save the current shell state */
     fd        = SHIN;            /* store the shell input fd                  */
-    obshin    = bshin;          /* store file handle for buffered shell input */
     osubsh    = subsh;           /* store whether we are in a subshell        */
     cj        = thisjob;         /* store our current job number              */
     oldlineno = lineno;          /* store our current lineno                  */
@@ -1326,7 +1430,7 @@ source(char *s)
 
     if (!prog) {
 	SHIN = tempfd;
-	bshin = fdopen(SHIN, "r");
+	shinbufsave();
     }
     subsh  = 0;
     lineno = 1;
@@ -1394,10 +1498,10 @@ source(char *s)
     if (prog)
 	freeeprog(prog);
     else {
-	fclose(bshin);
+	close(SHIN);
 	fdtable[SHIN] = FDT_UNUSED;
 	SHIN = fd;		     /* the shell input fd                   */
-	bshin = obshin;		     /* file handle for buffered shell input */
+	shinbufrestore();
     }
     subsh = osubsh;                  /* whether we are in a subshell         */
     thisjob = cj;                    /* current job number                   */
@@ -1425,10 +1529,12 @@ sourcehome(char *s)
     char *h;
 
     queue_signals();
-    if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam("ZDOTDIR"))) {
+    if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam_u("ZDOTDIR"))) {
 	h = home;
-	if (!h)
+	if (!h) {
+	    unqueue_signals();
 	    return;
+	}
     }
 
     {
@@ -1597,7 +1703,8 @@ mod_export int use_exit_printed;
 mod_export int
 zsh_main(UNUSED(int argc), char **argv)
 {
-    char **t, *runscript = NULL;
+    char **t, *runscript = NULL, *zsh_name;
+    char *cmd;			/* argument to -c */
     int t0;
 #ifdef USE_LOCALE
     setlocale(LC_ALL, "");
@@ -1642,22 +1749,20 @@ zsh_main(UNUSED(int argc), char **argv)
     fdtable[0] = fdtable[1] = fdtable[2] = FDT_EXTERNAL;
 
     createoptiontable();
-    emulate(zsh_name, 1, &emulation, opts);   /* initialises most options */
-    opts[LOGINSHELL] = (**argv == '-');
-    opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
-    /* sets ZLE, INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
-    parseargs(argv, &runscript);
+    /* sets emulation, LOGINSHELL, PRIVILEGED, ZLE, INTERACTIVE,
+     * SHINSTDIN and SINGLECOMMAND */ 
+    parseargs(zsh_name, argv, &runscript, &cmd);
 
     SHTTY = -1;
-    init_io();
-    setupvals();
+    init_io(cmd);
+    setupvals(cmd, runscript, zsh_name);
 
     init_signals();
     init_bltinmods();
     init_builtins();
     run_init_scripts();
     setupshin(runscript);
-    init_misc();
+    init_misc(cmd, zsh_name);
 
     for (;;) {
 	/*
@@ -1682,20 +1787,20 @@ zsh_main(UNUSED(int argc), char **argv)
 	    if (!lastval)
 		lastval = 1;
 	    stopmsg = 1;
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	}
 	if (!(isset(IGNOREEOF) && interact)) {
 #if 0
 	    if (interact)
 		fputs(islogin ? "logout\n" : "exit\n", shout);
 #endif
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	    continue;
 	}
 	noexitct++;
 	if (noexitct >= 10) {
 	    stopmsg = 1;
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	}
 	/*
 	 * Don't print the message if it was already handled by

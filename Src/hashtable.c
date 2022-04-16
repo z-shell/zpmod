@@ -558,7 +558,7 @@ printhashtabinfo(HashTable ht)
 
 /**/
 int
-bin_hashinfo(char *nam, char **args, Options ops, int func)
+bin_hashinfo(UNUSED(char *nam), UNUSED(char **args), UNUSED(Options ops), UNUSED(int func))
 {
     HashTable ht;
 
@@ -889,7 +889,7 @@ freeshfuncnode(HashNode hn)
 	freeeprog(shf->funcdef);
     if (shf->redir)
 	freeeprog(shf->redir);
-    zsfree(shf->filename);
+    dircache_set(&shf->filename, NULL);
     if (shf->sticky) {
 	if (shf->sticky->n_on_opts)
 	    zfree(shf->sticky->on_opts,
@@ -926,10 +926,13 @@ printshfuncnode(HashNode hn, int printflags)
 	       (f->node.flags & PM_UNDEFINED) ?
 	       " is an autoload shell function" :
 	       " is a shell function");
-	if (f->filename && (printflags & PRINT_WHENCE_VERBOSE) &&
-	    strcmp(f->filename, f->node.nam) != 0) {
+	if ((printflags & PRINT_WHENCE_VERBOSE) && f->filename) {
 	    printf(" from ");
 	    quotedzputs(f->filename, stdout);
+	    if (f->node.flags & PM_LOADDIR) {
+		printf("/");
+		quotedzputs(f->node.nam, stdout);
+	    }
 	}
 	putchar('\n');
 	return;
@@ -937,33 +940,42 @@ printshfuncnode(HashNode hn, int printflags)
  
     quotedzputs(f->node.nam, stdout);
     if (f->funcdef || f->node.flags & PM_UNDEFINED) {
-	printf(" () {\n\t");
-	if (f->node.flags & PM_UNDEFINED)
-	    printf("%c undefined\n\t", hashchar);
-	else
+	printf(" () {\n");
+	zoutputtab(stdout);
+	if (f->node.flags & PM_UNDEFINED) {
+	    printf("%c undefined\n", hashchar);
+	    zoutputtab(stdout);
+	} else
 	    t = getpermtext(f->funcdef, NULL, 1);
-	if (f->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL))
-	    printf("%c traced\n\t", hashchar);
+	if (f->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL)) {
+	    printf("%c traced\n", hashchar);
+	    zoutputtab(stdout);
+	}
 	if (!t) {
-	    char *fopt = "UtTkz";
+	    char *fopt = "UtTkzc";
 	    int flgs[] = {
 		PM_UNALIASED, PM_TAGGED, PM_TAGGED_LOCAL,
-		PM_KSHSTORED, PM_ZSHSTORED, 0
+		PM_KSHSTORED, PM_ZSHSTORED, PM_CUR_FPATH, 0
 	    };
 	    int fl;;
 
 	    zputs("builtin autoload -X", stdout);
 	    for (fl=0;fopt[fl];fl++)
 		if (f->node.flags & flgs[fl]) putchar(fopt[fl]);
+	    if (f->filename && (f->node.flags & PM_LOADDIR)) {
+		putchar(' ');
+		zputs(f->filename, stdout);
+	    }
 	} else {
 	    zputs(t, stdout);
 	    zsfree(t);
 	    if (f->funcdef->flags & EF_RUN) {
-		printf("\n\t");
+		printf("\n");
+		zoutputtab(stdout);
 		quotedzputs(f->node.nam, stdout);
 		printf(" \"$@\"");
 	    }
-	}   
+	}
 	printf("\n}");
     } else {
 	printf(" () { }");
@@ -979,6 +991,77 @@ printshfuncnode(HashNode hn, int printflags)
     putchar('\n');
 }
 
+/*
+ * Wrap scanmatchtable for shell functions with optional
+ * expansion of leading tabs.
+ * expand = 0 is standard: use hard tabs.
+ * expand > 0 uses that many spaces.
+ * expand < 0 uses no indentation.
+ *
+ * Note this function and the following two are called with
+ * interrupts queued, so saving and restoring text_expand_tabs
+ * is safe.
+ */
+
+/**/
+mod_export int
+scanmatchshfunc(Patprog pprog, int sorted, int flags1, int flags2,
+		ScanFunc scanfunc, int scanflags, int expand)
+{
+    int ret, save_expand;
+
+    save_expand = text_expand_tabs;
+    text_expand_tabs = expand;
+    ret = scanmatchtable(shfunctab, pprog, sorted, flags1, flags2,
+			scanfunc, scanflags);
+    text_expand_tabs = save_expand;
+
+    return ret;
+}
+
+/* Wrap scanhashtable to expand tabs for shell functions */
+
+/**/
+mod_export int
+scanshfunc(int sorted, int flags1, int flags2,
+	      ScanFunc scanfunc, int scanflags, int expand)
+{
+    return scanmatchshfunc(NULL, sorted, flags1, flags2,
+			   scanfunc, scanflags, expand);
+}
+
+/* Wrap shfunctab->printnode to expand tabs */
+
+/**/
+mod_export void
+printshfuncexpand(HashNode hn, int printflags, int expand)
+{
+    int save_expand;
+
+    save_expand = text_expand_tabs;
+    text_expand_tabs = expand;
+    shfunctab->printnode(hn, printflags);
+    text_expand_tabs = save_expand;
+}
+
+/*
+ * Get a heap-duplicated name of the shell function, for
+ * use in tracing.
+ */
+
+/**/
+mod_export char *
+getshfuncfile(Shfunc shf)
+{
+    if (shf->node.flags & PM_LOADDIR) {
+	return zhtricat(shf->filename, "/", shf->node.nam);
+    } else if (shf->filename) {
+	return dupstring(shf->filename);
+    } else {
+	return NULL;
+    }
+}
+
 /**************************************/
 /* Reserved Word Hash Table Functions */
 /**************************************/
@@ -992,22 +1075,29 @@ static struct reswd reswds[] = {
     {{NULL, "}", 0}, OUTBRACE},
     {{NULL, "case", 0}, CASE},
     {{NULL, "coproc", 0}, COPROC},
+    {{NULL, "declare", 0}, TYPESET},
     {{NULL, "do", 0}, DOLOOP},
     {{NULL, "done", 0}, DONE},
     {{NULL, "elif", 0}, ELIF},
     {{NULL, "else", 0}, ELSE},
     {{NULL, "end", 0}, ZEND},
     {{NULL, "esac", 0}, ESAC},
+    {{NULL, "export", 0}, TYPESET},
     {{NULL, "fi", 0}, FI},
+    {{NULL, "float", 0}, TYPESET},
     {{NULL, "for", 0}, FOR},
     {{NULL, "foreach", 0}, FOREACH},
     {{NULL, "function", 0}, FUNC},
     {{NULL, "if", 0}, IF},
+    {{NULL, "integer", 0}, TYPESET},
+    {{NULL, "local", 0}, TYPESET},
     {{NULL, "nocorrect", 0}, NOCORRECT},
+    {{NULL, "readonly", 0}, TYPESET},
     {{NULL, "repeat", 0}, REPEAT},
     {{NULL, "select", 0}, SELECT},
     {{NULL, "then", 0}, THEN},
     {{NULL, "time", 0}, TIME},
+    {{NULL, "typeset", 0}, TYPESET},
     {{NULL, "until", 0}, UNTIL},
     {{NULL, "while", 0}, WHILE},
     {{NULL, NULL, 0}, 0}
@@ -1169,7 +1259,12 @@ printaliasnode(HashNode hn, int printflags)
     }
 
     if (printflags & PRINT_WHENCE_WORD) {
-	printf("%s: alias\n", a->node.nam);
+	if (a->node.flags & ALIAS_SUFFIX)
+	    printf("%s: suffix alias\n", a->node.nam);
+	else if (a->node.flags & ALIAS_GLOBAL)
+	    printf("%s: global alias\n", a->node.nam);
+	else
+	    printf("%s: alias\n", a->node.nam);
 	return;
     }
 
@@ -1208,15 +1303,24 @@ printaliasnode(HashNode hn, int printflags)
     }
 
     if (printflags & PRINT_LIST) {
+	/* Fast fail on unrepresentable values. */
+	if (strchr(a->node.nam, '=')) {
+	    zwarn("invalid alias '%s' encountered while printing aliases", 
+		  a->node.nam);
+	    /* ### TODO: Return an error status to the C caller */
+	    return;
+	}
+
+	/* Normal path. */
 	printf("alias ");
 	if (a->node.flags & ALIAS_SUFFIX)
 	    printf("-s ");
 	else if (a->node.flags & ALIAS_GLOBAL)
 	    printf("-g ");
 
-	/* If an alias begins with `-', then we must output `-- ' *
+	/* If an alias begins with `-' or `+', then we must output `-- '
 	 * first, so that it is not interpreted as an option.     */
-	if(a->node.nam[0] == '-')
+	if(a->node.nam[0] == '-' || a->node.nam[0] == '+')
 	    printf("-- ");
     }
 
@@ -1343,6 +1447,9 @@ freehistdata(Histent he, int unlink)
     if (!he)
 	return;
 
+    if (he == &curline)
+	return;
+
     if (!(he->node.flags & (HIST_DUP | HIST_TMPSTORE)))
 	removehashnode(histtab, he->node.nam);
 
@@ -1359,5 +1466,152 @@ freehistdata(Histent he, int unlink)
 	    he->up->down = he->down;
 	    he->down->up = he->up;
 	}
+    }
+}
+
+
+/***********************************************************************
+ * Directory name cache mechanism
+ *
+ * The idea of this is that there are various shell structures,
+ * notably functions, that record the directories with which they
+ * are associated.  Rather than store the full string each time,
+ * we store a pointer to the same location and count the references.
+ * This is optimised so that retrieval is quick at the expense of
+ * searching the list when setting up the structure, which is a much
+ * rarer operation.
+ *
+ * There is nothing special about the fact that the strings are
+ * directories, except for the assumptions for efficiency that many
+ * structures will point to the same one, and that there are not too
+ * many different directories associated with the shell.
+ **********************************************************************/
+
+struct dircache_entry
+{
+    /* Name of directory in cache */
+    char *name;
+    /* Number of references to it */
+    int refs;
+};
+
+/*
+ * dircache is the cache, of length dircache_size.
+ * dircache_lastentry is the last entry used, an optimisation
+ * for multiple references to the same directory, e.g
+ * "autoload /blah/blah/\*".
+ */
+static struct dircache_entry *dircache, *dircache_lastentry;
+static int dircache_size;
+
+/*
+ * Set *name to point to a cached version of value.
+ * value is copied so may come from any source.
+ *
+ * If value is NULL, look for the existing value of *name (safe if this
+ * too is NULL) and remove a reference to it from the cache. If it's
+ * not found in the cache, it's assumed to be an allocated string and
+ * freed --- this currently occurs for a shell function that's been
+ * loaded as the filename is now a full path, not just a directory,
+ * though we may one day optimise this to a cached directory plus a
+ * name, too.  Note --- the function does *not* otherwise check
+ * if *name points to something already cached, so this is
+ * necessary any time *name may already be in the cache.
+ */
+
+/**/
+mod_export void
+dircache_set(char **name, char *value)
+{
+    struct dircache_entry *dcptr, *dcnew;
+
+    if (!value) {
+	if (!*name)
+	    return;
+	if (!dircache_size) {
+	    zsfree(*name);
+	    *name = NULL;
+	    return;
+	}
+
+	for (dcptr = dircache; dcptr < dircache + dircache_size; dcptr++)
+	{
+	    /* Must be a pointer much, not a string match */
+	    if (*name == dcptr->name)
+	    {
+		--dcptr->refs;
+		if (!dcptr->refs) {
+		    ptrdiff_t ind = dcptr - dircache;
+		    zsfree(dcptr->name);
+		    --dircache_size;
+
+		    if (!dircache_size) {
+			zfree(dircache, sizeof(*dircache));
+			dircache = NULL;
+			dircache_lastentry = NULL;
+			*name = NULL;
+			return;
+		    }
+		    dcnew = (struct dircache_entry *)
+			zalloc(dircache_size * sizeof(*dcnew));
+		    if (ind)
+			memcpy(dcnew, dircache, ind * sizeof(*dcnew));
+		    if (ind < dircache_size)
+			memcpy(dcnew + ind, dcptr + 1,
+			       (dircache_size - ind) * sizeof(*dcnew));
+		    zfree(dircache, (dircache_size+1)*sizeof(*dcnew));
+		    dircache = dcnew;
+		    dircache_lastentry = NULL;
+		}
+		*name = NULL;
+		return;
+	    }
+	}
+	zsfree(*name);
+	*name = NULL;
+    } else {
+	/*
+	 * As the function path has been resolved to a particular
+	 * location, we'll store it as an absolute path.
+	 */
+	if (*value != '/') {
+	    value = zhtricat(metafy(zgetcwd(), -1, META_HEAPDUP),
+			     "/", value);
+	    value = xsymlink(value, 1);
+	}
+	/*
+	 * We'll maintain the cache at exactly the right size rather
+	 * than overallocating.  The rationale here is that typically
+	 * we'll get a lot of functions in a small number of directories
+	 * so the complexity overhead of maintaining a separate count
+	 * isn't really matched by the efficiency gain.
+ 	 */
+	if (dircache_lastentry &&
+	    !strcmp(value, dircache_lastentry->name)) {
+	    *name = dircache_lastentry->name;
+	    ++dircache_lastentry->refs;
+	    return;
+	} else if (!dircache_size) {
+	    dircache_size = 1;
+	    dcptr = dircache =
+		(struct dircache_entry *)zalloc(sizeof(*dircache));
+	} else {
+	    for (dcptr = dircache; dcptr < dircache + dircache_size; dcptr++)
+	    {
+		if (!strcmp(value, dcptr->name)) {
+		    *name = dcptr->name;
+		    ++dcptr->refs;
+		    return;
+		}
+	    }
+	    ++dircache_size;
+	    dircache = (struct dircache_entry *)
+		zrealloc(dircache, sizeof(*dircache) * dircache_size);
+	    dcptr = dircache + dircache_size - 1;
+	}
+	dcptr->name = ztrdup(value);
+	*name = dcptr->name;
+	dcptr->refs = 1;
+	dircache_lastentry = dcptr;
     }
 }

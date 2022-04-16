@@ -48,7 +48,11 @@ mod_export int incond;
 /**/
 mod_export int inredir;
  
-/* != 0 if we are about to read a case pattern */
+/*
+ * 1 if we are about to read a case pattern
+ * -1 if we are not quite sure
+ * 0 otherwise
+ */
  
 /**/
 int incasepat;
@@ -62,6 +66,17 @@ int isnewlin;
 
 /**/
 int infor;
+
+/* != 0 if we are after a repeat keyword; if it's nonzero it's a 1-based index
+ * of the current token from the last-seen command position */
+
+/**/
+int inrepeat_; /* trailing underscore because of name clash with Zle/zle_vi.c */
+
+/* != 0 if parsing arguments of typeset etc. */
+
+/**/
+mod_export int intypeset;
 
 /* list of here-documents */
 
@@ -118,10 +133,19 @@ struct heredocs *hdocs;
  *   WC_ASSIGN
  *     - data contains type (scalar, array) and number of array-elements
  *     - followed by name and value
+ *     Note variant for WC_TYPESET assignments: WC_ASSIGN_INC indicates
+ *     a name with no equals, not an =+ which isn't valid here.
  *
  *   WC_SIMPLE
  *     - data contains the number of arguments (plus command)
  *     - followed by strings
+ *
+ *   WC_TYPESET
+ *     Variant of WC_SIMPLE used when TYPESET reserved word found.
+ *     - data contains the number of string arguments (plus command)
+ *     - followed by strings
+ *     - followed by number of assignments
+ *     - followed by assignments if non-zero number.
  *
  *   WC_SUBSH
  *     - data unused
@@ -257,6 +281,8 @@ parse_context_save(struct parse_stack *ps, int toplevel)
     ps->incasepat = incasepat;
     ps->isnewlin = isnewlin;
     ps->infor = infor;
+    ps->inrepeat_ = inrepeat_;
+    ps->intypeset = intypeset;
 
     ps->hdocs = hdocs;
     ps->eclen = eclen;
@@ -287,9 +313,10 @@ parse_context_restore(const struct parse_stack *ps, int toplevel)
     incond = ps->incond;
     inredir = ps->inredir;
     incasepat = ps->incasepat;
-    incasepat = ps->incasepat;
     isnewlin = ps->isnewlin;
     infor = ps->infor;
+    inrepeat_ = ps->inrepeat_;
+    intypeset = ps->intypeset;
 
     hdocs = ps->hdocs;
     eclen = ps->eclen;
@@ -371,9 +398,12 @@ ecdel(int p)
 static wordcode
 ecstrcode(char *s)
 {
-    int l, t = has_token(s);
+    int l, t;
+
+    unsigned val = hasher(s);
 
     if ((l = strlen(s) + 1) && l <= 4) {
+	t = has_token(s);
 	wordcode c = (t ? 3 : 2);
 	switch (l) {
 	case 4: c |= ((wordcode) STOUC(s[2])) << 19;
@@ -384,19 +414,24 @@ ecstrcode(char *s)
 	return c;
     } else {
 	Eccstr p, *pp;
-	int cmp;
+	long cmp;
 
 	for (pp = &ecstrs; (p = *pp); ) {
-	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = strcmp(p->str, s)))
+	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = (((long)p->hashval) - ((long)val))) && !(cmp = strcmp(p->str, s))) {
 		return p->offs;
+            }
 	    pp = (cmp < 0 ? &(p->left) : &(p->right));
 	}
+
+        t = has_token(s);
+
 	p = *pp = (Eccstr) zhalloc(sizeof(*p));
 	p->left = p->right = 0;
 	p->offs = ((ecsoffs - ecssub) << 2) | (t ? 1 : 0);
 	p->aoffs = ecsoffs;
 	p->str = s;
 	p->nfunc = ecnfunc;
+        p->hashval = val;
 	ecsoffs += l;
 
 	return p->offs;
@@ -430,7 +465,8 @@ init_parse_status(void)
      * between the two it's a bit ambiguous.  We clear them when
      * using the lexical analyser for strings as well as here.
      */
-    incasepat = incond = inredir = infor = 0;
+    incasepat = incond = inredir = infor = intypeset = 0;
+    inrepeat_ = 0;
     incmdpos = 1;
 }
 
@@ -440,6 +476,8 @@ init_parse_status(void)
 void
 init_parse(void)
 {
+    queue_signals();
+
     if (ecbuf) zfree(ecbuf, eclen);
 
     ecbuf = (Wordcode) zalloc((eclen = EC_INIT_SIZE) * sizeof(wordcode));
@@ -450,6 +488,8 @@ init_parse(void)
     ecnfunc = 0;
 
     init_parse_status();
+
+    unqueue_signals();
 }
 
 /* Build eprog. */
@@ -471,6 +511,8 @@ bld_eprog(int heap)
 {
     Eprog ret;
     int l;
+
+    queue_signals();
 
     ecadd(WCB_END());
 
@@ -495,6 +537,8 @@ bld_eprog(int heap)
     zfree(ecbuf, eclen);
     ecbuf = NULL;
 
+    unqueue_signals();
+
     return ret;
 }
 
@@ -506,7 +550,7 @@ empty_eprog(Eprog p)
 }
 
 static void
-clear_hdocs()
+clear_hdocs(void)
 {
     struct heredocs *p, *n;
 
@@ -562,7 +606,7 @@ par_event(int endtok)
     if (tok == ENDINPUT)
 	return 0;
     if (tok == endtok)
-	return 0;
+	return 1;
 
     p = ecadd(0);
 
@@ -685,7 +729,7 @@ set_sublist_code(int p, int type, int flags, int skip, int cmplx)
  */
 
 /**/
-static int
+static void
 par_list(int *cmplx)
 {
     int p, lp = -1, c;
@@ -714,19 +758,15 @@ par_list(int *cmplx)
 	    goto rec;
 	} else
 	    set_list_code(p, (Z_SYNC | Z_END), c);
-	return 1;
     } else {
 	ecused--;
-	if (lp >= 0) {
+	if (lp >= 0)
 	    ecbuf[lp] |= wc_bdata(Z_END);
-	    return 1;
-	}
-	return 0;
     }
 }
 
 /**/
-static int
+static void
 par_list1(int *cmplx)
 {
     int p = ecadd(0), c = 0;
@@ -734,11 +774,8 @@ par_list1(int *cmplx)
     if (par_sublist(&c)) {
 	set_list_code(p, (Z_SYNC | Z_END), c);
 	*cmplx |= c;
-	return 1;
-    } else {
+    } else
 	ecused--;
-	return 0;
-    }
 }
 
 /*
@@ -771,8 +808,13 @@ par_sublist(int *cmplx)
 				 WC_SUBLIST_END),
 			     f, (e - 1 - p), c);
 	    cmdpop();
-	} else
+	} else {
+	    if (tok == AMPER || tok == AMPERBANG) {
+		c = 1;
+		*cmplx |= c;
+	    }		
 	    set_sublist_code(p, WC_SUBLIST_END, f, (e - 1 - p), c);
+	}
 	return 1;
     } else {
 	ecused--;
@@ -992,6 +1034,7 @@ par_cmd(int *cmplx, int zsh_construct)
     incmdpos = 1;
     incasepat = 0;
     incond = 0;
+    intypeset = 0;
     return 1;
 }
 
@@ -1160,6 +1203,7 @@ par_case(int *cmplx)
 
     for (;;) {
 	char *str;
+	int skip_zshlex;
 
 	while (tok == SEPER)
 	    zshlex();
@@ -1167,11 +1211,17 @@ par_case(int *cmplx)
 	    break;
 	if (tok == INPAR)
 	    zshlex();
-	if (tok != STRING)
-	    YYERRORV(oecused);
-	if (!strcmp(tokstr, "esac"))
-	    break;
-	str = dupstring(tokstr);
+	if (tok == BAR) {
+	    str = dupstring("");
+	    skip_zshlex = 1;
+	} else {
+	    if (tok != STRING)
+		YYERRORV(oecused);
+	    if (!strcmp(tokstr, "esac"))
+		break;
+	    str = dupstring(tokstr);
+	    skip_zshlex = 0;
+	}
 	type = WC_CASE_OR;
 	pp = ecadd(0);
 	palts = ecadd(0);
@@ -1209,10 +1259,11 @@ par_case(int *cmplx)
 	 * this doesn't affect our ability to match a | or ) as
 	 * these are valid on command lines.
 	 */
-	incasepat = 0;
+	incasepat = -1;
 	incmdpos = 1;
-	for (;;) {
+	if (!skip_zshlex)
 	    zshlex();
+	for (;;) {
 	    if (tok == OUTPAR) {
 		ecstr(str);
 		ecadd(ecnpats++);
@@ -1268,10 +1319,26 @@ par_case(int *cmplx)
 	    }
 
 	    zshlex();
-	    if (tok != STRING)
+	    switch (tok) {
+	    case STRING:
+		/* Normal case */
+		str = dupstring(tokstr);
+		zshlex();
+		break;
+
+	    case OUTPAR:
+	    case BAR:
+		/* Empty string */
+		str = dupstring("");
+		break;
+
+	    default:
+		/* Oops. */
 		YYERRORV(oecused);
-	    str = dupstring(tokstr);
+		break;
+	    }
 	}
+	incasepat = 0;
 	par_save_list(cmplx);
 	if (tok == SEMIAMP)
 	    type = WC_CASE_AND;
@@ -1379,7 +1446,7 @@ par_if(int *cmplx)
 	}
     }
     cmdpop();
-    if (xtok == ELSE) {
+    if (xtok == ELSE || tok == ELSE) {
 	pp = ecadd(0);
 	cmdpush(CS_ELSE);
 	while (tok == SEPER)
@@ -1443,8 +1510,10 @@ par_while(int *cmplx)
 	if (tok != ZEND)
 	    YYERRORV(oecused);
 	zshlex();
-    } else
+    } else if (unset(SHORTLOOPS)) {
 	YYERRORV(oecused);
+    } else
+	par_save_list1(cmplx);
 
     ecbuf[p] = WCB_WHILE(type, ecused - 1 - p);
 }
@@ -1457,6 +1526,7 @@ par_while(int *cmplx)
 static void
 par_repeat(int *cmplx)
 {
+    /* ### what to do about inrepeat_ here? */
     int oecused = ecused, p;
 
     p = ecadd(0);
@@ -1575,9 +1645,9 @@ par_funcdef(int *cmplx)
     p = ecadd(0);
     ecadd(0);
 
-    incmdpos = 1;
     while (tok == STRING) {
-	if (*tokstr == Inbrace && !tokstr[1]) {
+	if ((*tokstr == Inbrace || *tokstr == '{') &&
+	    !tokstr[1]) {
 	    tok = INBRACE;
 	    break;
 	}
@@ -1590,6 +1660,7 @@ par_funcdef(int *cmplx)
     ecadd(0);
 
     nocorrect = 0;
+    incmdpos = 1;
     if (tok == INOUTPAR)
 	zshlex();
     while (tok == SEPER)
@@ -1709,7 +1780,9 @@ static int
 par_simple(int *cmplx, int nr)
 {
     int oecused = ecused, isnull = 1, r, argc = 0, p, isfunc = 0, sr = 0;
-    int c = *cmplx, nrediradd, assignments = 0;
+    int c = *cmplx, nrediradd, assignments = 0, ppost = 0, is_typeset = 0;
+    char *hasalias = input_hasalias();
+    wordcode postassigns = 0;
 
     r = ecused;
     for (;;) {
@@ -1717,31 +1790,32 @@ par_simple(int *cmplx, int nr)
 	    *cmplx = c = 1;
 	    nocorrect = 1;
 	} else if (tok == ENVSTRING) {
-	    char *p, *name, *str;
+	    char *ptr, *name, *str;
 
 	    name = tokstr;
-	    for (p = tokstr; *p && *p != Inbrack && *p != '=' && *p != '+';
-	         p++);
-	    if (*p == Inbrack) skipparens(Inbrack, Outbrack, &p);
-	    if (*p == '+') {
-	    	*p++ = '\0';
+	    for (ptr = tokstr;
+		 *ptr && *ptr != Inbrack && *ptr != '=' && *ptr != '+';
+	         ptr++);
+	    if (*ptr == Inbrack) skipparens(Inbrack, Outbrack, &ptr);
+	    if (*ptr == '+') {
+	    	*ptr++ = '\0';
 	    	ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
 	    } else
 		ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_NEW, 0));
-    	
-	    if (*p == '=') {
-		*p = '\0';
-		str = p + 1;
+
+	    if (*ptr == '=') {
+		*ptr = '\0';
+		str = ptr + 1;
 	    } else
 		equalsplit(tokstr, &str);
-	    for (p = str; *p; p++) {
+	    for (ptr = str; *ptr; ptr++) {
 		/*
 		 * We can't treat this as "simple" if it contains
-		 * expansions that require process subsitution, since then
+		 * expansions that require process substitution, since then
 		 * we need process handling.
 		 */
-		if (p[1] == Inpar &&
-		    (*p == Equals || *p == Inang || *p == OutangProc)) {
+		if (ptr[1] == Inpar &&
+		    (*ptr == Equals || *ptr == Inang || *ptr == OutangProc)) {
 		    *cmplx = 1;
 		    break;
 		}
@@ -1776,9 +1850,15 @@ par_simple(int *cmplx, int nr)
 	    incmdpos = oldcmdpos;
 	    isnull = 0;
 	    assignments = 1;
+	} else if (IS_REDIROP(tok)) {
+	    *cmplx = c = 1;
+	    nr += par_redir(&r, NULL);
+	    continue;
 	} else
 	    break;
 	zshlex();
+	if (!hasalias)
+	    hasalias = input_hasalias();
     }
     if (tok == AMPER || tok == AMPERBANG)
 	YYERROR(oecused);
@@ -1786,25 +1866,31 @@ par_simple(int *cmplx, int nr)
     p = ecadd(WCB_SIMPLE(0));
 
     for (;;) {
-	if (tok == STRING) {
+	if (tok == STRING || tok == TYPESET) {
 	    int redir_var = 0;
 
 	    *cmplx = 1;
 	    incmdpos = 0;
 
+	    if (tok == TYPESET)
+		intypeset = is_typeset = 1;
+
 	    if (!isset(IGNOREBRACES) && *tokstr == Inbrace)
 	    {
+		/* Look for redirs of the form {var}>file etc. */
 		char *eptr = tokstr + strlen(tokstr) - 1;
 		char *ptr = eptr;
 
 		if (*ptr == Outbrace && ptr > tokstr + 1)
 		{
-		    if (itype_end(tokstr+1, IIDENT, 0) >= ptr - 1)
+		    if (itype_end(tokstr+1, IIDENT, 0) >= ptr)
 		    {
 			char *toksave = tokstr;
 			char *idstring = dupstrpfx(tokstr+1, eptr-tokstr-1);
 			redir_var = 1;
 			zshlex();
+			if (!hasalias)
+			    hasalias = input_hasalias();
 
 			if (IS_REDIROP(tok) && tokfd == -1)
 			{
@@ -1812,6 +1898,14 @@ par_simple(int *cmplx, int nr)
 			    nrediradd = par_redir(&r, idstring);
 			    p += nrediradd;
 			    sr += nrediradd;
+			}
+			else if (postassigns)
+			{
+			    /* C.f. normal case below */
+			    postassigns++;
+			    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
+			    ecstr(toksave);
+			    ecstr("");	/* TBD can possibly optimise out */
 			}
 			else
 			{
@@ -1824,15 +1918,78 @@ par_simple(int *cmplx, int nr)
 
 	    if (!redir_var)
 	    {
-		ecstr(tokstr);
-		argc++;
+		if (postassigns) {
+		    /*
+		     * We're in the variable part of a typeset,
+		     * but this doesn't have an assignment.
+		     * We'll parse it as if it does, but mark
+		     * it specially with WC_ASSIGN_INC.
+		     */
+		    postassigns++;
+		    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
+		    ecstr(tokstr);
+		    ecstr("");	/* TBD can possibly optimise out */
+		} else {
+		    ecstr(tokstr);
+		    argc++;
+		}
 		zshlex();
+		if (!hasalias)
+		    hasalias = input_hasalias();
 	    }
 	} else if (IS_REDIROP(tok)) {
 	    *cmplx = c = 1;
 	    nrediradd = par_redir(&r, NULL);
 	    p += nrediradd;
+	    if (ppost)
+		ppost += nrediradd;
 	    sr += nrediradd;
+	} else if (tok == ENVSTRING) {
+	    char *ptr, *name, *str;
+
+	    if (!postassigns++)
+		ppost = ecadd(0);
+
+	    name = tokstr;
+	    for (ptr = tokstr; *ptr && *ptr != Inbrack && *ptr != '=' && *ptr != '+';
+	         ptr++);
+	    if (*ptr == Inbrack) skipparens(Inbrack, Outbrack, &ptr);
+	    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_NEW, 0));
+
+	    if (*ptr == '=') {
+		*ptr = '\0';
+		str = ptr + 1;
+	    } else
+		equalsplit(tokstr, &str);
+	    ecstr(name);
+	    ecstr(str);
+	    zshlex();
+	    if (!hasalias)
+		hasalias = input_hasalias();
+	} else if (tok == ENVARRAY) {
+	    int n, parr;
+
+	    if (!postassigns++)
+		ppost = ecadd(0);
+
+	    parr = ecadd(0);
+	    ecstr(tokstr);
+	    cmdpush(CS_ARRAY);
+	    /*
+	     * Careful here: this must be the typeset case,
+	     * but we need to tell the lexer not to look
+	     * for assignments until we've finished the
+	     * present one.
+	     */
+	    intypeset = 0;
+	    zshlex();
+	    n = par_nl_wordlist();
+	    ecbuf[parr] = WCB_ASSIGN(WC_ASSIGN_ARRAY, WC_ASSIGN_NEW, n);
+	    cmdpop();
+	    intypeset = 1;
+	    if (tok != OUTPAR)
+		YYERROR(oecused);
+	    zshlex();
 	} else if (tok == INOUTPAR) {
 	    zlong oldlineno = lineno;
 	    int onp, so, oecssub = ecssub;
@@ -1841,8 +1998,13 @@ par_simple(int *cmplx, int nr)
 	    if (!isset(MULTIFUNCDEF) && argc > 1)
 		YYERROR(oecused);
 	    /* Error if preceding assignments */
-	    if (assignments)
+	    if (assignments || postassigns)
 		YYERROR(oecused);
+	    if (hasalias && !isset(ALIASFUNCDEF) && argc &&
+		hasalias != input_hasalias()) {
+		zwarn("defining function based on alias `%s'", hasalias);
+		YYERROR(oecused);
+	    }
 
 	    *cmplx = c;
 	    lineno = 0;
@@ -1923,10 +2085,21 @@ par_simple(int *cmplx, int nr)
 		/* Unnamed function */
 		int parg = ecadd(0);
 		ecadd(0);
-		while (tok == STRING) {
-		    ecstr(tokstr);
-		    argc++;
-		    zshlex();
+		while (tok == STRING || IS_REDIROP(tok)) {
+		    if (tok == STRING)
+		    {
+			ecstr(tokstr);
+			argc++;
+			zshlex();
+		    } else {
+			*cmplx = c = 1;
+			nrediradd = par_redir(&r, NULL);
+			p += nrediradd;
+			if (ppost)
+			    ppost += nrediradd;
+			sr += nrediradd;
+			parg += nrediradd;
+		    }
 		}
 		if (argc > 0)
 		    *cmplx = 1;
@@ -1947,9 +2120,18 @@ par_simple(int *cmplx, int nr)
 	return 0;
     }
     incmdpos = 1;
+    intypeset = 0;
 
-    if (!isfunc)
-	ecbuf[p] = WCB_SIMPLE(argc);
+    if (!isfunc) {
+	if (is_typeset) {
+	    ecbuf[p] = WCB_TYPESET(argc);
+	    if (postassigns)
+		ecbuf[ppost] = postassigns;
+	    else
+		ecadd(0);
+	} else
+	    ecbuf[p] = WCB_SIMPLE(argc);
+    }
 
     return sr + 1;
 }
@@ -2027,7 +2209,7 @@ par_redir(int *rp, char *idstring)
 	 * the definition of WC_REDIR_WORDS. */
 	ecispace(r, ncodes);
 	*rp = r + ncodes;
-	ecbuf[r] = WCB_REDIR(type);
+	ecbuf[r] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK);
 	ecbuf[r + 1] = fd1;
 
 	/*
@@ -2097,7 +2279,8 @@ par_redir(int *rp, char *idstring)
 void
 setheredoc(int pc, int type, char *str, char *termstr, char *munged_termstr)
 {
-    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK);
+    int varid = WC_REDIR_VARID(ecbuf[pc]) ? REDIR_VARID_MASK : 0;
+    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK | varid);
     ecbuf[pc + 2] = ecstrcode(str);
     ecbuf[pc + 3] = ecstrcode(termstr);
     ecbuf[pc + 4] = ecstrcode(munged_termstr);
@@ -2152,6 +2335,8 @@ void (*condlex) _((void)) = zshlex;
  * cond	: cond_1 { SEPER } [ DBAR { SEPER } cond ]
  */
 
+#define COND_SEP() (tok == SEPER && condlex != testlex && *zshlextext != ';')
+
 /**/
 static int
 par_cond(void)
@@ -2159,11 +2344,11 @@ par_cond(void)
     int p = ecused, r;
 
     r = par_cond_1();
-    while (tok == SEPER)
+    while (COND_SEP())
 	condlex();
     if (tok == DBAR) {
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	ecispace(p, 1);
 	par_cond();
@@ -2184,11 +2369,11 @@ par_cond_1(void)
     int r, p = ecused;
 
     r = par_cond_2();
-    while (tok == SEPER)
+    while (COND_SEP())
 	condlex();
     if (tok == DAMPER) {
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	ecispace(p, 1);
 	par_cond_1();
@@ -2196,6 +2381,19 @@ par_cond_1(void)
 	return 1;
     }
     return r;
+}
+
+/*
+ * Return 1 if condition matches.  This also works for non-elided options.
+ *
+ * input is test string, may begin - or Dash.
+ * cond is condition following the -.
+ */
+static int check_cond(const char *input, const char *cond)
+{
+    if (!IS_DASH(input[0]))
+	return 0;
+    return !strcmp(input + 1, cond);
 }
 
 /*
@@ -2212,28 +2410,29 @@ par_cond_2(void)
 {
     char *s1, *s2, *s3;
     int dble = 0;
+    int n_testargs = (condlex == testlex) ? arrlen(testargs) + 1 : 0;
 
-    if (condlex == testlex) {
+    if (n_testargs) {
 	/* See the description of test in POSIX 1003.2 */
 	if (tok == NULLTOK)
 	    /* no arguments: false */
 	    return par_cond_double(dupstring("-n"), dupstring(""));
-	if (!*testargs) {
+	if (n_testargs == 1) {
 	    /* one argument: [ foo ] is equivalent to [ -n foo ] */
 	    s1 = tokstr;
 	    condlex();
 	    /* ksh behavior: [ -t ] means [ -t 1 ]; bash disagrees */
-	    if (unset(POSIXBUILTINS) && !strcmp(s1, "-t"))
+	    if (unset(POSIXBUILTINS) && check_cond(s1, "t"))
 		return par_cond_double(s1, dupstring("1"));
 	    return par_cond_double(dupstring("-n"), s1);
 	}
-	if (testargs[1]) {
+	if (n_testargs > 2) {
 	    /* three arguments: if the second argument is a binary operator, *
 	     * perform that binary test on the first and the third argument  */
 	    if (!strcmp(*testargs, "=")  ||
 		!strcmp(*testargs, "==") ||
 		!strcmp(*testargs, "!=") ||
-		(**testargs == '-' && get_cond_num(*testargs + 1) >= 0)) {
+		(IS_DASH(**testargs) && get_cond_num(*testargs + 1) >= 0)) {
 		s1 = tokstr;
 		condlex();
 		s2 = tokstr;
@@ -2247,14 +2446,16 @@ par_cond_2(void)
 	 * We fall through here on any non-numeric infix operator
 	 * or any other time there are at least two arguments.
 	 */
-    }
+    } else
+	while (COND_SEP())
+	    condlex();
     if (tok == BANG) {
 	/*
 	 * In "test" compatibility mode, "! -a ..." and "! -o ..."
 	 * are treated as "[string] [and] ..." and "[string] [or] ...".
 	 */
-	if (!(condlex == testlex && *testargs && 
-	      (!strcmp(*testargs, "-a") || !strcmp(*testargs, "-o"))))
+	if (!(n_testargs > 1 && (check_cond(*testargs, "a") ||
+				 check_cond(*testargs, "o"))))
 	{
 	    condlex();
 	    ecadd(WCB_COND(COND_NOT, 0));
@@ -2265,10 +2466,10 @@ par_cond_2(void)
 	int r;
 
 	condlex();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	r = par_cond();
-	while (tok == SEPER)
+	while (COND_SEP())
 	    condlex();
 	if (tok != OUTPAR)
 	    YYERROR(ecused);
@@ -2276,27 +2477,37 @@ par_cond_2(void)
 	return r;
     }
     s1 = tokstr;
-    dble = (s1 && *s1 == '-'
-	    && (condlex != testlex
-		|| strspn(s1+1, "abcdefghknoprstuwxzLONGS") == 1)
+    dble = (s1 && IS_DASH(*s1)
+	    && (!n_testargs
+		|| strspn(s1+1, "abcdefghknoprstuvwxzLONGS") == 1)
 	    && !s1[2]);
     if (tok != STRING) {
 	/* Check first argument for [[ STRING ]] re-interpretation */
 	if (s1 /* tok != DOUTBRACK && tok != DAMPER && tok != DBAR */
-	    && tok != LEXERR && (!dble || condlex == testlex)) {
-	    condlex();
+	    && tok != LEXERR && (!dble || n_testargs)) {
+	    do condlex(); while (COND_SEP());
 	    return par_cond_double(dupstring("-n"), s1);
 	} else
 	    YYERROR(ecused);
     }
     condlex();
+    if (n_testargs == 2 && tok != STRING && tokstr && IS_DASH(s1[0])) {
+	/*
+	 * Something like "test -z" followed by a token.
+	 * We'll turn the token into a string (we've also
+	 * checked it does have a string representation).
+	 */
+	tok = STRING;
+    } else
+	while (COND_SEP())
+	    condlex();
     if (tok == INANG || tok == OUTANG) {
 	enum lextok xtok = tok;
-	condlex();
+	do condlex(); while (COND_SEP());
 	if (tok != STRING)
 	    YYERROR(ecused);
 	s3 = tokstr;
-	condlex();
+	do condlex(); while (COND_SEP());
 	ecadd(WCB_COND((xtok == INANG ? COND_STRLT : COND_STRGTR), 0));
 	ecstr(s1);
 	ecstr(s3);
@@ -2308,22 +2519,22 @@ par_cond_2(void)
 	 * mean we have to go back and fix up the first one
 	 */
 	if (tok != LEXERR) {
-	    if (!dble || condlex == testlex)
+	    if (!dble || n_testargs)
 		return par_cond_double(dupstring("-n"), s1);
 	    else
 		return par_cond_multi(s1, newlinklist());
 	} else
 	    YYERROR(ecused);
     }
-    s2 = tokstr;   
-    if (condlex != testlex)
-	dble = (s2 && *s2 == '-' && !s2[2]);
+    s2 = tokstr;
+    if (!n_testargs)
+	dble = (s2 && IS_DASH(*s2) && !s2[2]);
     incond++;			/* parentheses do globbing */
-    condlex();
+    do condlex(); while (COND_SEP());
     incond--;			/* parentheses do grouping */
     if (tok == STRING && !dble) {
 	s3 = tokstr;
-	condlex();
+	do condlex(); while (COND_SEP());
 	if (tok == STRING) {
 	    LinkList l = newlinklist();
 
@@ -2332,7 +2543,7 @@ par_cond_2(void)
 
 	    while (tok == STRING) {
 		addlinknode(l, tokstr);
-		condlex();
+		do condlex(); while (COND_SEP());
 	    }
 	    return par_cond_multi(s1, l);
 	} else
@@ -2345,9 +2556,9 @@ par_cond_2(void)
 static int
 par_cond_double(char *a, char *b)
 {
-    if (a[0] != '-' || !a[1])
+    if (!IS_DASH(a[0]) || !a[1])
 	COND_ERROR("parse error: condition expected: %s", a);
-    else if (!a[2] && strspn(a+1, "abcdefgknoprstuwxzhLONGS") == 1) {
+    else if (!a[2] && strspn(a+1, "abcdefgknoprstuvwxzhLONGS") == 1) {
 	ecadd(WCB_COND(a[1], 0));
 	ecstr(b);
     } else {
@@ -2380,9 +2591,14 @@ par_cond_triple(char *a, char *b, char *c)
 {
     int t0;
 
-    if ((b[0] == Equals || b[0] == '=') &&
-	(!b[1] || ((b[1] == Equals || b[1] == '=') && !b[2]))) {
+    if ((b[0] == Equals || b[0] == '=') && !b[1]) {
 	ecadd(WCB_COND(COND_STREQ, 0));
+	ecstr(a);
+	ecstr(c);
+	ecadd(ecnpats++);
+    } else if ((b[0] == Equals || b[0] == '=') &&
+	       (b[1] == Equals || b[1] == '=') && !b[2]) {
+	ecadd(WCB_COND(COND_STRDEQ, 0));
 	ecstr(a);
 	ecstr(c);
 	ecadd(ecnpats++);
@@ -2398,7 +2614,7 @@ par_cond_triple(char *a, char *b, char *c)
 	ecadd(WCB_COND(COND_REGEX, 0));
 	ecstr(a);
 	ecstr(c);
-    } else if (b[0] == '-') {
+    } else if (IS_DASH(b[0])) {
 	if ((t0 = get_cond_num(b + 1)) > -1) {
 	    ecadd(WCB_COND(t0 + COND_NT, 0));
 	    ecstr(a);
@@ -2409,7 +2625,7 @@ par_cond_triple(char *a, char *b, char *c)
 	    ecstr(a);
 	    ecstr(c);
 	}
-    } else if (a[0] == '-' && a[1]) {
+    } else if (IS_DASH(a[0]) && a[1]) {
 	ecadd(WCB_COND(COND_MOD, 2));
 	ecstr(a);
 	ecstr(b);
@@ -2424,7 +2640,7 @@ par_cond_triple(char *a, char *b, char *c)
 static int
 par_cond_multi(char *a, LinkList l)
 {
-    if (a[0] != '-' || !a[1])
+    if (!IS_DASH(a[0]) || !a[1])
 	COND_ERROR("condition expected: %s", a);
     else {
 	LinkNode n;
@@ -2541,7 +2757,8 @@ freeeprog(Eprog p)
 	DPUTS(p->nref < 0 && !(p->flags & EF_HEAP), "Real EPROG has nref < 0");
 	DPUTS(p->nref < -1, "Uninitialised EPROG nref");
 #ifdef MAX_FUNCTION_DEPTH
-	DPUTS(p->nref > MAX_FUNCTION_DEPTH + 10, "Overlarge EPROG nref");
+	DPUTS(zsh_funcnest >=0 && p->nref > zsh_funcnest + 10,
+	      "Overlarge EPROG nref");
 #endif
 	if (p->nref > 0 && !--p->nref) {
 	    for (i = p->npats, pp = p->pats; i--; pp++)
@@ -3118,14 +3335,17 @@ build_dump(char *nam, char *dump, char **files, int ali, int map, int flags)
     noaliases = ali;
 
     for (hlen = FD_PRELEN, tlen = 0; *files; files++) {
-	if (!strcmp(*files, "-k")) {
+	struct stat st;
+
+	if (check_cond(*files, "k")) {
 	    flags = (flags & ~(FDHF_KSHLOAD | FDHF_ZSHLOAD)) | FDHF_KSHLOAD;
 	    continue;
-	} else if (!strcmp(*files, "-z")) {
+	} else if (check_cond(*files, "z")) {
 	    flags = (flags & ~(FDHF_KSHLOAD | FDHF_ZSHLOAD)) | FDHF_ZSHLOAD;
 	    continue;
 	}
 	if ((fd = open(*files, O_RDONLY)) < 0 ||
+	    fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) ||
 	    (flen = lseek(fd, 0, 2)) == -1) {
 	    if (fd >= 0)
 		close(fd);
@@ -3199,7 +3419,7 @@ cur_add_func(char *nam, Shfunc shf, LinkList names, LinkList progs,
 	    return 1;
 	}
 	noaliases = (shf->node.flags & PM_UNALIASED);
-	if (!(prog = getfpfunc(shf->node.nam, NULL, NULL)) ||
+	if (!(prog = getfpfunc(shf->node.nam, NULL, NULL, NULL, 0)) ||
 	    prog == &dummy_eprog) {
 	    noaliases = ona;
 	    zwarnnam(nam, "can't load function: %s", shf->node.nam);
@@ -3274,6 +3494,7 @@ build_cur_dump(char *nam, char *dump, char **names, int match, int map,
 
 	for (; *names; names++) {
 	    tokenize(pat = dupstring(*names));
+	    /* Signal-safe here, caller queues signals */
 	    if (!(pprog = patcompile(pat, PAT_STATIC, NULL))) {
 		zwarnnam(nam, "bad pattern: %s", *names);
 		close(dfd);
@@ -3441,7 +3662,7 @@ load_dump_file(char *dump, struct stat *sbuf, int other, int len)
 
 /**/
 Eprog
-try_dump_file(char *path, char *name, char *file, int *ksh)
+try_dump_file(char *path, char *name, char *file, int *ksh, int test_only)
 {
     Eprog prog;
     struct stat std, stc, stn;
@@ -3450,7 +3671,7 @@ try_dump_file(char *path, char *name, char *file, int *ksh)
 
     if (strsfx(FD_EXT, path)) {
 	queue_signals();
-	prog = check_dump_file(path, NULL, name, ksh);
+	prog = check_dump_file(path, NULL, name, ksh, test_only);
 	unqueue_signals();
 	return prog;
     }
@@ -3467,16 +3688,16 @@ try_dump_file(char *path, char *name, char *file, int *ksh)
      * function. */
     queue_signals();
     if (!rd &&
-	(rc || std.st_mtime > stc.st_mtime) &&
-	(rn || std.st_mtime > stn.st_mtime) &&
-	(prog = check_dump_file(dig, &std, name, ksh))) {
+	(rc || std.st_mtime >= stc.st_mtime) &&
+	(rn || std.st_mtime >= stn.st_mtime) &&
+	(prog = check_dump_file(dig, &std, name, ksh, test_only))) {
 	unqueue_signals();
 	return prog;
     }
     /* No digest file. Now look for the per-function compiled file. */
     if (!rc &&
-	(rn || stc.st_mtime > stn.st_mtime) &&
-	(prog = check_dump_file(wc, &stc, name, ksh))) {
+	(rn || stc.st_mtime >= stn.st_mtime) &&
+	(prog = check_dump_file(wc, &stc, name, ksh, test_only))) {
 	unqueue_signals();
 	return prog;
     }
@@ -3504,7 +3725,7 @@ try_source_file(char *file)
 
     if (strsfx(FD_EXT, file)) {
 	queue_signals();
-	prog = check_dump_file(file, NULL, tail, NULL);
+	prog = check_dump_file(file, NULL, tail, NULL, 0);
 	unqueue_signals();
 	return prog;
     }
@@ -3514,8 +3735,8 @@ try_source_file(char *file)
     rn = stat(file, &stn);
 
     queue_signals();
-    if (!rc && (rn || stc.st_mtime > stn.st_mtime) &&
-	(prog = check_dump_file(wc, &stc, tail, NULL))) {
+    if (!rc && (rn || stc.st_mtime >= stn.st_mtime) &&
+	(prog = check_dump_file(wc, &stc, tail, NULL, 0))) {
 	unqueue_signals();
 	return prog;
     }
@@ -3528,7 +3749,8 @@ try_source_file(char *file)
 
 /**/
 static Eprog
-check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
+check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh,
+		int test_only)
 {
     int isrec = 0;
     Wordcode d;
@@ -3570,6 +3792,11 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
     if ((h = dump_find_func(d, name))) {
 	/* Found the name. If the file is already mapped, return the eprog,
 	 * otherwise map it and just go up. */
+	if (test_only)
+	{
+	    /* This is all we need.  Just return dummy. */
+	    return &dummy_eprog;
+	}
 
 #ifdef USE_MMAP
 
@@ -3606,7 +3833,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
 
 #endif
 
-	    {
+	{
 	    Eprog prog;
 	    Patprog *pp;
 	    int np, fd, po = h->npats * sizeof(Patprog);

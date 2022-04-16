@@ -10,7 +10,7 @@ setup_zpmod_repository() {
     chmod g-rwX "${ZI_HOME}/${MOD_HOME}"
   fi
 
-  printf '%s\n' ">>> Downloading ZPMOD module to ${ZI_HOME}/${MOD_HOME}"
+  printf '%s\n' "$col_pname== Downloading ZPMOD module to ${ZI_HOME}/${MOD_HOME}"
   if test -d "${ZI_HOME}/${MOD_HOME}/.git"; then
     cd "${ZI_HOME}/${MOD_HOME}" || return
     git pull -q origin main
@@ -18,7 +18,7 @@ setup_zpmod_repository() {
     cd "$ZI_HOME" || return
     git clone -q https://github.com/z-shell/zpmod.git "$MOD_HOME"
   fi
-  printf '%s\n' ">>> Done"
+  printf '%s\n' "$col_pname== Done"
 }
 
 #
@@ -41,17 +41,17 @@ build_zpmod_module() {
       if test -f Makefile; then
         if [ "$1" = "--clean" ]; then
           printf '%s\n' "$col_info2-- make distclean --$col_rst"
-          make distclean >/dev/null
+          make -s distclean >/dev/null
           true
         else
           printf '%s\n' "$col_info2-- make clean (pass --clean to invoke \`make distclean') --$col_rst"
-          make clean >/dev/null
+          make -s clean >/dev/null
         fi
       fi
       printf '%s\n' "$col_info2-- Configuring --$col_rst"
       if CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp >/dev/null; then
         printf '%s\n' "$col_info2-- Running make --$col_rst"
-        if make >/dev/null; then
+        if make -s >/dev/null; then
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
 [38;5;219m▓▒░[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:

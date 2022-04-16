@@ -35,7 +35,7 @@
 /* tokens */
 
 /**/
-mod_export char ztokens[] = "#$^*(())$=|{}[]`<>>?~`,'\"\\\\";
+mod_export char ztokens[] = "#$^*(())$=|{}[]`<>>?~`,-!'\"\\\\";
 
 /* parts of the current token */
 
@@ -158,7 +158,7 @@ mod_export int nocomments;
 /* add raw input characters while parsing command substitution */
 
 /**/
-static int lex_add_raw;
+int lex_add_raw;
 
 /* variables associated with the above */
 
@@ -267,9 +267,13 @@ zshlex(void)
 {
     if (tok == LEXERR)
 	return;
-    do
+    do {
+	if (inrepeat_)
+	    ++inrepeat_;
+	if (inrepeat_ == 3 && isset(SHORTLOOPS))
+	    incmdpos = 1;
 	tok = gettok();
-    while (tok != ENDINPUT && exalias());
+    } while (tok != ENDINPUT && exalias());
     nocorrect &= 1;
     if (tok == NEWLIN || tok == ENDINPUT) {
 	while (hdocs) {
@@ -339,6 +343,7 @@ ctxtlex(void)
 	incmdpos = 1;
 	break;
     case STRING:
+    case TYPESET:
  /* case ENVSTRING: */
     case ENVARRAY:
     case OUTPAR:
@@ -393,8 +398,10 @@ ctxtlex(void)
 #define LX2_DQUOTE 15
 #define LX2_BQUOTE 16
 #define LX2_COMMA 17
-#define LX2_OTHER 18
-#define LX2_META 19
+#define LX2_DASH 18
+#define LX2_BANG 19
+#define LX2_OTHER 20
+#define LX2_META 21
 
 static unsigned char lexact1[256], lexact2[256], lextok2[256];
 
@@ -404,10 +411,10 @@ initlextabs(void)
 {
     int t0;
     static char *lx1 = "\\q\n;!&|(){}[]<>";
-    static char *lx2 = ";)|$[]~({}><=\\\'\"`,";
+    static char *lx2 = ";)|$[]~({}><=\\\'\"`,-!";
 
     for (t0 = 0; t0 != 256; t0++) {
-	lexact1[t0] = LX1_OTHER;
+       lexact1[t0] = LX1_OTHER;
 	lexact2[t0] = LX2_OTHER;
 	lextok2[t0] = t0;
     }
@@ -606,7 +613,7 @@ gettok(void)
     if (lexstop)
 	return (errflag) ? LEXERR : ENDINPUT;
     isfirstln = 0;
-    if ((lexflags & LEXFLAGS_ZLE))
+    if ((lexflags & LEXFLAGS_ZLE) && !(inbufflags & INP_ALIAS))
 	wordbeg = inbufct - (qbang && c == bangchar);
     hwbegin(-1-(qbang && c == bangchar));
     /* word includes the last character read and possibly \ before ! */
@@ -670,7 +677,7 @@ gettok(void)
 		(char *)hcalloc(lexbuf.siz = LEX_HEAP_SIZE);
 	    add(c);
 	}
-	hwend();
+	hwabort();
 	while ((c = ingetc()) != '\n' && !lexstop) {
 	    hwaddc(c);
 	    addtoline(c);
@@ -753,7 +760,7 @@ gettok(void)
 	return AMPER;
     case LX1_BAR:
 	d = hgetc();
-	if (d == '|')
+	if (d == '|' && !incasepat)
 	    return DBAR;
 	else if (d == '&')
 	    return BARAMP;
@@ -782,6 +789,15 @@ gettok(void)
 		     */
 		    tokstr = NULL;
 		    return INPAR;
+		    
+		case CMD_OR_MATH_ERR:
+		    /*
+		     * LEXFLAGS_ACTIVE means we came from bufferwords(),
+		     * so we treat as an incomplete math expression
+		     */
+		    if (lexflags & LEXFLAGS_ACTIVE)
+			tokstr = dyncat("((", tokstr ? tokstr : "");
+		    /* fall through */
 
 		default:
 		    return LEXERR;
@@ -791,7 +807,7 @@ gettok(void)
 	    return INOUTPAR;
 	hungetc(d);
 	lexstop = 0;
-	if (!(incond == 1 || incmdpos))
+	if (!(isset(SHGLOB) || incond == 1 || incmdpos))
 	    break;
 	return INPAR;
     case LX1_OUTPAR:
@@ -909,7 +925,7 @@ gettok(void)
 static enum lextok
 gettokstr(int c, int sub)
 {
-    int bct = 0, pct = 0, brct = 0, fdpar = 0;
+    int bct = 0, pct = 0, brct = 0, seen_brct = 0, fdpar = 0;
     int intpos = 1, in_brace_param = 0;
     int inquote, unmatched = 0;
     enum lextok peek;
@@ -1014,8 +1030,10 @@ gettokstr(int c, int sub)
 		    c = Inbrace;
 		    ++bct;
 		    cmdpush(CS_BRACEPAR);
-		    if (!in_brace_param)
-			in_brace_param = bct;
+		    if (!in_brace_param) {
+			if ((in_brace_param = bct))
+			    seen_brct = 0;
+		    }
 		} else {
 		    hungetc(e);
 		    lexstop = 0;
@@ -1023,8 +1041,10 @@ gettokstr(int c, int sub)
 	    }
 	    break;
 	case LX2_INBRACK:
-	    if (!in_brace_param)
+	    if (!in_brace_param) {
 		brct++;
+		seen_brct = 1;
+	    }
 	    c = Inbrack;
 	    break;
 	case LX2_OUTBRACK:
@@ -1038,7 +1058,7 @@ gettokstr(int c, int sub)
 	    if (isset(SHGLOB)) {
 		if (sub || in_brace_param)
 		    break;
-		if (incasepat && !lexbuf.len)
+		if (incasepat > 0 && !lexbuf.len)
 		    return INPAR;
 		if (!isset(KSHGLOB) && lexbuf.len)
 		    goto brk;
@@ -1182,7 +1202,7 @@ gettokstr(int c, int sub)
 			c = Outpar;
 		    }
 		} else if (peek != ENVSTRING &&
-			   incmdpos && !bct && !brct) {
+			   (incmdpos || intypeset) && !bct && !brct) {
 		    char *t = tokstr;
 		    if (idigit(*t))
 			while (++t < lexbuf.ptr && idigit(*t));
@@ -1200,7 +1220,7 @@ gettokstr(int c, int sub)
 			t++;
 		    if (t == lexbuf.ptr) {
 			e = hgetc();
-			if (e == '(' && incmdpos) {
+			if (e == '(') {
 			    *lexbuf.ptr = '\0';
 			    return ENVARRAY;
 			}
@@ -1271,7 +1291,9 @@ gettokstr(int c, int sub)
 		ALLOWHIST
 		if (c != '\'') {
 		    unmatched = '\'';
-		    peek = LEXERR;
+		    /* Not an error when called from bufferwords() */
+		    if (!(lexflags & LEXFLAGS_ACTIVE))
+			peek = LEXERR;
 		    cmdpop();
 		    goto brk;
 		}
@@ -1293,7 +1315,9 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c) {
 		unmatched = '"';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Dnull;
@@ -1330,15 +1354,36 @@ gettokstr(int c, int sub)
 	    cmdpop();
 	    if (c != '`') {
 		unmatched = '`';
-		peek = LEXERR;
+		/* Not an error when called from bufferwords() */
+		if (!(lexflags & LEXFLAGS_ACTIVE))
+		    peek = LEXERR;
 		goto brk;
 	    }
 	    c = Tick;
 	    SETPAREND
 	    break;
-	}
-	add(c);
-	c = hgetc();
+	case LX2_DASH:
+	    /*
+	     * - shouldn't be treated as a special character unless
+	     * we're in a pattern.  Unfortunately, working out for
+	     * sure in complicated expressions whether we're in a
+	     * pattern is tricky.  So we'll make it special and
+	     * turn it back any time we don't need it special.
+	     * This is not ideal as it's a lot of work.
+	     */
+	    c = Dash;
+           break;
+       case LX2_BANG:
+           /*
+            * Same logic as Dash, for ! to perform negation in range.
+            */
+           if (seen_brct)
+               c = Bang;
+           else
+               c = '!';
+       }
+       add(c);
+       c = hgetc();
 	if (intpos)
 	    intpos--;
 	if (lexstop)
@@ -1353,7 +1398,7 @@ gettokstr(int c, int sub)
 	return LEXERR;
     }
     hungetc(c);
-    if (unmatched)
+    if (unmatched && !(lexflags & LEXFLAGS_ACTIVE))
 	zerr("unmatched %c", unmatched);
     if (in_brace_param) {
 	while(bct-- >= in_brace_param)
@@ -1387,7 +1432,7 @@ dquote_parse(char endchar, int sub)
 {
     int pct = 0, brct = 0, bct = 0, intick = 0, err = 0;
     int c;
-    int math = endchar == ')' || endchar == ']';
+    int math = endchar == ')' || endchar == ']' || infor;
     int zlemath = math && zlemetacs > zlemetall + addedx - inbufct;
 
     while (((c = hgetc()) != endchar || bct ||
@@ -1568,6 +1613,7 @@ parsestr(char **s)
 		zerr("parse error near `%c'", err);
 	    else
 		zerr("parse error");
+	    tok = LEXERR;
 	}
     }
     return err;
@@ -1581,7 +1627,7 @@ parsestrnoerr(char **s)
 
     zcontext_save();
     untokenize(*s);
-    inpush(dupstring(*s), 0, NULL);
+    inpush(dupstring_wlen(*s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = *s;
@@ -1607,27 +1653,43 @@ parsestrnoerr(char **s)
 mod_export char *
 parse_subscript(char *s, int sub, int endchar)
 {
-    int l = strlen(s), err;
+    int l = strlen(s), err, toklen;
     char *t;
 
     if (!*s || *s == endchar)
 	return 0;
     zcontext_save();
-    untokenize(t = dupstring(s));
+    untokenize(t = dupstring_wlen(s, l));
     inpush(t, 0, NULL);
     strinbeg(0);
+    /*
+     * Warning to Future Generations:
+     *
+     * This way of passing the subscript through the lexer is brittle.
+     * Code above this for several layers assumes that when we tokenise
+     * the input it goes into the same place as the original string.
+     * However, the lexer may overwrite later bits of the string or
+     * reallocate it, in particular when expanding aliaes.  To get
+     * around this, we copy the string and then copy it back.  This is a
+     * bit more robust but still relies on the underlying assumption of
+     * length preservation.
+     */
     lexbuf.len = 0;
-    lexbuf.ptr = tokstr = s;
+    lexbuf.ptr = tokstr = dupstring_wlen(s, l);
     lexbuf.siz = l + 1;
     err = dquote_parse(endchar, sub);
+    toklen = (int)(lexbuf.ptr - tokstr);
+    DPUTS(toklen > l, "Bad length for parsed subscript");
+    memcpy(s, tokstr, toklen);
     if (err) {
-	err = *lexbuf.ptr;
-	*lexbuf.ptr = '\0';
+	char *strend = s + toklen;
+	err = *strend;
+	*strend = '\0';
 	untokenize(s);
-	*lexbuf.ptr = err;
+	*strend = err;
 	s = NULL;
     } else {
-	s = lexbuf.ptr;
+	s += toklen;
     }
     strinend();
     inpop();
@@ -1652,7 +1714,7 @@ parse_subst_string(char *s)
 	return 0;
     zcontext_save();
     untokenize(s);
-    inpush(dupstring(s), 0, NULL);
+    inpush(dupstring_wlen(s, l), 0, NULL);
     strinbeg(0);
     lexbuf.len = 0;
     lexbuf.ptr = tokstr = s;
@@ -1730,9 +1792,17 @@ parse_subst_string(char *s)
 static void
 gotword(void)
 {
-    we = zlemetall + 1 - inbufct + (addedx == 2 ? 1 : 0);
-    if (zlemetacs <= we) {
-	wb = zlemetall - wordbeg + addedx;
+    int nwe = zlemetall + 1 - inbufct + (addedx == 2 ? 1 : 0);
+    if (zlemetacs <= nwe) {
+	int nwb = zlemetall - wordbeg + addedx;
+	if (zlemetacs >= nwb) {
+	    wb = nwb;
+	    we = nwe;
+	} else {
+	    wb = zlemetacs + addedx;
+	    if (we < wb)
+		we = wb;
+	}
 	lexflags = 0;
     }
 }
@@ -1776,9 +1846,9 @@ checkalias(void)
 	    suf > zshlextext && suf[-1] != Meta &&
 	    (an = (Alias)sufaliastab->getnode(sufaliastab, suf+1)) &&
 	    !an->inuse && incmdpos) {
-	    inpush(dupstring(zshlextext), INP_ALIAS, NULL);
+	    inpush(dupstring(zshlextext), INP_ALIAS, an);
 	    inpush(" ", INP_ALIAS, NULL);
-	    inpush(an->text, INP_ALIAS, an);
+	    inpush(an->text, INP_ALIAS, NULL);
 	    lexstop = 0;
 	    return 1;
 	}
@@ -1796,7 +1866,7 @@ exalias(void)
     Reswd rw;
 
     hwend();
-    if (interact && isset(SHINSTDIN) && !strin && !incasepat &&
+    if (interact && isset(SHINSTDIN) && !strin && incasepat <= 0 &&
 	tok == STRING && !nocorrect && !(inbufflags & INP_ALIAS) &&
 	(isset(CORRECTALL) || (isset(CORRECT) && incmdpos)))
 	spckword(&tokstr, 1, incmdpos, 1);
@@ -1844,6 +1914,7 @@ exalias(void)
 		  zshlextext[0] == '}' && !zshlextext[1])) &&
 		(rw = (Reswd) reswdtab->getnode(reswdtab, zshlextext))) {
 		tok = rw->token;
+		inrepeat_ = (tok == REPEAT);
 		if (tok == DINBRACK)
 		    incond = 1;
 	    } else if (incond && !strcmp(zshlextext, "]]")) {
@@ -1994,8 +2065,10 @@ skipcomm(void)
 #else
     char *new_tokstr;
     int new_lexstop, new_lex_add_raw;
+    int save_infor = infor;
     struct lexbufstate new_lexbuf;
 
+    infor = 0;
     cmdpush(CS_CMDSUBST);
     SETPARBEGIN
     add(Inpar);
@@ -2020,11 +2093,23 @@ skipcomm(void)
 	new_tokstr = tokstr;
 	new_lexbuf = lexbuf;
 
+	/*
+	 * If we're expanding an alias at this point, we need the whole
+	 * remaining text as part of the string for the command in
+	 * parentheses, so don't backtrack.  This is different from the
+	 * usual case where the alias is fully within the command, where
+	 * we want the unexpanded text so that it will be expanded
+	 * again when the command in the parentheses is executed.
+	 *
+	 * I never wanted to be a software engineer, you know.
+	 */
+	if (inbufflags & INP_ALIAS)
+	    inbufflags |= INP_RAW_KEEP;
 	zcontext_save_partial(ZCONTEXT_LEX|ZCONTEXT_PARSE);
 	hist_in_word(1);
     } else {
 	/*
-	 * Set up for nested command subsitution, however
+	 * Set up for nested command substitution, however
 	 * we don't actually need the string until we get
 	 * back to the top level and recover the lot.
 	 * The $() body just appears empty.
@@ -2050,11 +2135,25 @@ skipcomm(void)
      * function at the history layer --- this is consistent with the
      * intention of maintaining the history and input layers across
      * the recursive parsing.
+     *
+     * Also turn off LEXFLAGS_NEWLINE because this is already skipping
+     * across the entire construct, and parse_event() needs embedded
+     * newlines to be "real" when looking for the OUTPAR token.
      */
-    lexflags &= ~LEXFLAGS_ZLE;
+    lexflags &= ~(LEXFLAGS_ZLE|LEXFLAGS_NEWLINE);
+    dbparens = 0;	/* restored by zcontext_restore_partial() */
 
-    if (!parse_event(OUTPAR) || tok != OUTPAR)
-	lexstop = 1;
+    if (!parse_event(OUTPAR) || tok != OUTPAR) {
+	if (strin) {
+	    /*
+	     * Get the rest of the string raw since we don't
+	     * know where this token ends.
+	     */
+	    while (!lexstop)
+		(void)ingetc();
+	} else
+	    lexstop = 1;
+    }
      /* Outpar lexical token gets added in caller if present */
 
     /*
@@ -2098,6 +2197,7 @@ skipcomm(void)
     if (!lexstop)
 	SETPAREND
     cmdpop();
+    infor = save_infor;
 
     return lexstop;
 #endif

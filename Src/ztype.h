@@ -66,13 +66,17 @@
  * shell initialisation.
  */
 #define ZTF_INIT     (0x0001) /* One-off initialisation done */
-#define ZTF_INTERACT (0x0002) /* Shell interative and reading from stdin */
+#define ZTF_INTERACT (0x0002) /* Shell interactive and reading from stdin */
 #define ZTF_SP_COMMA (0x0004) /* Treat comma as a special characters */
 #define ZTF_BANGCHAR (0x0008) /* Treat bangchar as a special character */
 
 #ifdef MULTIBYTE_SUPPORT
 #define WC_ZISTYPE(X,Y) wcsitype((X),(Y))
-#define WC_ISPRINT(X)	iswprint(X)
+# ifdef ENABLE_UNICODE9
+#  define WC_ISPRINT(X)	u9_iswprint(X)
+# else
+#  define WC_ISPRINT(X)	iswprint(X)
+# endif
 #else
 #define WC_ZISTYPE(X,Y)	zistype((X),(Y))
 #define WC_ISPRINT(X)	isprint(X)

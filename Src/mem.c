@@ -79,6 +79,12 @@
 
 #include <sys/mman.h>
 
+/*
+ * This definition is designed to enable use of memory mapping on MacOS.
+ * However, performance tests indicate that MacOS mapped regions are
+ * somewhat slower to allocate than memory from malloc(), so whether
+ * using this improves performance depends on details of zhalloc().
+ */
 #if defined(MAP_ANON) && !defined(MAP_ANONYMOUS)
 #define MAP_ANONYMOUS MAP_ANON
 #endif
@@ -151,13 +157,13 @@ mod_export Heapid last_heap_id;
  * Assumes old_heaps() will come along and restore it later
  * (outputs an error if old_heaps() is called out of sequence).
  */
-LinkList heaps_saved;
+static LinkList heaps_saved;
 
 /*
  * Debugging verbosity.  This must be set from a debugger.
  * An 'or' of bits from the enum heap_debug_verbosity.
  */
-volatile int heap_debug_verbosity;
+static volatile int heap_debug_verbosity;
 
 /*
  * Generate a heap identifier that's unique up to unsigned integer wrap.
@@ -294,7 +300,7 @@ pushheap(void)
 #endif
 
     for (h = heaps; h; h = h->next) {
-	DPUTS(!h->used, "BUG: empty heap");
+	DPUTS(!h->used && h->next, "BUG: empty heap");
 	hs = (Heapstack) zalloc(sizeof(*hs));
 	hs->next = h->sp;
 	h->sp = hs;
@@ -334,16 +340,20 @@ freeheap(void)
      *
      * Whenever fheap is NULL here, the loop below sweeps back over the
      * entire heap list again, resetting the free space in every arena to
-     * the amount stashed by pushheap() and finding the first arena with
+     * the amount stashed by pushheap() and finding the arena with the most
      * free space to optimize zhalloc()'s next search.  When there's a lot
      * of stuff already on the heap, this is an enormous amount of work,
      * and performance goes to hell.
      *
+     * Therefore, we defer freeing the most recently allocated arena until
+     * we reach popheap().
+     *
      * However, if the arena to which fheap points is unused, we want to
-     * free it, so we have no choice but to do the sweep for a new fheap.
+     * reclaim space in earlier arenas, so we have no choice but to do the
+     * sweep for a new fheap.
      */
     if (fheap && !fheap->sp)
-	fheap = NULL;	/* We used to do this unconditionally */
+       fheap = NULL;   /* We used to do this unconditionally */
     /*
      * In other cases, either fheap is already correct, or it has never
      * been set and this loop will do it, or it'll be reset from scratch
@@ -361,7 +371,11 @@ freeheap(void)
 	    memset(arena(h) + h->sp->used, 0xff, h->used - h->sp->used);
 #endif
 	    h->used = h->sp->used;
-	    if (!fheap && h->used < ARENA_SIZEOF(h))
+	    if (!fheap) {
+		if (h->used < ARENA_SIZEOF(h))
+		    fheap = h;
+	    } else if (ARENA_SIZEOF(h) - h->used >
+		       ARENA_SIZEOF(fheap) - fheap->used)
 		fheap = h;
 	    hl = h;
 #ifdef ZSH_HEAP_DEBUG
@@ -384,6 +398,26 @@ freeheap(void)
 	    VALGRIND_MEMPOOL_TRIM((char *)h, (char *)arena(h), h->used);
 #endif
 	} else {
+	    if (fheap == h)
+		fheap = NULL;
+	    if (h->next) {
+		/* We want to cut this out of the arena list if we can */
+		if (h == heaps)
+		    hl = heaps = h->next;
+		else if (hl && hl->next == h)
+		    hl->next = h->next;
+		else {
+		    DPUTS(hl, "hl->next != h when freeing");
+		    hl = h;
+		    continue;
+		}
+		h->next = NULL;
+	    } else {
+		/* Leave an empty arena at the end until popped */
+		h->used = 0;
+		fheap = hl = h;
+		break;
+	    }
 #ifdef USE_MMAP
 	    munmap((void *) h, h->size);
 #else
@@ -441,12 +475,30 @@ popheap(void)
 #ifdef ZSH_VALGRIND
 	    VALGRIND_MEMPOOL_TRIM((char *)h, (char *)arena(h), h->used);
 #endif
-	    if (!fheap && h->used < ARENA_SIZEOF(h))
+	    if (!fheap) {
+		if (h->used < ARENA_SIZEOF(h))
+		    fheap = h;
+	    } else if (ARENA_SIZEOF(h) - h->used >
+		       ARENA_SIZEOF(fheap) - fheap->used)
 		fheap = h;
 	    zfree(hs, sizeof(*hs));
 
 	    hl = h;
 	} else {
+	    if (h->next) {
+		/* We want to cut this out of the arena list if we can */
+		if (h == heaps)
+		    hl = heaps = h->next;
+		else if (hl && hl->next == h)
+		    hl->next = h->next;
+		else {
+		    DPUTS(hl, "hl->next != h when popping");
+		    hl = h;
+		    continue;
+		}
+		h->next = NULL;
+	    } else if (hl == h)	/* This is the last arena of all */
+		hl = NULL;
 #ifdef USE_MMAP
 	    munmap((void *) h, h->size);
 #else
@@ -524,7 +576,7 @@ zheapptr(void *p)
 mod_export void *
 zhalloc(size_t size)
 {
-    Heap h;
+    Heap h, hp = NULL;
     size_t n;
 #ifdef ZSH_VALGRIND
     size_t req_size = size;
@@ -543,9 +595,15 @@ zhalloc(size_t size)
 
     /* find a heap with enough free space */
 
-    for (h = ((fheap && ARENA_SIZEOF(fheap) >= (size + fheap->used))
-	      ? fheap : heaps);
-	 h; h = h->next) {
+    /*
+     * This previously assigned:
+     *   h = ((fheap && ARENA_SIZEOF(fheap) >= (size + fheap->used))
+     *	      ? fheap : heaps);
+     * but we think that nothing upstream of fheap has more free space,
+     * so why start over at heaps just because fheap has too little?
+     */
+    for (h = (fheap ? fheap : heaps); h; h = h->next) {
+	hp = h;
 	if (ARENA_SIZEOF(h) >= (n = size + h->used)) {
 	    void *ret;
 
@@ -566,7 +624,6 @@ zhalloc(size_t size)
 	}
     }
     {
-	Heap hp;
         /* not found, allocate new heap */
 #if defined(ZSH_MEM) && !defined(USE_MMAP)
 	static int called = 0;
@@ -575,7 +632,6 @@ zhalloc(size_t size)
 #endif
 
 	n = HEAP_ARENA_SIZE > size ? HEAPSIZE : size + sizeof(*h);
-	for (hp = NULL, h = heaps; h; hp = h, h = h->next);
 
 #ifdef USE_MMAP
 	h = mmap_heap_alloc(&n);
@@ -607,6 +663,7 @@ zhalloc(size_t size)
 	VALGRIND_MEMPOOL_ALLOC((char *)h, (char *)arena(h), req_size);
 #endif
 
+	DPUTS(hp && hp->next, "failed to find end of chain in zhalloc");
 	if (hp)
 	    hp->next = h;
 	else
@@ -847,27 +904,36 @@ memory_validate(Heapid heap_id)
 
     queue_signals();
     for (h = heaps; h; h = h->next) {
-	if (h->heap_id == heap_id)
+	if (h->heap_id == heap_id) {
+	    unqueue_signals();
 	    return 0;
+	}
 	for (hs = heaps->sp; hs; hs = hs->next) {
-	    if (hs->heap_id == heap_id)
+	    if (hs->heap_id == heap_id) {
+		unqueue_signals();
 		return 0;
+	    }
 	}
     }
 
     if (heaps_saved) {
 	for (node = firstnode(heaps_saved); node; incnode(node)) {
 	    for (h = (Heap)getdata(node); h; h = h->next) {
-		if (h->heap_id == heap_id)
+		if (h->heap_id == heap_id) {
+		    unqueue_signals();
 		    return 0;
+		}
 		for (hs = heaps->sp; hs; hs = hs->next) {
-		    if (hs->heap_id == heap_id)
+		    if (hs->heap_id == heap_id) {
+			unqueue_signals();
 			return 0;
+		    }
 		}
 	    }
 	}
     }
 
+    unqueue_signals();
     return 1;
 }
 /**/
@@ -910,18 +976,10 @@ zalloc(size_t size)
 mod_export void *
 zshcalloc(size_t size)
 {
-    void *ptr;
-
+    void *ptr = zalloc(size);
     if (!size)
 	size = 1;
-    queue_signals();
-    if (!(ptr = (void *) malloc(size))) {
-	zerr("fatal error: out of memory");
-	exit(1);
-    }
-    unqueue_signals();
     memset(ptr, 0, size);
-
     return ptr;
 }
 
@@ -1062,7 +1120,7 @@ struct m_hdr {
 /* length of memory header, length of first field of memory header and
    minimal size of a block left free (if we allocate memory and take a
    block from the free list that is larger than needed, it must have at
-   least M_MIN extra bytes to be splitted; if it has, the rest is put on
+   least M_MIN extra bytes to be split; if it has, the rest is put on
    the free list) */
 
 #define M_HSIZE (sizeof(struct m_hdr))
@@ -1611,8 +1669,13 @@ realloc(MALLOC_RET_T p, MALLOC_ARG_T size)
     int i, l = 0;
 
     /* some system..., see above */
-    if (!p && size)
-	return (MALLOC_RET_T) malloc(size);
+    if (!p && size) {
+	queue_signals();
+	r = malloc(size);
+	unqueue_signals();
+	return (MALLOC_RET_T) r;
+    }
+
     /* and some systems even do this... */
     if (!p || !size)
 	return (MALLOC_RET_T) p;
@@ -1656,7 +1719,13 @@ calloc(MALLOC_ARG_T n, MALLOC_ARG_T size)
     if (!(l = n * size))
 	return (MALLOC_RET_T) m_high;
 
-    r = malloc(l);
+    /*
+     * use realloc() (with a NULL `p` argument it behaves exactly the same
+     * as malloc() does) to prevent an infinite loop caused by sibling-call
+     * optimizations (the malloc() call would otherwise be replaced by an
+     * unconditional branch back to line 1719 ad infinitum).
+     */
+    r = realloc(NULL, l);
 
     memset(r, 0, l);
 
@@ -1816,16 +1885,14 @@ bin_mem(char *name, char **argv, Options ops, int func)
 mod_export void
 zfree(void *p, UNUSED(int sz))
 {
-    if (p)
-	free(p);
+    free(p);
 }
 
 /**/
 mod_export void
 zsfree(char *p)
 {
-    if (p)
-	free(p);
+    free(p);
 }
 
 /**/
