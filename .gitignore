@@ -1,12 +1,14 @@
 Makefile
 tags
 TAGS
+COMPILED_AT
 *.o
 *.o.c
 *.orig
 *.a
 *.so
 *.dll
+*.bundle
 *~
 .*.sw?
 \#*
