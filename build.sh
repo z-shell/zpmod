@@ -41,17 +41,17 @@ build_zpmod_module() {
       if test -f Makefile; then
         if [ "$1" = "--clean" ]; then
           printf '%s\n' "$col_info2-- make distclean --$col_rst"
-          make -s distclean >/dev/null
+          make -s distclean
           true
         else
           printf '%s\n' "$col_info2-- make clean (pass --clean to invoke \`make distclean') --$col_rst"
-          make -s clean >/dev/null
+          make -s clean
         fi
       fi
       printf '%s\n' "$col_info2-- Configuring --$col_rst"
-      if CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp >/dev/null; then
+      if CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp; then
         printf '%s\n' "$col_info2-- Running make --$col_rst"
-        if make -s >/dev/null; then
+        if make -s; then
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
 [38;5;219m▓▒░[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:
