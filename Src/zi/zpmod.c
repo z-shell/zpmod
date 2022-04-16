@@ -1407,7 +1407,7 @@ readarray_usage()
 static int
 bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
-	char *subcmd = NULL;
+	char **oargs = args, **p = arrparam, *subcmd = NULL;
 	int ret = 0;
 
 	if (OPT_ISSET(ops, 'h'))
