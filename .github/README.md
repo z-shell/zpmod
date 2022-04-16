@@ -14,7 +14,7 @@ Install just the **standalone** binary which can be used with anyother plugin ma
 > This script can be used with most plugin managers and [ZI](https://github.com/z-shell/zi) is not required.
 
 ```sh
-sh -c <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/HEAD/build.sh)
+sh <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/HEAD/build.sh)
 ```
 
 This script will display what to add to `~/.zshrc` (2 lines) and show usage instructions.
