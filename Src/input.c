@@ -80,11 +80,6 @@
 /**/
 int SHIN;
 
-/* buffered shell input for non-interactive shells */
-
-/**/
-FILE *bshin;
-
 /* != 0 means we are reading input from a string */
  
 /**/
@@ -129,7 +124,116 @@ static struct instacks *instack, *instacktop;
 
 static int instacksz = INSTACK_INITIAL;
 
-/* Read a line from bshin.  Convert tokens and   *
+/* Size of buffer for non-interactive command input */
+
+#define SHINBUFSIZE 8192
+
+/* Input buffer for non-interactive command input */
+static char *shinbuffer;
+
+/* Pointer into shinbuffer */
+static char *shinbufptr;
+
+/* End of contents read into shinbuffer */
+static char *shinbufendptr;
+
+/* Entry on SHIN buffer save stack */
+struct shinsaveentry {
+    /* Next entry on stack */
+    struct shinsaveentry *next;
+    /* Saved shinbuffer */
+    char *buffer;
+    /* Saved shinbufptr */
+    char *ptr;
+    /* Saved shinbufendptr */
+    char *endptr;
+};
+
+/* SHIN buffer save stack */
+static struct shinsaveentry *shinsavestack;
+
+/* Reset the input buffer for SHIN, discarding any pending input */
+
+/**/
+void
+shinbufreset(void)
+{
+    shinbufendptr = shinbufptr = shinbuffer;
+}
+
+/* Allocate a new shinbuffer
+ *
+ * Only called at shell initialisation and when saving on the stack.
+ */
+
+/**/
+void
+shinbufalloc(void)
+{
+    shinbuffer = zalloc(SHINBUFSIZE);
+    shinbufreset();
+}
+
+/* Save entry on SHIN buffer save stack */
+
+/**/
+void
+shinbufsave(void)
+{
+    struct shinsaveentry *entry =
+	(struct shinsaveentry *)zalloc(sizeof(struct shinsaveentry));
+
+    entry->next = shinsavestack;
+    entry->buffer = shinbuffer;
+    entry->ptr = shinbufptr;
+    entry->endptr = shinbufendptr;
+
+    shinsavestack = entry;
+
+    shinbufalloc();
+}
+
+/* Restore entry from SHIN buffer save stack */
+
+/**/
+void
+shinbufrestore(void)
+{
+    struct shinsaveentry *entry = shinsavestack;
+
+    zfree(shinbuffer, SHINBUFSIZE);
+
+    shinbuffer = entry->buffer;
+    shinbufptr = entry->ptr;
+    shinbufendptr = entry->endptr;
+
+    shinsavestack = entry->next;
+    zfree(entry, sizeof(struct shinsaveentry));
+}
+
+/* Get a character from SHIN, -1 if none available */
+
+/**/
+static int
+shingetchar(void)
+{
+    int nread;
+
+    if (shinbufptr < shinbufendptr)
+	return STOUC(*shinbufptr++);
+
+    shinbufreset();
+    do {
+	errno = 0;
+	nread = read(SHIN, shinbuffer, SHINBUFSIZE);
+    } while (nread < 0 && errno == EINTR);
+    if (nread <= 0)
+	return -1;
+    shinbufendptr = shinbuffer + nread;
+    return STOUC(*shinbufptr++);
+}
+
+/* Read a line from SHIN.  Convert tokens and   *
  * null characters to Meta c^32 character pairs. */
 
 /**/
@@ -141,16 +245,16 @@ shingetline(void)
     int c;
     char buf[BUFSIZ];
     char *p;
+    int q = queue_signal_level();
 
     p = buf;
     winch_unblock();
+    dont_queue_signals();
     for (;;) {
-	do {
-	    errno = 0;
-	    c = fgetc(bshin);
-	} while (c < 0 && errno == EINTR);
+	c = shingetchar();
 	if (c < 0 || c == '\n') {
 	    winch_block();
+	    restore_queue_signals(q);
 	    if (c == '\n')
 		*p++ = '\n';
 	    if (p > buf) {
@@ -167,12 +271,14 @@ shingetline(void)
 	    *p++ = c;
 	if (p >= buf + BUFSIZ - 1) {
 	    winch_block();
+	    queue_signals();
 	    line = zrealloc(line, ll + (p - buf) + 1);
 	    memcpy(line + ll, buf, p - buf);
 	    ll += p - buf;
 	    line[ll] = '\0';
 	    p = buf;
 	    winch_unblock();
+	    dont_queue_signals();
 	}
     }
 }
@@ -222,7 +328,8 @@ ingetc(void)
 	if (inputline())
 	    break;
     }
-    zshlex_raw_add(lastc);
+    if (!lexstop)
+	zshlex_raw_add(lastc);
     return lastc;
 }
 
@@ -376,6 +483,8 @@ inputline(void)
 static void
 inputsetline(char *str, int flags)
 {
+    queue_signals();
+
     if ((inbufflags & INP_FREE) && inbuf) {
 	free(inbuf);
     }
@@ -393,6 +502,8 @@ inputsetline(char *str, int flags)
     else
 	inbufct = inbufleft;
     inbufflags = flags;
+
+    unqueue_signals();
 }
 
 /*
@@ -544,6 +655,7 @@ inpush(char *str, int flags, Alias inalias)
 	if ((instacktop->alias = inalias))
 	    inalias->inuse = 1;
     } else {
+	instacktop->alias = NULL;
 	/* If we are continuing an alias expansion, record the alias
 	 * expansion in new set of flags (do we need this?)
 	 */
@@ -591,7 +703,7 @@ inpoptop(void)
 	     * history is before, but they're both pushed onto
 	     * the input stack.
 	     */
-	    if ((inbufflags & (INP_ALIAS|INP_HIST)) == INP_ALIAS)
+	    if ((inbufflags & (INP_ALIAS|INP_HIST|INP_RAW_KEEP)) == INP_ALIAS)
 		zshlex_raw_back();
 	}
     }
@@ -660,4 +772,32 @@ char *
 ingetptr(void)
 {
     return inbufptr;
+}
+
+/*
+ * Check if the current input line, including continuations, is
+ * expanding an alias.  This does not detect alias expansions that
+ * have been fully processed and popped from the input stack.
+ * If there is an alias, the most recently expanded is returned,
+ * else NULL.
+ */
+
+/**/
+char *input_hasalias(void)
+{
+    int flags = inbufflags;
+    struct instacks *instackptr = instacktop;
+
+    for (;;)
+    {
+	if (!(flags & INP_CONT))
+	    break;
+	DPUTS(instackptr == instack, "BUG: continuation at bottom of instack");
+	instackptr--;
+	if (instackptr->alias)
+	    return instackptr->alias->node.nam;
+	flags = instackptr->flags;
+    }
+
+    return NULL;
 }
