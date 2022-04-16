@@ -37,7 +37,7 @@
 #endif
 #endif
 
-#if defined(__linux) || defined(__GNU__) || defined(__GLIBC__) || defined(LIBC_MUSL) || defined(__CYGWIN__)
+#if defined(__linux) || defined(__GNU__) || defined(__GLIBC__) || defined(LIBC_MUSL)
 /*
  * Turn on numerous extensions.
  * This is in order to get the functions for manipulating /dev/ptmx.
@@ -247,14 +247,6 @@ char *alloca _((size_t));
 struct timezone {
     int tz_minuteswest;
     int tz_dsttime;
-};
-#endif
-
-/* Used to provide compatibility with clock_gettime() */
-#if !defined(HAVE_STRUCT_TIMESPEC) && !defined(ZSH_OOT_MODULE)
-struct timespec {
-    time_t tv_sec;
-    long tv_nsec;
 };
 #endif
 
@@ -736,7 +728,7 @@ extern char **environ;
  * We always need setenv and unsetenv in pairs, because
  * we don't know how to do memory management on the values set.
  */
-#if defined(HAVE_SETENV) && defined(HAVE_UNSETENV) && !defined(__APPLE__)
+#if defined(HAVE_SETENV) && defined(HAVE_UNSETENV)
 # define USE_SET_UNSET_ENV
 #endif
 
@@ -888,10 +880,6 @@ extern short ospeed;
 #   include <termcap.h>
 #  endif
 # endif
-#endif
-
-#ifdef HAVE_SRAND_DETERMINISTIC
-# define srand srand_deterministic
 #endif
 
 #ifdef ZSH_VALGRIND

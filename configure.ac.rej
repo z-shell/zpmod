@@ -1,0 +1,15 @@
+--- configure.ac
++++ configure.ac
+@@ -917,12 +902,6 @@ if test "x$ac_found_iconv" = "xyes"; then
+     [Define as const if the declaration of iconv() needs const.])
+ fi
+ 
+-if test x$enable_pcre = xyes; then
+-dnl pcre-config should probably be employed here
+-dnl AC_SEARCH_LIBS(pcre_compile, pcre)
+-  LIBS="`$ac_cv_prog_PCRECONF --libs` $LIBS"
+-fi
+-
+ dnl ---------------------
+ dnl CHECK TERMCAP LIBRARY
+ dnl ---------------------

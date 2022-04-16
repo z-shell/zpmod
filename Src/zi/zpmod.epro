@@ -1,0 +1,27 @@
+/* Generated automatically */
+#ifndef have_Src_zi_zpmod_globals
+#define have_Src_zi_zpmod_globals
+
+extern int bin_custom_dot _((char*name,char**argv,UNUSED(Options ops),UNUSED(int func)));
+extern mod_import_function enum source_return custom_source _((char*s));
+extern Eprog custom_try_source_file _((char*file));
+#if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP) && defined(HAVE_MUNMAP)
+#if defined(MAP_SHARED) && defined(PROT_READ)
+#define USE_MMAP 1
+#endif
+#endif
+#ifdef USE_MMAP
+#endif
+extern void zpmod_usage _(());
+extern char*zp_build_source_report _((int no_paths,int*rep_size));
+extern void zp_freeparamnode _((HashNode hn));
+extern char*my_ztrdup_glen _((const char*s,unsigned*len_ret));
+extern char*zp_unmetafy_zalloc _((const char*to_copy,int*new_len));
+extern int setup_ _((UNUSED(Module m)));
+extern int features_ _((Module m,char***features));
+extern int enables_ _((Module m,int**enables));
+extern int boot_ _((Module m));
+extern int cleanup_ _((Module m));
+extern int finish_ _((UNUSED(Module m)));
+
+#endif /* !have_Src_zi_zpmod_globals */

@@ -72,11 +72,7 @@
 
 #ifdef MULTIBYTE_SUPPORT
 #define WC_ZISTYPE(X,Y) wcsitype((X),(Y))
-# ifdef ENABLE_UNICODE9
-#  define WC_ISPRINT(X)	u9_iswprint(X)
-# else
-#  define WC_ISPRINT(X)	iswprint(X)
-# endif
+#define WC_ISPRINT(X)	iswprint(X)
 #else
 #define WC_ZISTYPE(X,Y)	zistype((X),(Y))
 #define WC_ISPRINT(X)	isprint(X)

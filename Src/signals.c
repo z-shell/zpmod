@@ -55,20 +55,6 @@ mod_export Eprog siglists[VSIGCOUNT];
 /**/
 mod_export int nsigtrapped;
 
-/* Running an exit trap? */
-
-/**/
-int in_exit_trap;
-
-/*
- * Flag that exit trap has been set in POSIX mode.
- * The setter's expectation is therefore that it is run
- * on programme exit, not function exit.
- */
-
-/**/
-static int exit_trap_posix;
-
 /* Variables used by signal queueing */
 
 /**/
@@ -77,10 +63,6 @@ mod_export int queueing_enabled, queue_front, queue_rear;
 mod_export int signal_queue[MAX_QUEUE_SIZE];
 /**/
 mod_export sigset_t signal_mask_queue[MAX_QUEUE_SIZE];
-#ifdef DEBUG
-/**/
-mod_export int queue_in;
-#endif
 
 /* Variables used by trap queueing */
 
@@ -505,12 +487,6 @@ wait_for_processes(void)
 	    break;
 	}
 
-	/* This is necessary to be sure queueing_enabled > 0 when
-	 * we enter printjob() from update_job(), so that we don't
-	 * decrement to zero in should_report_time() and improperly
-	 * run other handlers in the middle of processing this one */
-	queue_signals();
-
 	/*
 	 * Find the process and job containing this pid and
 	 * update it.
@@ -527,31 +503,11 @@ wait_for_processes(void)
 #if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
 		struct timezone dummy_tz;
 		gettimeofday(&pn->endtime, &dummy_tz);
-#ifdef WIFCONTINUED
-		if (WIFCONTINUED(status))
-		    pn->status = SP_RUNNING;
-		else
-#endif
 		pn->status = status;
 		pn->ti = ru;
 #else
 		update_process(pn, status);
 #endif
-		if (WIFEXITED(status) &&
-		    pn->pid == jn->gleader &&
-		    killpg(pn->pid, 0) == -1) {
-		    jn->gleader = 0;
-		    if (!(jn->stat & STAT_NOSTTY)) {
-			/*
-			 * This PID was in control of the terminal;
-			 * reclaim terminal now it has exited.
-			 * It's still possible some future forked
-			 * process of this job will become group
-			 * leader, however.
-			 */
-			attachtty(mypgrp);
-		    }
-		}
 	    }
 	    update_job(jn);
 	} else if (findproc(pid, &jn, &pn, 1)) {
@@ -572,23 +528,15 @@ wait_for_processes(void)
 	 * and is not equal to the current foreground job.
 	 */
 	if (jn && !(jn->stat & (STAT_CURSH|STAT_BUILTIN)) &&
-	    jn - jobtab != thisjob) {
-	    int val = (WIFSIGNALED(status) ?
-		   0200 | WTERMSIG(status) :
-		   (WIFSTOPPED(status) ?
-		    0200 | WEXITSTATUS(status) :
-		    WEXITSTATUS(status)));
-	    addbgstatus(pid, val);
-	}
-
-	unqueue_signals();
+	    jn - jobtab != thisjob)
+	    addbgstatus(pid, (int)lastval2);
     }
 }
 
 /* the signal handler */
  
 /**/
-mod_export void
+mod_export RETSIGTYPE
 zhandler(int sig)
 {
     sigset_t newmask, oldmask;
@@ -667,7 +615,7 @@ zhandler(int sig)
     case SIGINT:
         if (!handletrap(SIGINT)) {
 	    if ((isset(PRIVILEGED) || isset(RESTRICTED)) &&
-		isset(INTERACTIVE) && (noerrexit & NOERREXIT_SIGNAL))
+		isset(INTERACTIVE) && noerrexit < 0)
 		zexit(SIGINT, 1);
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
@@ -675,7 +623,6 @@ zhandler(int sig)
 		inerrflush();
 		check_cursh_sig(SIGINT);
             }
-	    lastval = 128 + SIGINT;
         }
         break;
 
@@ -753,7 +700,7 @@ killjb(Job jn, int sig)
 {
     Process pn;
     int err = 0;
-
+ 
     if (jobbing) {
         if (jn->stat & STAT_SUPERJOB) {
             if (sig == SIGCONT) {
@@ -761,21 +708,11 @@ killjb(Job jn, int sig)
                     if (killpg(pn->pid, sig) == -1)
 			if (kill(pn->pid, sig) == -1 && errno != ESRCH)
 			    err = -1;
-
-		/*
-		 * Note this does not kill the last process,
-		 * which is assumed to be the one controlling the
-		 * subjob, i.e. the forked zsh that was originally
-		 * list_pipe_pid...
-		 */
+ 
                 for (pn = jn->procs; pn->next; pn = pn->next)
                     if (kill(pn->pid, sig) == -1 && errno != ESRCH)
 			err = -1;
 
-		/*
-		 * ...we only continue that once the external processes
-		 * currently associated with the subjob are finished.
-		 */
 		if (!jobtab[jn->other].procs && pn)
 		    if (kill(pn->pid, sig) == -1 && errno != ESRCH)
 			err = -1;
@@ -784,7 +721,7 @@ killjb(Job jn, int sig)
             }
             if (killpg(jobtab[jn->other].gleader, sig) == -1 && errno != ESRCH)
 		err = -1;
-
+		
 	    if (killpg(jn->gleader, sig) == -1 && errno != ESRCH)
 		err = -1;
 
@@ -793,21 +730,9 @@ killjb(Job jn, int sig)
         else
 	    return killpg(jn->gleader, sig);
     }
-    for (pn = jn->procs; pn; pn = pn->next) {
-	/*
-	 * Do not kill this job's process if it's already dead as its
-	 * pid could have been reused by the system.
-	 * As the PID doesn't exist don't return an error.
-	 */
-	if (pn->status == SP_RUNNING || WIFSTOPPED(pn->status)) {
-	    /*
-	     * kill -0 on a job is pointless. We still call kill() for each process
-	     * in case the user cares about it but we ignore its outcome.
-	     */
-	    if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
-		return -1;
-	}
-    }
+    for (pn = jn->procs; pn; pn = pn->next)
+        if ((err = kill(pn->pid, sig)) == -1 && errno != ESRCH && sig != 0)
+            return -1;
     return err;
 }
 
@@ -816,7 +741,7 @@ killjb(Job jn, int sig)
  * at once, so just use a linked list.
  */
 struct savetrap {
-    int sig, flags, local, posix;
+    int sig, flags, local;
     void *list;
 };
 
@@ -835,7 +760,6 @@ dosavetrap(int sig, int level)
     st = (struct savetrap *)zalloc(sizeof(*st));
     st->sig = sig;
     st->local = level;
-    st->posix = (sig == SIGEXIT) ? exit_trap_posix : 0;
     if ((st->flags = sigtrapped[sig]) & ZSIG_FUNC) {
 	/*
 	 * Get the old function: this assumes we haven't added
@@ -848,11 +772,7 @@ dosavetrap(int sig, int level)
 	    newshf->node.nam = ztrdup(shf->node.nam);
 	    newshf->node.flags = shf->node.flags;
 	    newshf->funcdef = dupeprog(shf->funcdef, 0);
-	    if (shf->node.flags & PM_LOADDIR) {
-		dircache_set(&newshf->filename, shf->filename);
-	    } else {
-		newshf->filename = ztrdup(shf->filename);
-	    }
+	    newshf->filename = ztrdup(shf->filename);
 	    if (shf->sticky) {
 		newshf->sticky = sticky_emulation_dup(shf->sticky, 0);
 	    } else
@@ -933,21 +853,12 @@ settrap(int sig, Eprog l, int flags)
             sig != SIGCHLD)
             install_handler(sig);
     }
-    sigtrapped[sig] |= flags;
     /*
      * Note that introducing the locallevel does not affect whether
      * sigtrapped[sig] is zero or not, i.e. a test without a mask
      * works just the same.
      */
-    if (sig == SIGEXIT) {
-	/* Make POSIX behaviour of EXIT trap sticky */
-	exit_trap_posix = isset(POSIXTRAPS);
-	/* POSIX exit traps are not local. */
-	if (!exit_trap_posix)
-	    sigtrapped[sig] |= (locallevel << ZSIG_SHIFT);
-    }
-    else
-	sigtrapped[sig] |= (locallevel << ZSIG_SHIFT);
+    sigtrapped[sig] |= (locallevel << ZSIG_SHIFT) | flags;
     unqueue_signals();
     return 0;
 }
@@ -981,11 +892,6 @@ removetrap(int sig)
      * Note that we save the trap here even if there isn't an existing
      * one, to aid in removing this one.  However, if there's
      * already one at the current locallevel we just overwrite it.
-     *
-     * Note we save EXIT traps based on the *current* setting of
-     * POSIXTRAPS --- so if there is POSIX EXIT trap set but
-     * we are in native mode it can be saved, replaced by a function
-     * trap, and then restored.
      */
     if (!dontsavetrap &&
 	(sig == SIGEXIT ? !isset(POSIXTRAPS) : isset(LOCALTRAPS)) &&
@@ -1015,8 +921,6 @@ removetrap(int sig)
 #endif
              sig != SIGCHLD)
         signal_default(sig);
-    if (sig == SIGEXIT)
-	exit_trap_posix = 0;
 
     /*
      * At this point we free the appropriate structs.  If we don't
@@ -1060,7 +964,7 @@ starttrapscope(void)
      * so give it the next higher one. dosavetrap() is called
      * automatically where necessary.
      */
-    if (sigtrapped[SIGEXIT] && !exit_trap_posix) {
+    if (sigtrapped[SIGEXIT] && !isset(POSIXTRAPS)) {
 	locallevel++;
 	unsettrap(SIGEXIT);
 	locallevel--;
@@ -1087,7 +991,7 @@ endtrapscope(void)
      * Don't do this inside another trap.
      */
     if (!intrap &&
-	!exit_trap_posix && (exittr = sigtrapped[SIGEXIT])) {
+	!isset(POSIXTRAPS) && (exittr = sigtrapped[SIGEXIT])) {
 	if (exittr & ZSIG_FUNC) {
 	    exitfn = removehashnode(shfunctab, "TRAPEXIT");
 	} else {
@@ -1113,9 +1017,7 @@ endtrapscope(void)
 		if (st->flags & ZSIG_FUNC)
 		    settrap(sig, NULL, ZSIG_FUNC);
 		else
-			settrap(sig, (Eprog) st->list, 0);
-		if (sig == SIGEXIT)
-		    exit_trap_posix = st->posix;
+		    settrap(sig, (Eprog) st->list, 0);
 		dontsavetrap--;
 		/*
 		 * counting of nsigtrapped should presumably be handled
@@ -1126,26 +1028,16 @@ endtrapscope(void)
 		if ((sigtrapped[sig] = st->flags) & ZSIG_FUNC)
 		    shfunctab->addnode(shfunctab, ((Shfunc)st->list)->node.nam,
 				       (Shfunc) st->list);
-	    } else if (sigtrapped[sig]) {
-		/*
-		 * Don't restore the old state if someone has set a
-		 * POSIX-style exit trap --- allow this to propagate.
-		 */
-		if (sig != SIGEXIT || !exit_trap_posix)
-		    unsettrap(sig);
-	    }
+	    } else if (sigtrapped[sig])
+		unsettrap(sig);
 
 	    zfree(st, sizeof(*st));
 	}
     }
 
     if (exittr) {
-	/*
-	 * We already made sure this wasn't set as a POSIX exit trap.
-	 * We respect the user's intention when the trap in question
-	 * was set.
-	 */
-	dotrapargs(SIGEXIT, &exittr, exitfn);
+	if (!isset(POSIXTRAPS))
+	    dotrapargs(SIGEXIT, &exittr, exitfn);
 	if (exittr & ZSIG_FUNC)
 	    shfunctab->freenode((HashNode)exitfn);
 	else
@@ -1315,8 +1207,6 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 	}
     }
 
-    queue_signals();	/* Any time we manage memory or global state */
-
     intrap++;
     *sigtr |= ZSIG_IGNORED;
 
@@ -1354,7 +1244,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 
 	sfcontext = SFC_SIGNAL;
 	incompfunc = 0;
-	doshfunc((Shfunc)sigfn, args, 1);	/* manages signal queueing */
+	doshfunc((Shfunc)sigfn, args, 1);
 	sfcontext = osc;
 	incompfunc= old_incompfunc;
 	freelinklist(args, (FreeFunc) NULL);
@@ -1364,7 +1254,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 	trap_state = TRAP_STATE_PRIMED;
 	trapisfunc = isfunc = 0;
 
-	execode((Eprog)sigfn, 1, 0, "trap");	/* manages signal queueing */
+	execode((Eprog)sigfn, 1, 0, "trap");
     }
     runhookdef(AFTERTRAPHOOK, NULL);
 
@@ -1431,8 +1321,6 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
     if (*sigtr != ZSIG_IGNORED)
 	*sigtr &= ~ZSIG_IGNORED;
     intrap--;
-
-    unqueue_signals();
 }
 
 /* Standard call to execute a trap for a given signal. */
@@ -1442,7 +1330,6 @@ void
 dotrap(int sig)
 {
     void *funcprog;
-    int q = queue_signal_level();
 
     if (sigtrapped[sig] & ZSIG_FUNC) {
 	HashNode hn = gettrapnode(sig, 0);
@@ -1465,15 +1352,5 @@ dotrap(int sig)
     if ((sigtrapped[sig] & ZSIG_IGNORED) || !funcprog || errflag)
 	return;
 
-    dont_queue_signals();
-
-    if (sig == SIGEXIT)
-	++in_exit_trap;
-
     dotrapargs(sig, sigtrapped+sig, funcprog);
-
-    if (sig == SIGEXIT)
-	--in_exit_trap;
-
-    restore_queue_signals(q);
 }

@@ -128,7 +128,7 @@ makerunning(Job jn)
     Process pn;
 
     jn->stat &= ~STAT_STOPPED;
-    for (pn = jn->procs; pn; pn = pn->next) {
+    for (pn = jn->procs; pn; pn = pn->next)
 #if 0
 	if (WIFSTOPPED(pn->status) && 
 	    (!(jn->stat & STAT_SUPERJOB) || pn->next))
@@ -136,7 +136,6 @@ makerunning(Job jn)
 #endif
         if (WIFSTOPPED(pn->status))
 	    pn->status = SP_RUNNING;
-    }
 
     if (jn->stat & STAT_SUPERJOB)
 	makerunning(jobtab + jn->other);
@@ -232,13 +231,12 @@ super_job(int sub)
 static int
 handle_sub(int job, int fg)
 {
-    /* job: superjob; sj: subjob. */
     Job jn = jobtab + job, sj = jobtab + jn->other;
 
     if ((sj->stat & STAT_DONE) || (!sj->procs && !sj->auxprocs)) {
 	struct process *p;
-
-	for (p = sj->procs; p; p = p->next) {
+		    
+	for (p = sj->procs; p; p = p->next)
 	    if (WIFSIGNALED(p->status)) {
 		if (jn->gleader != mypgrp && jn->procs->next)
 		    killpg(jn->gleader, WTERMSIG(p->status));
@@ -248,7 +246,6 @@ handle_sub(int job, int fg)
 		kill(sj->other, WTERMSIG(p->status));
 		break;
 	    }
-	}
 	if (!p) {
 	    int cp;
 
@@ -277,10 +274,6 @@ handle_sub(int job, int fg)
 		(!jn->procs->next || cp || jn->procs->pid != jn->gleader))
 		attachtty(jn->gleader);
 	    kill(sj->other, SIGCONT);
-	    if (jn->stat & STAT_DISOWN)
-	    {
-		deletejob(jn, 1);
-	    }
 	}
 	curjob = jn - jobtab;
     } else if (sj->stat & STAT_STOPPED) {
@@ -728,40 +721,6 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
 	    case 'S':
 		fprintf(stderr, "%4.2fs", system_time);
 		break;
-	    case 'm':
-		switch (*++s) {
-		case 'E':
-		    fprintf(stderr, "%0.fms", elapsed_time * 1000.0);
-		    break;
-		case 'U':
-		    fprintf(stderr, "%0.fms", user_time * 1000.0);
-		    break;
-		case 'S':
-		    fprintf(stderr, "%0.fms", system_time * 1000.0);
-		    break;
-		default:
-		    fprintf(stderr, "%%m");
-		    s--;
-		    break;
-		}
-		break;
-	    case 'u':
-		switch (*++s) {
-		case 'E':
-		    fprintf(stderr, "%0.fus", elapsed_time * 1000000.0);
-		    break;
-		case 'U':
-		    fprintf(stderr, "%0.fus", user_time * 1000000.0);
-		    break;
-		case 'S':
-		    fprintf(stderr, "%0.fus", system_time * 1000000.0);
-		    break;
-		default:
-		    fprintf(stderr, "%%u");
-		    s--;
-		    break;
-		}
-		break;
 	    case '*':
 		switch (*++s) {
 		case 'E':
@@ -925,65 +884,37 @@ should_report_time(Job j)
     struct value vbuf;
     Value v;
     char *s = "REPORTTIME";
-    int save_errflag = errflag;
-    zlong reporttime = -1;
-#ifdef HAVE_GETRUSAGE
-    char *sm = "REPORTMEMORY";
-    zlong reportmemory = -1;
-#endif
+    zlong reporttime;
 
     /* if the time keyword was used */
     if (j->stat & STAT_TIMED)
 	return 1;
 
     queue_signals();
-    errflag = 0;
-    if ((v = getvalue(&vbuf, &s, 0)))
-	reporttime = getintvalue(v);
-#ifdef HAVE_GETRUSAGE
-    if ((v = getvalue(&vbuf, &sm, 0)))
-	reportmemory = getintvalue(v);
-#endif
-    errflag = save_errflag;
-    unqueue_signals();
-    if (reporttime < 0
-#ifdef HAVE_GETRUSAGE
-	&& reportmemory < 0
-#endif
-	)
+    if (!(v = getvalue(&vbuf, &s, 0)) ||
+	(reporttime = getintvalue(v)) < 0) {
+	unqueue_signals();
 	return 0;
+    }
+    unqueue_signals();
     /* can this ever happen? */
     if (!j->procs)
 	return 0;
     if (zleactive)
 	return 0;
 
-    if (reporttime >= 0)
-    {
 #ifdef HAVE_GETRUSAGE
-	reporttime -= j->procs->ti.ru_utime.tv_sec +
-	    j->procs->ti.ru_stime.tv_sec;
-	if (j->procs->ti.ru_utime.tv_usec +
-	    j->procs->ti.ru_stime.tv_usec >= 1000000)
-	    reporttime--;
-	if (reporttime <= 0)
-	    return 1;
+    reporttime -= j->procs->ti.ru_utime.tv_sec + j->procs->ti.ru_stime.tv_sec;
+    if (j->procs->ti.ru_utime.tv_usec +
+	j->procs->ti.ru_stime.tv_usec >= 1000000)
+	reporttime--;
+    return reporttime <= 0;
 #else
-	{
-	    clktck = get_clktck();
-	    if ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime)
-		return 1;
-	}
-#endif
+    {
+	clktck = get_clktck();
+	return ((j->procs->ti.ut + j->procs->ti.st) / clktck >= reporttime);
     }
-
-#ifdef HAVE_GETRUSAGE
-    if (reportmemory >= 0 &&
-	j->procs->ti.ru_maxrss / 1024 > reportmemory)
-	return 1;
 #endif
-
-    return 0;
 }
 
 /* !(lng & 3) means jobs    *
@@ -1248,7 +1179,7 @@ addfilelist(const char *name, int fd)
 
 /**/
 void
-pipecleanfilelist(LinkList filelist, int proc_subst_only)
+pipecleanfilelist(LinkList filelist)
 {
     LinkNode node;
 
@@ -1257,8 +1188,7 @@ pipecleanfilelist(LinkList filelist, int proc_subst_only)
     node = firstnode(filelist);
     while (node) {
 	Jobfile jf = (Jobfile)getdata(node);
-	if (jf->is_fd &&
-	    (!proc_subst_only || fdtable[jf->u.fd] == FDT_PROC_SUBST)) {
+	if (jf->is_fd) {
 	    LinkNode next = nextnode(node);
 	    zclose(jf->u.fd);
 	    (void)remnode(filelist, node);
@@ -1356,11 +1286,6 @@ deletejob(Job jn, int disowning)
 	attachtty(mypgrp);
 	adjustwinsize(0);
     }
-    if (jn->stat & STAT_SUPERJOB) {
-	Job jno = jobtab + jn->other;
-	if (jno->stat & STAT_SUBJOB)
-	    jno->stat |= STAT_SUBJOB_ORPHANED;
-    }
 
     freejob(jn, 1);
 }
@@ -1454,17 +1379,10 @@ waitforpid(pid_t pid, int wait_cmd)
     dont_queue_signals();
     child_block();		/* unblocked in signal_suspend() */
     queue_traps(wait_cmd);
-
-    /* This function should never be called with a pid that is not a
-     * child of the current shell.  Consequently, if kill(0, pid)
-     * fails here with ESRCH, the child has already been reaped.  In
-     * the loop body, we expect this to happen in signal_suspend()
-     * via zhandler(), after which this test terminates the loop.
-     */
     while (!errflag && (kill(pid, 0) >= 0 || errno != ESRCH)) {
 	if (first)
 	    first = 0;
-	else if (!wait_cmd)
+	else
 	    kill(pid, SIGCONT);
 
 	last_signal = -1;
@@ -1497,9 +1415,9 @@ zwaitjob(int job, int wait_cmd)
     int q = queue_signal_level();
     Job jn = jobtab + job;
 
+    dont_queue_signals();
     child_block();		 /* unblocked during signal_suspend() */
     queue_traps(wait_cmd);
-    dont_queue_signals();
     if (jn->procs || jn->auxprocs) { /* if any forks were done         */
 	jn->stat |= STAT_LOCKED;
 	if (jn->stat & STAT_CHANGED)
@@ -1515,9 +1433,9 @@ zwaitjob(int job, int wait_cmd)
 	     * we can't deadlock on the fact that those still exist, so
 	     * that's not a problem.
 	     */
-	    pipecleanfilelist(jn->filelist, 0);
+	    pipecleanfilelist(jn->filelist);
 	}
-	while (!(errflag & ERRFLAG_ERROR) && jn->stat &&
+	while (!errflag && jn->stat &&
 	       !(jn->stat & STAT_DONE) &&
 	       !(interact && (jn->stat & STAT_STOPPED))) {
 	    signal_suspend(SIGCHLD, wait_cmd);
@@ -1539,13 +1457,6 @@ zwaitjob(int job, int wait_cmd)
 	      that's the one related to ^C.  But that doesn't work.
 	      There's something more here we don't understand.  --pws
 
-	      The change above to ignore ERRFLAG_INT in the loop test
-	      solves a problem wherein child processes that ignore the
-	      INT signal were never waited-for.  Clearing the flag here
-	      still seems the wrong thing, but perhaps ERRFLAG_INT
-	      should be saved and restored around signal_suspend() to
-	      prevent it being lost within a signal trap?  --Bart
-
            errflag = 0; */
 
 	    if (subsh) {
@@ -1562,9 +1473,9 @@ zwaitjob(int job, int wait_cmd)
 	pipestats[0] = lastval;
 	numpipestats = 1;
     }
-    restore_queue_signals(q);
     unqueue_traps();
     child_unblock();
+    restore_queue_signals(q);
 
     return 0;
 }
@@ -1712,7 +1623,7 @@ spawnjob(void)
 	deletejob(jobtab + thisjob, 0);
     else {
 	jobtab[thisjob].stat |= STAT_LOCKED;
-	pipecleanfilelist(jobtab[thisjob].filelist, 0);
+	pipecleanfilelist(jobtab[thisjob].filelist);
     }
     thisjob = -1;
 }
@@ -2047,9 +1958,9 @@ struct bgstatus {
 };
 typedef struct bgstatus *Bgstatus;
 /* The list of those entries */
-static LinkList bgstatus_list;
+LinkList bgstatus_list;
 /* Count of entries.  Reaches value of _SC_CHILD_MAX and stops. */
-static long bgstatus_count;
+long bgstatus_count;
 
 /*
  * Remove and free a bgstatus entry.
@@ -2250,8 +2161,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    return 0;
 	} else {   /* Must be BIN_WAIT, so wait for all jobs */
 	    for (job = 0; job <= maxjob; job++)
-		if (job != thisjob && jobtab[job].stat &&
-		    !(jobtab[job].stat & STAT_NOPRINT))
+		if (job != thisjob && jobtab[job].stat)
 		    retval = zwaitjob(job, 1);
 	    unqueue_signals();
 	    return retval;
@@ -2285,11 +2195,8 @@ bin_fg(char *name, char **argv, Options ops, int func)
 		     */
 		    retval = waitforpid(pid, 1);
 		}
-		if (retval == 0) {
-		    if ((retval = getbgstatus(pid)) < 0) {
-			retval = lastval2;
-		    }
-		}
+		if (retval == 0)
+		    retval = lastval2;
 	    } else if ((retval = getbgstatus(pid)) < 0) {
 		zwarnnam(name, "pid %d is not a child of this shell", pid);
 		/* presumably lastval2 doesn't tell us a heck of a lot? */
@@ -2329,10 +2236,8 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	case BIN_FG:
 	case BIN_BG:
 	case BIN_WAIT:
-	    if (func == BIN_BG) {
+	    if (func == BIN_BG)
 		jobtab[job].stat |= STAT_NOSTTY;
-		jobtab[job].stat &= ~STAT_CURSH;
-	    }
 	    if ((stopped = (jobtab[job].stat & STAT_STOPPED))) {
 		makerunning(jobtab + job);
 		if (func == BIN_BG) {
@@ -2416,10 +2321,6 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    printjob(job + (oldjobtab ? oldjobtab : jobtab), lng, 2);
 	    break;
 	case BIN_DISOWN:
-	    if (jobtab[job].stat & STAT_SUPERJOB) {
-		jobtab[job].stat |= STAT_DISOWN;
-		continue;
-	    }
 	    if (jobtab[job].stat & STAT_STOPPED) {
 		char buf[20], *pids = "";
 
@@ -2459,7 +2360,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
     return retval;
 }
 
-static const struct {
+const struct {
     const char *name;
     int num;
 } alt_sigs[] = {
@@ -2613,10 +2514,6 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 	}
 	argv++;
     }
-
-    /* Discard the standard "-" and "--" option breaks */
-    if (*argv && (*argv)[0] == '-' && (!(*argv)[1] || (*argv)[1] == '-'))
-	argv++;
 
     if (!*argv) {
     	zwarnnam(nam, "not enough arguments");

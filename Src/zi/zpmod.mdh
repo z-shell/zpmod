@@ -1,0 +1,37 @@
+#ifndef have_ziQszpmod_module
+#define have_ziQszpmod_module
+
+# ifndef IMPORTING_MODULE_ziQszpmod
+#  ifndef MODULE
+#   define boot_ boot_ziQszpmod
+#   define cleanup_ cleanup_ziQszpmod
+#   define features_ features_ziQszpmod
+#   define enables_ enables_ziQszpmod
+#   define setup_ setup_ziQszpmod
+#   define finish_ finish_ziQszpmod
+#  endif /* !MODULE */
+# endif /* !IMPORTING_MODULE_ziQszpmod */
+
+/* Module dependencies */
+# define IMPORTING_MODULE_zshQsmain 1
+# include "../../Src/zsh.mdh"
+
+# undef mod_import_variable
+# undef mod_import_function
+# if defined(IMPORTING_MODULE_ziQszpmod) &&  defined(MODULE)
+#  define mod_import_variable 
+#  define mod_import_function 
+# else
+#  define mod_import_function
+#  define mod_import_variable
+# endif /* IMPORTING_MODULE_ziQszpmod && MODULE */
+# include "zpmod.epro"
+# undef mod_import_variable
+# define mod_import_variable
+# undef mod_import_variable
+# define mod_import_variable
+# ifndef mod_export
+#  define mod_export 
+# endif /* mod_export */
+
+#endif /* !have_ziQszpmod_module */

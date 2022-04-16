@@ -271,9 +271,10 @@ static int
 putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 {
     char *ss, *hostnam;
-    int t0, arg, test, sep, j, numjobs, len;
+    int t0, arg, test, sep, j, numjobs;
     struct tm *tm;
-    struct timespec ts;
+    struct timezone dummy_tz;
+    struct timeval tv;
     time_t timet;
     Nameddir nd;
 
@@ -314,7 +315,7 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		case '/':
 		case 'C':
 		    /* `/' gives 0, `/any' gives 1, etc. */
-		    if (*ss && *ss++ == '/' && *ss)
+		    if (*ss++ == '/' && *ss)
 			arg--;
 		    for (; *ss; ss++)
 			if (*ss == '/')
@@ -394,11 +395,11 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 			test = 1;
 		    break;
 		case 'v':
-		    if (arrlen_ge(psvar, arg))
+		    if (arrlen(psvar) >= arg)
 			test = 1;
 		    break;
 		case 'V':
-		    if (psvar && *psvar && arrlen_ge(psvar, arg)) {
+		    if (arrlen(psvar) >= arg) {
 			if (*psvar[(arg ? arg : 1) - 1])
 			    test = 1;
 		    }
@@ -490,10 +491,8 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		if (!arg)
 		    arg++;
 		queue_signals();
-		if (!(hostnam = getsparam("HOST"))) {
-		    unqueue_signals();
+		if (!(hostnam = getsparam("HOST")))
 		    break;
-		}
 		if (arg < 0) {
 		    for (ss = hostnam + strlen(hostnam); ss > hostnam; ss--)
 			if (ss[-1] == '.' && !++arg)
@@ -524,6 +523,8 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		break;
 	    case 'b':
 		txtchangeset(txtchangep, TXTNOBOLDFACE, TXTBOLDFACE);
+		txtchangeset(txtchangep, TXTNOSTANDOUT, TXTSTANDOUT);
+		txtchangeset(txtchangep, TXTNOUNDERLINE, TXTUNDERLINE);
 		txtunset(TXTBOLDFACE);
 		tsetcap(TCALLATTRSOFF, TSC_PROMPT|TSC_DIRTY);
 		break;
@@ -541,8 +542,7 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		arg = parsecolorchar(arg, 1);
 		if (arg >= 0 && !(arg & TXTNOFGCOLOUR)) {
 		    txtchangeset(txtchangep, arg & TXT_ATTR_FG_ON_MASK,
-				 TXTNOFGCOLOUR | TXT_ATTR_FG_COL_MASK);
-		    txtunset(TXT_ATTR_FG_COL_MASK);
+				 TXTNOFGCOLOUR);
 		    txtset(arg & TXT_ATTR_FG_ON_MASK);
 		    set_colour_attribute(arg, COL_SEQ_FG, TSC_PROMPT);
 		    break;
@@ -557,8 +557,7 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		arg = parsecolorchar(arg, 0);
 		if (arg >= 0 && !(arg & TXTNOBGCOLOUR)) {
 		    txtchangeset(txtchangep, arg & TXT_ATTR_BG_ON_MASK,
-				 TXTNOBGCOLOUR | TXT_ATTR_BG_COL_MASK);
-		    txtunset(TXT_ATTR_BG_COL_MASK);
+				 TXTNOBGCOLOUR);
 		    txtset(arg & TXT_ATTR_BG_ON_MASK);
 		    set_colour_attribute(arg, COL_SEQ_BG, TSC_PROMPT);
 		    break;
@@ -663,8 +662,8 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 			tmfmt = "%l:%M%p";
 			break;
 		    }
-		    zgettime(&ts);
-		    tm = localtime(&ts.tv_sec);
+		    gettimeofday(&tv, &dummy_tz);
+		    tm = localtime(&tv.tv_sec);
 		    /*
 		     * Hack because strftime won't say how
 		     * much space it actually needs.  Try to add it
@@ -674,14 +673,12 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		     */
 		    for(j = 0, t0 = strlen(tmfmt)*8; j < 3; j++, t0*=2) {
 			addbufspc(t0);
-			if ((len = ztrftime(bv->bp, t0, tmfmt, tm, ts.tv_nsec))
-			    >= 0)
+			if (ztrftime(bv->bp, t0, tmfmt, tm, tv.tv_usec) >= 0)
 			    break;
 		    }
 		    /* There is enough room for this because addbufspc(t0)
 		     * allocates room for t0 * 2 bytes. */
-		    if (len >= 0)
-			metafy(bv->bp, len, META_NOALLOC);
+		    metafy(bv->bp, -1, META_NOALLOC);
 		    bv->bp += strlen(bv->bp);
 		    zsfree(tmbuf);
 		    break;
@@ -737,7 +734,7 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		    arg = 1;
 		else if (arg < 0)
 		    arg += arrlen(psvar) + 1;
-		if (arg > 0 && arrlen_ge(psvar, arg))
+		if (arg > 0 && arrlen(psvar) >= arg)
 		    stradd(psvar[arg - 1]);
 		break;
 	    case 'E':
@@ -919,7 +916,6 @@ addbufspc(int need)
 	if(need & 255)
 	    need = (need | 255) + 1;
 	bv->buf = realloc(bv->buf, bv->bufspc += need);
-	memset(bv->buf + bv->bufspc - need, 0, need);
 	bv->bp = bv->buf + bo;
 	if(bo1 != -1)
 	    bv->bp1 = bv->buf + bo1;
@@ -968,7 +964,7 @@ stradd(char *d)
 	    /* FALL THROUGH */
 	default:
 	    /* Take full wide character in one go */
-	    mb_charinit();
+	    mb_metacharinit();
 	    pc = wcs_nicechar(cc, NULL, NULL);
 	    break;
 	}
@@ -1043,10 +1039,6 @@ tsetcap(int cap, int flags)
 		tsetcap(TCSTANDOUTBEG, flags);
 	    if (txtisset(TXTUNDERLINE))
 		tsetcap(TCUNDERLINEBEG, flags);
-	    if (txtisset(TXTFGCOLOUR))
-		set_colour_attribute(txtattrmask, COL_SEQ_FG, TSC_PROMPT);
-	    if (txtisset(TXTBGCOLOUR))
-		set_colour_attribute(txtattrmask, COL_SEQ_BG, TSC_PROMPT);
 	}
     }
 }
@@ -1086,7 +1078,7 @@ countprompt(char *str, int *wp, int *hp, int overf)
 #endif
 
     for (; *str; str++) {
-	if (w > zterm_columns && overf >= 0) {
+	if (w >= zterm_columns && overf >= 0) {
 	    w = 0;
 	    h++;
 	}
@@ -1837,7 +1829,7 @@ struct colour_sequences {
     char *end;			/* Escape sequence terminator */
     char *def;			/* Code to reset default colour */
 };
-static struct colour_sequences fg_bg_sequences[2];
+struct colour_sequences fg_bg_sequences[2];
 
 /*
  * We need a buffer for colour sequence composition.  It may

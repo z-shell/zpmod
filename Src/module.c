@@ -649,21 +649,11 @@ getconddef(int inf, const char *name, int autol)
 {
     Conddef p;
     int f = 1;
-    char *lookup, *s;
-
-    /* detokenize the Dash to the form encoded in lookup tables */
-    lookup = dupstring(name);
-    if (!lookup)
-	return NULL;
-    for (s = lookup; *s != '\0'; s++) {
-	if (*s == Dash)
-	    *s = '-';
-    }
 
     do {
 	for (p = condtab; p; p = p->next) {
 	    if ((!!inf == !!(p->flags & CONDF_INFIX)) &&
-		!strcmp(lookup, p->name))
+		!strcmp(name, p->name))
 		break;
 	}
 	if (autol && p && p->module) {
@@ -674,7 +664,7 @@ getconddef(int inf, const char *name, int autol)
 	    if (f) {
 		(void)ensurefeature(p->module,
 				    (p->flags & CONDF_INFIX) ? "C:" : "c:",
-				    (p->flags & CONDF_AUTOALL) ? NULL : lookup);
+				    (p->flags & CONDF_AUTOALL) ? NULL : name);
 		f = 0;
 		p = NULL;
 	    } else {
@@ -684,7 +674,6 @@ getconddef(int inf, const char *name, int autol)
 	} else
 	    break;
     } while (!p);
-
     return p;
 }
 
@@ -2253,7 +2242,6 @@ load_module(char const *name, Feature_enables enablesarr, int silent)
 	return 0;
     }
     if (m->node.flags & MOD_BUSY) {
-	unqueue_signals();
 	zerr("circular dependencies for module ;%s", name);
 	return 1;
     }
@@ -2337,7 +2325,7 @@ load_module(char const *name, Feature_enables enablesarr, int silent)
 
 /**/
 mod_export int
-require_module(const char *module, Feature_enables features, int silent)
+require_module(const char *module, Feature_enables features)
 {
     Module m = NULL;
     int ret = 0;
@@ -2347,7 +2335,7 @@ require_module(const char *module, Feature_enables features, int silent)
     m = find_module(module, FINDMOD_ALIASP, &module);
     if (!m || !m->u.handle ||
 	(m->node.flags & MOD_UNLOAD))
-	ret = load_module(module, features, silent);
+	ret = load_module(module, features, 0);
     else
 	ret = do_module_features(m, features, 0);
     unqueue_signals();
@@ -2983,7 +2971,7 @@ bin_zmodload_load(char *nam, char **args, Options ops)
     } else {
 	/* load modules */
 	for (; *args; args++) {
-	    int tmpret = require_module(*args, NULL, OPT_ISSET(ops,'s'));
+	    int tmpret = require_module(*args, NULL);
 	    if (tmpret && ret != 1)
 		ret = tmpret;
 	}
@@ -3253,7 +3241,7 @@ bin_zmodload_features(const char *nam, char **args, Options ops)
     fep->str = NULL;
     fep->pat = NULL;
 
-    return require_module(modname, features, OPT_ISSET(ops,'s'));
+    return require_module(modname, features);
 }
 
 
@@ -3362,8 +3350,6 @@ setfeatureenables(Module m, Features f, int *e)
     if (f->mf_size) {
 	if (setmathfuncs(m->node.nam, f->mf_list, f->mf_size, e))
 	    ret = 1;
-	if (e)
-	    e += f->mf_size;
     }
     if (f->pd_size) {
 	if (setparamdefs(m->node.nam, f->pd_list, f->pd_size, e))
@@ -3414,14 +3400,14 @@ ensurefeature(const char *modname, const char *prefix, const char *feature)
     struct feature_enables features[2];
 
     if (!feature)
-	return require_module(modname, NULL, 0);
+	return require_module(modname, NULL);
     f = dyncat(prefix, feature);
 
     features[0].str = f;
     features[0].pat = NULL;
     features[1].str = NULL;
     features[1].pat = NULL;
-    return require_module(modname, features, 0);
+    return require_module(modname, features);
 }
 
 /*

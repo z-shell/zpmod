@@ -78,11 +78,9 @@ mod_export HashTable optiontab;
  */
 static struct optname optns[] = {
 {{NULL, "aliases",	      OPT_EMULATE|OPT_ALL},	 ALIASESOPT},
-{{NULL, "aliasfuncdef",       OPT_EMULATE|OPT_BOURNE},	 ALIASFUNCDEF},
 {{NULL, "allexport",	      OPT_EMULATE},		 ALLEXPORT},
 {{NULL, "alwayslastprompt",   OPT_ALL},			 ALWAYSLASTPROMPT},
 {{NULL, "alwaystoend",	      0},			 ALWAYSTOEND},
-{{NULL, "appendcreate",	      OPT_EMULATE|OPT_BOURNE},	 APPENDCREATE},
 {{NULL, "appendhistory",      OPT_ALL},			 APPENDHISTORY},
 {{NULL, "autocd",	      OPT_EMULATE},		 AUTOCD},
 {{NULL, "autocontinue",	      0},			 AUTOCONTINUE},
@@ -111,7 +109,6 @@ static struct optname optns[] = {
 {{NULL, "chasedots",	      OPT_EMULATE},		 CHASEDOTS},
 {{NULL, "chaselinks",	      OPT_EMULATE},		 CHASELINKS},
 {{NULL, "checkjobs",	      OPT_EMULATE|OPT_ZSH},	 CHECKJOBS},
-{{NULL, "checkrunningjobs",   OPT_EMULATE|OPT_ZSH},	 CHECKRUNNINGJOBS},
 {{NULL, "clobber",	      OPT_EMULATE|OPT_ALL},	 CLOBBER},
 {{NULL, "combiningchars",     0},			 COMBININGCHARS},
 {{NULL, "completealiases",    0},			 COMPLETEALIASES},
@@ -142,7 +139,6 @@ static struct optname optns[] = {
 {{NULL, "globassign",	      OPT_EMULATE|OPT_CSH},	 GLOBASSIGN},
 {{NULL, "globcomplete",	      0},			 GLOBCOMPLETE},
 {{NULL, "globdots",	      OPT_EMULATE},		 GLOBDOTS},
-{{NULL, "globstarshort",      OPT_EMULATE},		 GLOBSTARSHORT},
 {{NULL, "globsubst",	      OPT_EMULATE|OPT_NONZSH},	 GLOBSUBST},
 {{NULL, "hashcmds",	      OPT_ALL},			 HASHCMDS},
 {{NULL, "hashdirs",	      OPT_ALL},			 HASHDIRS},
@@ -176,7 +172,7 @@ static struct optname optns[] = {
 {{NULL, "kshautoload",	      OPT_EMULATE|OPT_BOURNE},	 KSHAUTOLOAD},
 {{NULL, "kshglob",	      OPT_EMULATE|OPT_KSH},	 KSHGLOB},
 {{NULL, "kshoptionprint",     OPT_EMULATE|OPT_KSH},	 KSHOPTIONPRINT},
-{{NULL, "kshtypeset",	      0},			 KSHTYPESET},
+{{NULL, "kshtypeset",	      OPT_EMULATE|OPT_KSH},	 KSHTYPESET},
 {{NULL, "kshzerosubscript",   0},			 KSHZEROSUBSCRIPT},
 {{NULL, "listambiguous",      OPT_ALL},			 LISTAMBIGUOUS},
 {{NULL, "listbeep",	      OPT_ALL},			 LISTBEEP},
@@ -196,7 +192,7 @@ static struct optname optns[] = {
 {{NULL, "monitor",	      OPT_SPECIAL},		 MONITOR},
 {{NULL, "multibyte",
 #ifdef MULTIBYTE_SUPPORT
-			      OPT_ALL
+			      OPT_EMULATE|OPT_ZSH|OPT_CSH|OPT_KSH
 #else
 			      0
 #endif
@@ -258,8 +254,7 @@ static struct optname optns[] = {
 {{NULL, "unset",	      OPT_EMULATE|OPT_BSHELL},	 UNSET},
 {{NULL, "verbose",	      0},			 VERBOSE},
 {{NULL, "vi",		      0},			 VIMODE},
-{{NULL, "warncreateglobal",   OPT_EMULATE},		 WARNCREATEGLOBAL},
-{{NULL, "warnnestedvar",      OPT_EMULATE},		 WARNNESTEDVAR},
+{{NULL, "warncreateglobal",   0},			 WARNCREATEGLOBAL},
 {{NULL, "xtrace",	      0},			 XTRACE},
 {{NULL, "zle",		      OPT_SPECIAL},		 USEZLE},
 {{NULL, "braceexpand",	      OPT_ALIAS}, /* ksh/bash */ -IGNOREBRACES},
@@ -648,7 +643,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 
 	    /* Expand the current arg. */
 	    tokenize(s);
-	    if (!(pprog = patcompile(s, PAT_HEAPDUP, NULL))) {
+	    if (!(pprog = patcompile(s, PAT_STATIC, NULL))) {
 		zwarnnam(nam, "bad pattern: %s", *args);
 		continue;
 	    }
@@ -769,32 +764,15 @@ dosetopt(int optno, int value, int force, char *new_opts)
     } else if(optno == PRIVILEGED && !value) {
 	/* unsetting PRIVILEGED causes the shell to make itself unprivileged */
 #ifdef HAVE_SETUID
-	int ignore_err;
-	errno = 0;
-	/*
-	 * Set the GID first as if we set the UID to non-privileged it
-	 * might be impossible to restore the GID.
-	 *
-	 * Some OSes (possibly no longer around) have been known to
-	 * fail silently the first time, so we attempt the change twice.
-	 * If it fails we are guaranteed to pick this up the second
-	 * time, so ignore the first time.
-	 *
-	 * Some versions of gcc make it hard to ignore the results the
-	 * first time, hence the following.  (These are probably not
-	 * systems that require the doubled calls.)
-	 */
-	ignore_err = setgid(getgid());
-	(void)ignore_err;
-	ignore_err = setuid(getuid());
-	(void)ignore_err;
-	if (setgid(getgid())) {
-            zwarn("failed to change group ID: %e", errno);
-            return -1;
-        } else if (setuid(getuid())) {
+	setuid(getuid());
+	setgid(getgid());
+        if (setuid(getuid())) {
             zwarn("failed to change user ID: %e", errno);
             return -1;
-	}
+	} else if (setgid(getgid())) {
+            zwarn("failed to change group ID: %e", errno);
+            return -1;
+        }
 #else
         zwarn("setuid not available");
         return -1;
@@ -867,10 +845,9 @@ printoptionnodestate(HashNode hn, int hadplus)
     int optno = on->optno;
 
     if (hadplus) {
-	printf("set %co %s%s\n",
-	       defset(on, emulation) != isset(optno) ? '-' : '+',
-	       defset(on, emulation) ? "no" : "",
-	       on->node.nam);
+        if (defset(on, emulation) != isset(optno))
+	    printf("set -o %s%s\n", defset(on, emulation) ?
+		   "no" : "", on->node.nam);
     } else {
 	if (defset(on, emulation))
 	    printf("no%-19s %s\n", on->node.nam, isset(optno) ? "off" : "on");
@@ -922,34 +899,4 @@ printoptionlist_printequiv(int optno)
 
     optno *= (isneg ? -1 : 1);
     printf("  equivalent to --%s%s\n", isneg ? "no-" : "", optns[optno-1].node.nam);
-}
-
-/**/
-static char *print_emulate_opts;
-
-/**/
-static void
-print_emulate_option(HashNode hn, int fully)
-{
-    Optname on = (Optname) hn;
-
-    if (!(on->node.flags & OPT_ALIAS) &&
-	((fully && !(on->node.flags & OPT_SPECIAL)) ||
-	 (on->node.flags & OPT_EMULATE)))
-    {
-	if (!print_emulate_opts[on->optno])
-	    fputs("no", stdout);
-	puts(on->node.nam);
-    }
-}
-
-/*
- * List the settings of options associated with an emulation
- */
-
-/**/
-void list_emulate_options(char *cmdopts, int fully)
-{
-    print_emulate_opts = cmdopts;
-    scanhashtable(optiontab, 1, 0, 0, print_emulate_option, fully);
 }

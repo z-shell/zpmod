@@ -1,0 +1,45 @@
+E#ifndef have_Src_zi_zpmod_globals
+E#define have_Src_zi_zpmod_globals
+E
+Lstatic void zp_setup_options_table _(());
+Lstatic int zp_conv_opt _((int zp_opt_num));
+Eextern int bin_custom_dot _((char*name,char**argv,UNUSED(Options ops),UNUSED(int func)));
+Xcustom_source
+Eextern mod_import_function enum source_return custom_source _((char*s));
+Eextern Eprog custom_try_source_file _((char*file));
+E#if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP) && defined(HAVE_MUNMAP)
+L#if defined(HAVE_SYS_MMAN_H) && defined(HAVE_MMAP) && defined(HAVE_MUNMAP)
+E#if defined(MAP_SHARED) && defined(PROT_READ)
+L#if defined(MAP_SHARED) && defined(PROT_READ)
+E#define USE_MMAP 1
+L#define USE_MMAP 1
+E#endif
+L#endif
+E#endif
+L#endif
+E#ifdef USE_MMAP
+L#ifdef USE_MMAP
+Lstatic int custom_zwcstat _((char*filename,struct stat*buf));
+E#endif
+L#endif
+Lstatic Eprog custom_check_dump_file _((char*file,struct stat*sbuf,char*name,int*ksh,int test_only));
+Lstatic Wordcode custom_load_dump_header _((char*nam,char*name,int err));
+Lstatic void readarray_usage _(());
+Eextern void zpmod_usage _(());
+Lstatic int zp_append_report _((const char*nam,const char*target,int target_len,const char*body,int body_len));
+Eextern char*zp_build_source_report _((int no_paths,int*rep_size));
+Lstatic HashTable zp_createhashtable _((char*name));
+Lstatic Param zp_createhashparam _((char*name,int flags));
+Lstatic void zp_free_sevent_node _((HashNode hn));
+Eextern void zp_freeparamnode _((HashNode hn));
+Lstatic int zp_has_option _((char**argv,char opt));
+Eextern char*my_ztrdup_glen _((const char*s,unsigned*len_ret));
+Eextern char*zp_unmetafy_zalloc _((const char*to_copy,int*new_len));
+Eextern int setup_ _((UNUSED(Module m)));
+Eextern int features_ _((Module m,char***features));
+Eextern int enables_ _((Module m,int**enables));
+Eextern int boot_ _((Module m));
+Eextern int cleanup_ _((Module m));
+Eextern int finish_ _((UNUSED(Module m)));
+E
+E#endif /* !have_Src_zi_zpmod_globals */
