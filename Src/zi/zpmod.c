@@ -645,7 +645,6 @@ custom_source(char *s)
 	int tempfd = -1, fd, cj;
 	zlong oldlineno;
 	int oldshst, osubsh, oloops;
-	FILE *obshin;
 	char *old_scriptname = scriptname, *us;
 	char *old_scriptfilename = scriptfilename;
 	unsigned char *ocs;
@@ -672,7 +671,6 @@ custom_source(char *s)
 
 	/* save the current shell state */
 	fd = SHIN;				  /* store the shell input fd                  */
-	obshin = bshin;				  /* store file handle for buffered shell input */
 	osubsh = subsh;				  /* store whether we are in a subshell        */
 	cj = thisjob;				  /* store our current job number              */
 	oldlineno = lineno;			  /* store our current lineno                  */
@@ -686,7 +684,7 @@ custom_source(char *s)
 	if (!prog)
 	{
 		SHIN = tempfd;
-		bshin = fdopen(SHIN, "r");
+		shinbufsave();
 	}
 	subsh = 0;
 	lineno = 1;
@@ -760,10 +758,10 @@ custom_source(char *s)
 		freeeprog(prog);
 	else
 	{
-		fclose(bshin);
+		close(SHIN);
 		fdtable[SHIN] = FDT_UNUSED;
-		SHIN = fd;	/* the shell input fd                   */
-		bshin = obshin; /* file handle for buffered shell input */
+		SHIN = fd;	  /* the shell input fd                   */
+		shinbufrestore(); /* file handle for buffered shell input */
 	}
 	subsh = osubsh;					      /* whether we are in a subshell         */
 	thisjob = cj;					      /* current job number                   */
