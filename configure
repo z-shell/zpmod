@@ -15381,7 +15381,7 @@ DEFS_MK="Config/defs.mk"
 VERSION_MK="${srcdir}/Config/version.mk"
 
 
-ac_config_files="$ac_config_files Config/defs.mk Makefile Doc/Makefile Etc/Makefile Src/Makefile Test/Makefile"
+ac_config_files="$ac_config_files Config/defs.mk Makefile Src/Makefile Test/Makefile"
 
 ac_config_commands="$ac_config_commands config.modules"
 
@@ -16081,8 +16081,6 @@ do
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Config/defs.mk") CONFIG_FILES="$CONFIG_FILES Config/defs.mk" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "Doc/Makefile") CONFIG_FILES="$CONFIG_FILES Doc/Makefile" ;;
-    "Etc/Makefile") CONFIG_FILES="$CONFIG_FILES Etc/Makefile" ;;
     "Src/Makefile") CONFIG_FILES="$CONFIG_FILES Src/Makefile" ;;
     "Test/Makefile") CONFIG_FILES="$CONFIG_FILES Test/Makefile" ;;
     "config.modules") CONFIG_COMMANDS="$CONFIG_COMMANDS config.modules" ;;

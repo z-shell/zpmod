@@ -2,7 +2,7 @@
 +++ configure.ac
 @@ -672,6 +677,16 @@ AC_HEADER_STAT
  AC_HEADER_SYS_WAIT
- 
+
  oldcflags="$CFLAGS"
 +if test x$enable_pcre = xyes; then
 +AC_CHECK_PROG([PCRECONF], pcre-config, pcre-config)
@@ -14,7 +14,7 @@
 +  CPPFLAGS="$CPPFLAGS `pcre-config --cflags`"
 +fi
 +fi
- 
+
  AC_CHECK_HEADERS(sys/time.h sys/times.h sys/select.h termcap.h termio.h \
  		 termios.h sys/param.h sys/filio.h string.h memory.h \
 @@ -679,7 +694,7 @@ AC_CHECK_HEADERS(sys/time.h sys/times.h sys/select.h termcap.h termio.h \
@@ -37,7 +37,6 @@
 @@ -3267,7 +3289,8 @@ AC_SUBST_FILE(CONFIG_MK)dnl
  AC_SUBST_FILE(DEFS_MK)dnl
  AC_SUBST_FILE(VERSION_MK)dnl
- 
+
  AC_CONFIG_COMMANDS([config.modules], [. ./config.modules.sh])
  AC_CONFIG_COMMANDS([stamp-h], [echo >stamp-h])
- 
