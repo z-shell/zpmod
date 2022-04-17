@@ -85,10 +85,11 @@ MAIN() {
   ZI_HOME="${ZI_HOME:-${ZDOTDIR:-${HOME}}/.zi}"
   MOD_HOME="${MOD_HOME:-zmodules}/zpmod"
 
-  printf '%s\n' "${col_info}Re-run this script to update (from Github) and rebuild the module.$col_rst"
-  printf '%s\n' "${col_info2}Press any key to continue, or Ctrl-C to exit.$col_rst"
-  read -r
-
+  if [ ci = 0 ]; then
+    printf '%s\n' "${col_info}Re-run this script to update (from Github) and rebuild the module.$col_rst"
+    printf '%s\n' "${col_info2}Press any key to continue, or Ctrl-C to exit.$col_rst"
+    read -r
+  fi    
   setup_zpmod_repository
   build_zpmod_module "$@"
 }
