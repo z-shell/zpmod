@@ -29,7 +29,7 @@ build_zpmod_module() {
   if command -v zsh >/dev/null; then
     printf '%s\n' "$col_info2-- Checkig version --$col_rst"
     ZSH_CURRENT=$(zsh --version </dev/null | head -n1 | cut -d" " -f2,6- | tr -d '-')
-    ZSH_REQUIRED="5.8.1"
+    ZSH_REQUIRED="5.8"
     if expr "$ZSH_CURRENT" \< "$ZSH_REQUIRED" >/dev/null; then
       printf '%s\n' "$col_error-- Zsh version 5.8.1 and above required --$col_rst"
       exit 1
