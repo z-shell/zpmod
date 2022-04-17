@@ -20,3 +20,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install zsh
           ci=1 ./build.sh
+      - run: |
+          module_path+=( "/home/runner/.zi/zmodules/zpmod/Src" )
+          zmodload zi/zpmod
+        shell: zsh {0}
