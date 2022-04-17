@@ -23,4 +23,5 @@ jobs:
       - run: |
           module_path+=( "/home/runner/.zi/zmodules/zpmod/Src" )
           zmodload zi/zpmod
+          zpmod source-study -l
         shell: zsh {0}
