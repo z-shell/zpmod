@@ -19,4 +19,4 @@ jobs:
       - name: 🏗 Run installer
         run: |
           sudo apt-get update && sudo apt-get install zsh
-          export ci=1 ./build.sh
+          ci=1 ./build.sh
