@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 30
     needs: [shellcheck]
     concurrency:
-      group: ci-${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: false
     steps:
       - name: ⤵️ Check out code from GitHub
@@ -41,7 +41,7 @@ jobs:
       - name: 🍎 Dependencies (MacOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          brew install curl zsh
+          brew install curl zsh ncurses
       - name: 🐧 Install on Linux
         if: startsWith(matrix.os, 'ubuntu')
         run: sh -x ./build.sh
