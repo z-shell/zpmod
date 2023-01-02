@@ -52,6 +52,7 @@ build_zpmod_module() {
       if CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp; then
         printf '%s\n' "$col_info2-- Running make --$col_rst"
         if make -s; then
+          [ -f Src/zi/zpmod.so ] && cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
 [38;5;219m▓▒░[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:
@@ -75,21 +76,14 @@ EOF
 }
 
 MAIN() {
-
   col_pname="[33m"
   col_error="[31m"
-  col_info="[32m"
   col_info2="[32m"
   col_rst="[0m"
 
   ZI_HOME="${ZI_HOME:-${ZDOTDIR:-${HOME}}/.zi}"
   MOD_HOME="${MOD_HOME:-zmodules}/zpmod"
 
-  if [ ci = 0 ]; then
-    printf '%s\n' "${col_info}Re-run this script to update (from Github) and rebuild the module.$col_rst"
-    printf '%s\n' "${col_info2}Press any key to continue, or Ctrl-C to exit.$col_rst"
-    read -r
-  fi    
   setup_zpmod_repository
   build_zpmod_module "$@"
 }
