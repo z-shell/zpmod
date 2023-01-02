@@ -1,0 +1,11 @@
+CFLAGS
+CPPFLAGS
+distclean
+gdbm
+LDFLAGS
+libc
+tcsetpgrp
+ZDOTDIR
+zmodload
+zmodules
+zpmod
