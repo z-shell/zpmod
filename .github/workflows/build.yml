@@ -1,13 +1,10 @@
+---
 name: ✅ Test installer
 on:
   push:
     branches: [main]
-    paths:
-      - "./build.sh"
   pull_request:
     branches: [main]
-    paths:
-      - "./build.sh"
   workflow_dispatch:
 
 jobs:
