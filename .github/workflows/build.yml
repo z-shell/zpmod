@@ -8,17 +8,52 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  shellcheck:
     runs-on: ubuntu-latest
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@v3
-      - name: 🏗 Run installer
+        uses: actions/checkout@v3.2.0
+      - name: ☑️ ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "."
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    needs: [shellcheck]
+    concurrency:
+      group: ci-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v3.2.0
+      - uses: rlespinasse/github-slug-action@v4
+      - name: 📦 Dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu-latest')
         run: |
-          sudo apt-get update && sudo apt-get install zsh
-          ci=1 ./build.sh
-      - run: |
-          module_path+=( "/home/runner/.zi/zmodules/zpmod/Src" )
-          zmodload zi/zpmod
-          zpmod source-study -l
-        shell: zsh {0}
+          sudo apt-get update
+          sudo apt-get install -y curl git zsh
+      - name: 🍎 Dependencies (MacOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install curl zsh
+      - name: 🐧 Install on Linux
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sh -x ./build.sh
+        #run: |
+        #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
+        #  zmodload zi/zpmod
+        #  zpmod source-study -l
+        #shell: zsh {0}
+      - name: 🍎 Install on MacOS
+        if: startsWith(matrix.os, 'macos')
+        run: sh -x ./build.sh
+        #run: |
+        #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
+        #  zmodload zi/zpmod
+        #  zpmod source-study -l

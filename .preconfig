@@ -4,4 +4,4 @@ set -e
 
 autoconf
 autoheader
-echo > stamp-h.in
+echo >stamp-h.in
