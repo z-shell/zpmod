@@ -1,3 +1,4 @@
+autoheader
 CFLAGS
 CPPFLAGS
 distclean
