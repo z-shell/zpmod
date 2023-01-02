@@ -36,7 +36,7 @@ build_zpmod_module() {
     else
       (
         printf '%s\n' "$col_info2-- Zsh version $ZSH_CURRENT --$col_rst"
-        builtin cd -q "${ZI_HOME}/${MOD_HOME}" || exit
+        builtin cd "${ZI_HOME}/${MOD_HOME}" || exit
         printf '%s\n' "$col_pname== Building module ZPMOD, running: a make clean, then ./configure and then make ==$col_rst"
         printf '%s\n' "$col_pname== The module sources are located at: ${ZI_HOME}/${MOD_HOME} ==$col_rst"
         if [ -f Makefile ]; then
