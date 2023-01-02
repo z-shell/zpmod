@@ -32,7 +32,7 @@ setup_environment() {
 setup_zpmod_repository() {
   printf '%s\n' "$col_pname== Downloading ZPMOD module to ${MOD_HOME}"
   if test -d "${MOD_HOME}/.git"; then
-    builtin cd "${MOD_HOME}" || exit
+    cd "${MOD_HOME}" || exit
     git pull -q origin main
   else
     git clone -q https://github.com/z-shell/zpmod.git "$MOD_HOME"
@@ -54,7 +54,7 @@ build_zpmod_module() {
     else
       (
         printf '%s\n' "$col_info2-- Zsh version $ZSH_CURRENT --$col_rst"
-        builtin cd "${MOD_HOME}" || exit
+        cd "${MOD_HOME}" || exit
         printf '%s\n' "$col_pname== Building module ZPMOD, running: a make clean, then ./configure and then make ==$col_rst"
         printf '%s\n' "$col_pname== The module sources are located at: ${MOD_HOME} ==$col_rst"
         if [ -f Makefile ]; then
