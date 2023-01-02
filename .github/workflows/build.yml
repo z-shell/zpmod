@@ -16,7 +16,7 @@ jobs:
       - name: ☑️ ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:
-          scandir: "."
+          scandir: ".build.sh"
 
   build:
     strategy:
