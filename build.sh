@@ -68,7 +68,9 @@ build_zpmod_module() {
           fi
         fi
         printf '%s\n' "$col_info2-- Configuring --$col_rst"
-        CPPFLAGS="-I/usr/local/include" CFLAGS="-g -Wall -O3" LDFLAGS="-L/usr/local/lib" ./configure --disable-gdbm --enable-libc-musl --without-tcsetpgrp
+        ./preconfig
+        CPPFLAGS=-"I/usr/local/include" CFLAGS="-g -Wall -O3" LDFLAGS="-L/usr/local/lib" \
+          ./configure --disable-gdbm --without-tcsetpgrp --enable-pcre
         printf '%s\n' "$col_info2-- Running make --$col_rst"
         if make -j 4 >/dev/null && [ -f Src/zi/zpmod.so ]; then
           cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
