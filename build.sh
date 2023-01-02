@@ -34,22 +34,23 @@ build_zpmod_module() {
       printf '%s\n' "$col_error-- Zsh version 5.8.1 and above required --$col_rst"
       exit 1
     else
-      printf '%s\n' "$col_info2-- Zsh version $ZSH_CURRENT --$col_rst"
-      cd "${ZI_HOME}/${MOD_HOME}" || return
-      printf '%s\n' "$col_pname== Building module ZPMOD, running: a make clean, then ./configure and then make ==$col_rst"
-      printf '%s\n' "$col_pname== The module sources are located at: ${ZI_HOME}/${MOD_HOME} ==$col_rst"
-      if test -f Makefile; then
-        if [ "$1" = "--clean" ]; then
-          printf '%s\n' "$col_info2-- make distclean --$col_rst"
-          make -s distclean
-          true
-        else
-          printf '%s\n' "$col_info2-- make clean (pass --clean to invoke \`make distclean') --$col_rst"
-          make -s clean
+      (
+        printf '%s\n' "$col_info2-- Zsh version $ZSH_CURRENT --$col_rst"
+        builtin cd -q "${ZI_HOME}/${MOD_HOME}" || exit
+        printf '%s\n' "$col_pname== Building module ZPMOD, running: a make clean, then ./configure and then make ==$col_rst"
+        printf '%s\n' "$col_pname== The module sources are located at: ${ZI_HOME}/${MOD_HOME} ==$col_rst"
+        if [ -f Makefile ]; then
+          if [ "$1" = "--clean" ]; then
+            printf '%s\n' "$col_info2-- make distclean --$col_rst"
+            make distclean
+            true
+          else
+            printf '%s\n' "$col_info2-- make clean (pass --clean to invoke \`make distclean') --$col_rst"
+            make clean
+          fi
         fi
-      fi
-      printf '%s\n' "$col_info2-- Configuring --$col_rst"
-      if CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp; then
+        printf '%s\n' "$col_info2-- Configuring --$col_rst"
+        CPPFLAGS=-I/usr/local/include CFLAGS="-g -Wall -O3" LDFLAGS=-L/usr/local/lib ./configure --disable-gdbm --without-tcsetpgrp
         printf '%s\n' "$col_info2-- Running make --$col_rst"
         if make -s; then
           [ -f Src/zi/zpmod.so ] && cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
@@ -68,7 +69,7 @@ EOF
           printf '%s\n' "${col_error}Module didn't build.$col_rst. You can copy the error messages and submit"
           printf '%s\n' "error-report at: https://github.com/z-shell/zpmod/issues"
         fi
-      fi
+      )
     fi
   else
     printf '%s\n' "${col_error} Zsh is not installed. Please install zsh and try again.$col_rst"
@@ -81,14 +82,25 @@ MAIN() {
   col_info2="[32m"
   col_rst="[0m"
 
-  ZI_HOME="${ZI_HOME:-${ZDOTDIR:-${HOME}}/.zi}"
+  if [ -z "$ZI_HOME" ]; then
+    if [ -d "$HOME"/.zi ]; then
+      ZI_HOME="${HOME}/.zi"
+    elif [ -d "$ZDOTDIR"/.zi ]; then
+      ZI_HOME="${ZDOTDIR}/.zi"
+    elif [ -d "$XDG_DATA_HOME"/.zi ]; then
+      ZI_HOME="${XDG_DATA_HOME}/.zi"
+    else
+      ZI_HOME="${HOME}/.zi"
+    fi
+  fi
+
   MOD_HOME="${MOD_HOME:-zmodules}/zpmod"
 
   setup_zpmod_repository
   build_zpmod_module "$@"
+  exit 0
 }
 
 while true; do
-  MAIN "$@"
-  exit 0
+  MAIN "${@}"
 done
