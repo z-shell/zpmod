@@ -1,5 +1,5 @@
 ---
-name: ✅ Build (Linux)
+name: 🐧 Build (Linux)
 on:
   push:
     branches: [main]
@@ -18,7 +18,7 @@ jobs:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v3.2.0
       - name: ☑️ ShellCheck
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@6d3f514f44620b9d4488e380339edc0d9bbe2fba
         with:
           scandir: "./Scripts/install.sh"
 
@@ -29,15 +29,15 @@ jobs:
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v3.2.0
-      - uses: rlespinasse/github-slug-action@v4
-      - name: 📦 Prepare
+      - name: ⚙️ Prepare
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
-      - name: 🐧 Build
+      - name: ⚙️ Build
         run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
-        #run: |
-        #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
-        #  zmodload zi/zpmod
-        #  zpmod source-study -l
-        #shell: zsh {0}
+      - name: ⚙️ Load
+        run: |
+          module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
+          zmodload zi/zpmod
+          zpmod source-study -l
+        shell: zsh {0}
