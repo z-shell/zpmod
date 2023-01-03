@@ -17,7 +17,7 @@
 
 /* Define this if you use "suspended" instead of "stopped" */
 #define USE_SUSPENDED 1
- 
+
 /* The default history buffer size in lines */
 #define DEFAULT_HISTSIZE 30
 
@@ -43,9 +43,6 @@
 
 /* Define to 1 if sigsuspend() is broken */
 #undef BROKEN_POSIX_SIGSUSPEND
-
-/* Define to 1 if compiler incorrectly cast signed to unsigned. */
-#undef BROKEN_SIGNED_TO_UNSIGNED_CASTING
 
 /* Define to 1 if tcsetpgrp() doesn't work, ie BeOS R4.51. */
 #undef BROKEN_TCSETPGRP
@@ -445,14 +442,8 @@
 /* Define to 1 if you have the `nice' function. */
 #undef HAVE_NICE
 
-/* Define to 1 if you have NIS. */
-#undef HAVE_NIS
-
 /* Define to 1 if you have the `nis_list' function. */
 #undef HAVE_NIS_LIST
-
-/* Define to 1 if you have NISPLUS. */
-#undef HAVE_NIS_PLUS
 
 /* Define to 1 if you have the `nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
@@ -495,6 +486,9 @@
 
 /* Define to 1 if you have the `posix_openpt' function. */
 #undef HAVE_POSIX_OPENPT
+
+/* Define to 1 if the system supports `prctl' to change process name */
+#undef HAVE_PRCTL
 
 /* Define to 1 if you have the `ptsname' function. */
 #undef HAVE_PTSNAME
@@ -573,6 +567,9 @@
 
 /* Define to 1 if RLIMIT_RTPRIO is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_RTPRIO
+
+/* Define to 1 if RLIMIT_RTTIME is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_RTTIME
 
 /* Define to 1 if RLIMIT_SBSIZE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_SBSIZE
@@ -1118,6 +1115,9 @@
 /* Define to 1 if select() is defined in <sys/socket.h>, ie BeOS R4.51 */
 #undef SELECT_IN_SYS_SOCKET_H
 
+/* Define to 1 if setenv removes a leading = */
+#undef SETENV_MANGLES_EQUAL
+
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
    automatically deduced at runtime.
@@ -1150,10 +1150,6 @@
 /* Define if sys/time.h and sys/select.h cannot be both included. */
 #undef TIME_H_SELECT_H_CONFLICTS
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. This
-   macro is obsolete. */
-#undef TIME_WITH_SYS_TIME
-
 /* Define to 1 if all the kit for using /dev/ptmx for ptys is available. */
 #undef USE_DEV_PTMX
 
@@ -1162,6 +1158,9 @@
 
 /* Define to 1 if h_errno is not defined by the system. */
 #undef USE_LOCAL_H_ERRNO
+
+/* Define to 1 if lseek() can be used for SHIN. */
+#undef USE_LSEEK
 
 /* Define to 1 if you want to allocate stack memory e.g. with `alloca'. */
 #undef USE_STACK_ALLOCATION

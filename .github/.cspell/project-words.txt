@@ -1,10 +1,12 @@
 autoheader
+automake
 CFLAGS
 CPPFLAGS
 distclean
 gdbm
 LDFLAGS
 libc
+sevent
 tcsetpgrp
 ZDOTDIR
 zmodload

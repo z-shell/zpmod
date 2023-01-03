@@ -1,28 +1,26 @@
 # ZPMOD
 
-The module is a binary Zsh module (think about `zmodload` Zsh command, it's that topic) which transparently and
-automatically **compiles sourced scripts**. Many plugin managers do not offer compilation of plugins, the module is
-a solution to this. Even if a plugin manager does compile plugin's main script (like ZI does).
+The module is a binary Zsh module (think about `zmodload` Zsh command, it's that topic) which transparently and automatically **compiles sourced scripts**. Many plugin managers do not offer compilation of plugins, the module is a solution to this. Even if a plugin manager does compile plugin's main script (like Zi does).
 
 ## Installation
 
-### Without [ZI](https://github.com/z-shell/zi)
+### Without [Zi](https://github.com/z-shell/zi)
 
 Install just the **standalone** binary which can be used with anyother plugin manager.
 
-> **[?]**
-> This script can be used with most plugin managers and [ZI](https://github.com/z-shell/zi) is not required.
+> **Note**
+> This script can be used with most plugin managers and [Zi](https://github.com/z-shell/zi) is not required.
 
 ```sh
-sh <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/HEAD/build.sh)
+sh <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/main/Scripts/install.sh)
 ```
 
 This script will display what to add to `~/.zshrc` (2 lines) and show usage instructions.
 
-### With [ZI](https://github.com/z-shell/zi)
+### With [Zi](https://github.com/z-shell/zi)
 
-> **[?]**
-> ZI users can build the module by issuing following command instead of running above `build.sh` script.
+> **Note**
+> Zi users can build the module by issuing following command instead of running above `build.sh` script.
 
 ```shell
 zi module build

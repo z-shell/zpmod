@@ -10,7 +10,7 @@
 # options that select ANSI C on some system or another.  It considers the
 # compiler to be in ANSI C mode if it defines @code{__STDC__} to 1 and
 # handles function prototypes correctly.
-# 
+#
 # If you use this macro, you should check after calling it whether the C
 # compiler has been set to accept ANSI C; if not, the shell variable
 # @code{fp_cv_prog_cc_stdc} is set to @samp{no}.  If you wrote your source
@@ -35,14 +35,14 @@ ac_save_CFLAGS="$CFLAGS"
 for ac_arg in "" -qlanglvl=ansi -std1 -Ae "-Aa -D_HPUX_SOURCE" -Xc
 do
   CFLAGS="$ac_save_CFLAGS $ac_arg"
-  AC_TRY_COMPILE(
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 [#ifndef __STDC__
 choke me
-#endif	
-], [int test (int i, double x);
+#endif
+]], [[int test (int i, double x);
 struct s1 {int (*f) (int a);};
-struct s2 {int (*f) (double a);};],
-[fp_cv_prog_cc_stdc="$ac_arg"; break])
+struct s2 {int (*f) (double a);};]])],
+[fp_cv_prog_cc_stdc="$ac_arg"; break],[])
 done
 CFLAGS="$ac_save_CFLAGS"
 ])

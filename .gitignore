@@ -153,5 +153,14 @@ Src/Zle/widgets.list
 Src/Zle/zle_things.h
 Src/Zle/zle_widget.h
 
+Src/zi/Makefile.in
+Src/zi/zpmod.epro
+Src/zi/zpmod.export
+Src/zi/zpmod.mdh
+Src/zi/zpmod.mdhi
+Src/zi/zpmod.mdhs
+Src/zi/zpmod.pro
+Src/zi/zpmod.syms
+
 Test/*.tmp
 /.project

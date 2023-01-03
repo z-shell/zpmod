@@ -1,0 +1,33 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": ["${workspaceFolder}/**"],
+      "defines": [],
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "c17",
+      "cppStandard": "c++14",
+      "intelliSenseMode": "macos-gcc-x64",
+      "mergeConfigurations": false,
+      "browse": {
+        "path": ["${workspaceFolder}/**"],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    },
+    {
+      "name": "Mac",
+      "includePath": ["${workspaceFolder}/**"],
+      "defines": [],
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "c17",
+      "cppStandard": "c++14",
+      "intelliSenseMode": "macos-clang-x64",
+      "mergeConfigurations": false,
+      "browse": {
+        "path": ["${workspaceFolder}/**"],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    }
+  ],
+  "version": 4
+}
