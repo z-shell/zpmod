@@ -44,7 +44,7 @@ jobs:
           brew install zsh
       - name: 🐧 Install on Linux
         if: startsWith(matrix.os, 'ubuntu')
-        run: sh -x ./Scripts/install.sh
+        run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
         #run: |
         #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
         #  zmodload zi/zpmod
@@ -52,7 +52,7 @@ jobs:
         #shell: zsh {0}
       - name: 🍎 Install on MacOS
         if: startsWith(matrix.os, 'macos')
-        run: sh -x ./Scripts/install.sh
+        run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
         #run: |
         #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
         #  zmodload zi/zpmod
