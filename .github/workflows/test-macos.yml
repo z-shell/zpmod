@@ -39,3 +39,4 @@ jobs:
           module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
           zmodload zi/zpmod
           zpmod source-study -l
+        shell: zsh {0}
