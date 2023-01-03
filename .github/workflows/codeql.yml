@@ -1,0 +1,29 @@
+name: 👾 Code Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+  schedule:
+    - cron: '15 21 * * 6'
+  workflow_dispatch:
+
+jobs:
+  codeql:
+    name: 🏭 Scanning
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
+      - name: 🏗 Initialize CodeQL
+        uses: github/codeql-action/init@959cbb7472c4d4ad70cdfe6f4976053fe48ab394
+      - name: 🏗 Autobuild
+        uses: github/codeql-action/autobuild@959cbb7472c4d4ad70cdfe6f4976053fe48ab394
+      - name: 🚀 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@959cbb7472c4d4ad70cdfe6f4976053fe48ab394
