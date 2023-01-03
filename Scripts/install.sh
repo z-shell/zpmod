@@ -60,7 +60,7 @@ build_zpmod_module() {
           fi
         fi
         CPPFLAGS=-"I/usr/local/include" CFLAGS="-g -Wall -O3" LDFLAGS="-L/usr/local/lib" \
-          ./configure --disable-gdbm --without-tcsetpgrp --enable-libc-musl
+          ./configure --disable-gdbm --without-tcsetpgrp --enable-shared
         printf '%s\n' "$col_info2-- Running make --$col_rst"
         if make -j 4 >/dev/null; then
           command cat <<-EOF

@@ -53,7 +53,7 @@ mod_export Eprog siglists[VSIGCOUNT];
 /* Total count of trapped signals */
 
 /**/
-mod_export int nsigtrapped;
+mod_export volatile int nsigtrapped;
 
 /* Running an exit trap? */
 
@@ -72,20 +72,20 @@ static int exit_trap_posix;
 /* Variables used by signal queueing */
 
 /**/
-mod_export int queueing_enabled, queue_front, queue_rear;
+mod_export volatile int queueing_enabled, queue_front, queue_rear;
 /**/
 mod_export int signal_queue[MAX_QUEUE_SIZE];
 /**/
 mod_export sigset_t signal_mask_queue[MAX_QUEUE_SIZE];
 #ifdef DEBUG
 /**/
-mod_export int queue_in;
+mod_export volatile int queue_in;
 #endif
 
 /* Variables used by trap queueing */
 
 /**/
-mod_export int trap_queueing_enabled, trap_queue_front, trap_queue_rear;
+mod_export volatile int trap_queueing_enabled, trap_queue_front, trap_queue_rear;
 /**/
 mod_export int trap_queue[MAX_QUEUE_SIZE];
 
@@ -539,7 +539,8 @@ wait_for_processes(void)
 #endif
 		if (WIFEXITED(status) &&
 		    pn->pid == jn->gleader &&
-		    killpg(pn->pid, 0) == -1) {
+		    killpg(pn->pid, 0) == -1  &&
+		    errno == ESRCH) {
 		    if (last_attached_pgrp == jn->gleader &&
 			!(jn->stat & STAT_NOSTTY)) {
 			/*
@@ -575,12 +576,10 @@ wait_for_processes(void)
 	 */
 	if (jn && !(jn->stat & (STAT_CURSH|STAT_BUILTIN)) &&
 	    jn - jobtab != thisjob) {
-	    int val = (WIFSIGNALED(status) ?
-		   0200 | WTERMSIG(status) :
-		   (WIFSTOPPED(status) ?
-		    0200 | WEXITSTATUS(status) :
-		    WEXITSTATUS(status)));
-	    addbgstatus(pid, val);
+	    if (WIFEXITED(status))
+		addbgstatus(pid, WEXITSTATUS(status));
+	    else if (WIFSIGNALED(status))
+		addbgstatus(pid, 0200 | WTERMSIG(status));
 	}
 
 	unqueue_signals();
@@ -671,9 +670,9 @@ zhandler(int sig)
 	    if ((isset(PRIVILEGED) || isset(RESTRICTED)) &&
 		isset(INTERACTIVE) && (noerrexit & NOERREXIT_SIGNAL))
 		zexit(SIGINT, ZEXIT_SIGNAL);
+            errflag |= ERRFLAG_INT;
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
-                errflag |= ERRFLAG_INT;
 		inerrflush();
 		check_cursh_sig(SIGINT);
             }
@@ -809,6 +808,7 @@ killjb(Job jn, int sig)
 	    err = killpg(jn->gleader, sig);
 	    if (sig == SIGCONT && err != -1)
 		makerunning(jn);
+	    return err;
 	}
     }
     for (pn = jn->procs; pn; pn = pn->next) {
@@ -1265,19 +1265,19 @@ unqueue_traps(void)
 
 /* Are we already executing a trap? */
 /**/
-int intrap;
+volatile int intrap;
 
 /* Is the current trap a function? */
 
 /**/
-int trapisfunc;
+volatile int trapisfunc;
 
 /*
  * If the current trap is not a function, at what function depth
  * did the trap get called?
  */
 /**/
-int traplocallevel;
+volatile int traplocallevel;
 
 /*
  * sig is the signal number.

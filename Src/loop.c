@@ -43,7 +43,7 @@ mod_export int contflag;
 /* # of break levels */
  
 /**/
-mod_export int breaks;
+mod_export volatile int breaks;
 
 /**/
 int
@@ -428,7 +428,7 @@ execwhile(Estate state, UNUSED(int do_exec))
     } else {
         for (;;) {
             state->pc = loop;
-            noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN;
+            noerrexit |= NOERREXIT_EXIT | NOERREXIT_RETURN;
 
 	    /* In case the test condition is a functional no-op,
 	     * make sure signal handlers recognize ^C to end the loop. */
@@ -497,13 +497,15 @@ execrepeat(Estate state, UNUSED(int do_exec))
 
     end = state->pc + WC_REPEAT_SKIP(code);
 
-    lastval = 0;
     tmp = ecgetstr(state, EC_DUPTOK, &htok);
-    if (htok)
+    if (htok) {
 	singsub(&tmp);
+	untokenize(tmp);
+    }
     count = mathevali(tmp);
     if (errflag)
 	return 1;
+    lastval = 0; /* used when the repeat count is zero */
     pushheap();
     cmdpush(CS_REPEAT);
     loops++;
@@ -567,23 +569,14 @@ execif(Estate state, int do_exec)
 	s = 1;
 	state->pc = next;
     }
+    noerrexit = olderrexit;
 
     if (run) {
-	/* we need to ignore lastval until we reach execcmd() */
-	if (olderrexit || run == 2)
-	    noerrexit = olderrexit;
-	else if (lastval)
-	    noerrexit |= NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_UNTIL_EXEC;
-	else
-	    noerrexit &= ~ (NOERREXIT_EXIT | NOERREXIT_RETURN);
 	cmdpush(run == 2 ? CS_ELSE : (s ? CS_ELIFTHEN : CS_IFTHEN));
 	execlist(state, 1, do_exec);
 	cmdpop();
-    } else {
-	noerrexit = olderrexit;
-	if (!retflag)
-	    lastval = 0;
-    }
+    } else if (!retflag && !errflag)
+	lastval = 0;
     state->pc = end;
     this_noerrexit = 1;
 
@@ -742,7 +735,7 @@ exectry(Estate state, int do_exec)
 
     /* The :try clause */
     ++try_tryflag;
-    execlist(state, 1, do_exec);
+    execlist(state, 1, 0);
     --try_tryflag;
 
     /* Don't record errflag here, may be reset.  However, */
@@ -791,6 +784,7 @@ exectry(Estate state, int do_exec)
     cmdpop();
     popheap();
     state->pc = end;
+    this_noerrexit = 1;
 
     return endval;
 }

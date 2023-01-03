@@ -270,7 +270,7 @@ zshlex(void)
     do {
 	if (inrepeat_)
 	    ++inrepeat_;
-	if (inrepeat_ == 3 && isset(SHORTLOOPS))
+	if (inrepeat_ == 3 && (isset(SHORTLOOPS) || isset(SHORTREPEAT)))
 	    incmdpos = 1;
 	tok = gettok();
     } while (tok != ENDINPUT && exalias());
@@ -423,7 +423,7 @@ initlextabs(void)
     for (t0 = 0; lx2[t0]; t0++)
 	lexact2[(int)lx2[t0]] = t0;
     lexact2['&'] = LX2_BREAK;
-    lexact2[STOUC(Meta)] = LX2_META;
+    lexact2[(unsigned char) Meta] = LX2_META;
     lextok2['*'] = Star;
     lextok2['?'] = Quest;
     lextok2['{'] = Inbrace;
@@ -540,6 +540,17 @@ static int
 cmd_or_math_sub(void)
 {
     int c = hgetc(), ret;
+
+    if (c == '\\') {
+	c = hgetc();
+	if (c != '\n') {
+	    hungetc(c);
+	    hungetc('\\');
+	    lexstop = 0;
+	    return skipcomm() ? CMD_OR_MATH_ERR : CMD_OR_MATH_CMD;
+	}
+	c = hgetc();
+    }
 
     if (c == '(') {
 	int lexpos = (int)(lexbuf.ptr - tokstr);
@@ -711,7 +722,7 @@ gettok(void)
 	}
 	return peek;
     }
-    switch (lexact1[STOUC(c)]) {
+    switch (lexact1[(unsigned char) c]) {
     case LX1_BKSLASH:
 	d = hgetc();
 	if (d == '\n')
@@ -949,8 +960,8 @@ gettokstr(int c, int sub)
 	if (inbl && !in_brace_param && !pct)
 	    act = LX2_BREAK;
 	else {
-	    act = lexact2[STOUC(c)];
-	    c = lextok2[STOUC(c)];
+	    act = lexact2[(unsigned char) c];
+	    c = lextok2[(unsigned char) c];
 	}
 	switch (act) {
 	case LX2_BREAK:
@@ -998,6 +1009,16 @@ gettokstr(int c, int sub)
 	    break;
 	case LX2_STRING:
 	    e = hgetc();
+	    if (e == '\\') {
+		e = hgetc();
+		if (e != '\n') {
+		    hungetc(e);
+		    hungetc('\\');
+		    lexstop = 0;
+		    break;
+		}
+		e = hgetc();
+	    }
 	    if (e == '[') {
 		cmdpush(CS_MATHSUBST);
 		add(String);
@@ -1242,7 +1263,7 @@ gettokstr(int c, int sub)
 		    continue;
 	    } else {
 		add(Bnull);
-		if (c == STOUC(Meta)) {
+		if (c == (unsigned char) Meta) {
 		    c = hgetc();
 #ifdef DEBUG
 		    if (lexstop) {
@@ -1408,10 +1429,18 @@ gettokstr(int c, int sub)
 	       peek == STRING && lexbuf.ptr[-1] == '}' &&
 	       lexbuf.ptr[-2] != Bnull) {
 	/* hack to get {foo} command syntax work */
+	/*
+	 * Alias expansion when parsing command substitution means that
+	 * the case for raw lexical analysis may not be the same.
+	 * (Just go with it, OK?)
+	 */
+	int lar = lex_add_raw;
+	lex_add_raw = lexbuf_raw.len > 0 && lexbuf_raw.ptr[-1] == '}';
 	lexbuf.ptr--;
 	lexbuf.len--;
 	lexstop = 0;
 	hungetc('}');
+	lex_add_raw = lar;
     }
     *lexbuf.ptr = '\0';
     DPUTS(cmdsp != ocmdsp, "BUG: gettok: cmdstack changed.");
@@ -1868,6 +1897,7 @@ exalias(void)
     hwend();
     if (interact && isset(SHINSTDIN) && !strin && incasepat <= 0 &&
 	tok == STRING && !nocorrect && !(inbufflags & INP_ALIAS) &&
+	!hist_is_in_word()  &&
 	(isset(CORRECTALL) || (isset(CORRECT) && incmdpos)))
 	spckword(&tokstr, 1, incmdpos, 1);
 

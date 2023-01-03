@@ -98,10 +98,12 @@ mod_export int jobtabsize;
 mod_export int maxjob;
 
 /* If we have entered a subshell, the original shell's job table. */
-static struct job *oldjobtab;
+/**/
+mod_export struct job *oldjobtab;
 
 /* The size of that. */
-static int oldmaxjob;
+/**/
+mod_export int oldmaxjob;
 
 /* shell timings */
  
@@ -283,7 +285,8 @@ handle_sub(int job, int fg)
 
 	    if ((cp = ((WIFEXITED(jn->procs->status) ||
 			WIFSIGNALED(jn->procs->status)) &&
-		       killpg(jn->gleader, 0) == -1))) {
+		       (killpg(jn->gleader, 0) == -1 &&
+			errno == ESRCH)))) {
 		Process p;
 		for (p = jn->procs; p->next; p = p->next);
 		jn->gleader = p->pid;
@@ -411,7 +414,7 @@ storepipestats(Job jn, int inforeground, int fixlastval)
 	jpipestats[i] = (WIFSIGNALED(p->status) ?
 			 0200 | WTERMSIG(p->status) :
 			 (WIFSTOPPED(p->status) ?
-			  0200 | WEXITSTATUS(p->status) :
+			  0200 | WSTOPSIG(p->status) :
 			  WEXITSTATUS(p->status)));
 	if (jpipestats[i])
 	    pipefail = jpipestats[i];
@@ -441,7 +444,7 @@ update_job(Job jn)
     Process pn;
     int job;
     int val = 0, status = 0;
-    int somestopped = 0, inforeground = 0;
+    int somestopped = 0, inforeground = 0, signalled = 0;
 
     for (pn = jn->auxprocs; pn; pn = pn->next) {
 #ifdef WIFCONTINUED
@@ -463,12 +466,15 @@ update_job(Job jn)
 	    return;                        /* so no need to update job table entry         */
 	if (WIFSTOPPED(pn->status))        /* some processes are stopped                   */
 	    somestopped = 1;               /* so job is not done, but entry needs updating */
-	if (!pn->next)                     /* last job in pipeline determines exit status  */
+	if (!pn->next) {
+	    /* last job in pipeline determines exit status  */
 	    val = (WIFSIGNALED(pn->status) ?
 		   0200 | WTERMSIG(pn->status) :
 		   (WIFSTOPPED(pn->status) ?
-		    0200 | WEXITSTATUS(pn->status) :
+		    0200 | WSTOPSIG(pn->status) :
 		    WEXITSTATUS(pn->status)));
+	    signalled = WIFSIGNALED(pn->status);
+	}
 	if (pn->pid == jn->gleader)        /* if this process is process group leader      */
 	    status = pn->status;
     }
@@ -538,12 +544,14 @@ update_job(Job jn)
 
     if (isset(MONITOR)) {
 	pid_t pgrp = gettygrp();           /* get process group of tty      */
+	int deadpgrp = (mypgrp != pgrp && inforeground && pgrp > 1 &&
+			kill(-pgrp, 0) == -1 && errno == ESRCH);
 
 	/* is this job in the foreground of an interactive shell? */
 	if (mypgrp != pgrp && inforeground &&
-	    (jn->gleader == pgrp || (pgrp > 1 && kill(-pgrp, 0) == -1))) {
+	    ((jn->gleader == pgrp && signalled) || deadpgrp)) {
 	    if (list_pipe) {
-		if (somestopped || (pgrp > 1 && kill(-pgrp, 0) == -1)) {
+		if (somestopped || deadpgrp) {
 		    attachtty(mypgrp);
 		    /* check window size and adjust if necessary */
 		    adjustwinsize(0);
@@ -559,7 +567,7 @@ update_job(Job jn)
 		}
 		/* If we have `foo|while true; (( x++ )); done', and hit
 		 * ^C, we have to stop the loop, too. */
-		if ((val & 0200) && inforeground == 1 &&
+		if (signalled && inforeground == 1 &&
 		    ((val & ~0200) == SIGINT || (val & ~0200) == SIGQUIT)) {
 		    if (!errbrk_saved) {
 			errbrk_saved = 1;
@@ -576,7 +584,7 @@ update_job(Job jn)
 		adjustwinsize(0);
 	    }
 	}
-    } else if (list_pipe && (val & 0200) && inforeground == 1 &&
+    } else if (list_pipe && signalled && inforeground == 1 &&
 	       ((val & ~0200) == SIGINT || (val & ~0200) == SIGQUIT)) {
 	if (!errbrk_saved) {
 	    errbrk_saved = 1;
@@ -1358,6 +1366,18 @@ deletefilelist(LinkList file_list, int disowning)
 
 /**/
 void
+cleanfilelists(void)
+{
+    int i;
+
+    DPUTS(shell_exiting >= 0, "BUG: cleanfilelists() before exit");
+ 
+    for (i = 1; i <= maxjob; i++)
+	deletefilelist(jobtab[i].filelist, 0);
+}
+
+/**/
+void
 freejob(Job jn, int deleting)
 {
     struct process *pn, *nx;
@@ -1475,7 +1495,7 @@ addproc(pid_t pid, char *text, int aux, struct timeval *bgtime,
 	     */
 	    last_attached_pgrp = gleader;
 	} else if (!jobtab[thisjob].gleader)
-		jobtab[thisjob].gleader = pid;
+	    jobtab[thisjob].gleader = pid;
 	/* attach this process to end of process list of current job */
 	pnlist = &jobtab[thisjob].procs;
     }
@@ -1708,7 +1728,14 @@ clearjobtab(int monitor)
 	/* Don't report any job we're part of */
 	if (thisjob != -1 && thisjob < oldmaxjob)
 	    memset(oldjobtab+thisjob, 0, sizeof(struct job));
+
+	/* oldmaxjob is now the size of the table, but outside
+	 * this function, it's used as a job number, which must
+	 * be the largest index available in the table.
+	 */
+	--oldmaxjob;
     }
+
 
     memset(jobtab, 0, jobtabsize * sizeof(struct job)); /* zero out table */
     maxjob = 0;
@@ -1721,6 +1748,18 @@ clearjobtab(int monitor)
      * of problems with the job table size here).
      */
     thisjob = initjob();
+}
+
+/* In a subshell, decide we want our own job table after all. */
+
+/**/
+mod_export void
+clearoldjobtab(void)
+{
+    if (oldjobtab)
+	free(oldjobtab);
+    oldjobtab = NULL;
+    oldmaxjob = 0;
 }
 
 static int initnewjob(int i)
@@ -1854,13 +1893,14 @@ scanjobs(void)
 
 /* This simple function indicates whether or not s may represent      *
  * a number.  It returns true iff s consists purely of digits and     *
- * minuses.  Note that minus may appear more than once, and the empty *
- * string will produce a `true' response.                             */
+ * minuses.  Note that minus may appear more than once.               */
 
 /**/
 static int
 isanum(char *s)
 {
+    if (*s == '\0')
+	return 0;
     while (*s == '-' || idigit(*s))
 	s++;
     return *s == '\0';
@@ -1885,6 +1925,26 @@ setcurjob(void)
     }
 }
 
+/* Find the job table for reporting jobs */
+
+/**/
+mod_export void
+selectjobtab(Job *jtabp, int *jmaxp)
+{
+    if (oldjobtab)
+    {
+	/* In subshell --- use saved job table to report */
+	*jtabp = oldjobtab;
+	*jmaxp = oldmaxjob;
+    }
+    else
+    {
+	/* Use main job table */
+	*jtabp = jobtab;
+	*jmaxp = maxjob;
+    }
+}
+
 /* Convert a job specifier ("%%", "%1", "%foo", "%?bar?", etc.) *
  * to a job number.                                             */
 
@@ -1895,13 +1955,7 @@ getjob(const char *s, const char *prog)
     int jobnum, returnval, mymaxjob;
     Job myjobtab;
 
-    if (oldjobtab) {
-	myjobtab = oldjobtab;
-	mymaxjob = oldmaxjob;
-    } else {
-	myjobtab= jobtab;
-	mymaxjob = maxjob;
-    }
+    selectjobtab(&myjobtab, &mymaxjob);
 
     /* if there is no %, treat as a name */
     if (*s != '%')
@@ -2162,6 +2216,9 @@ addbgstatus(pid_t pid, int status)
 {
     static long child_max;
     Bgstatus bgstatus_entry;
+#ifdef DEBUG
+    LinkNode node;
+#endif
 
     if (!child_max) {
 #ifdef _SC_CHILD_MAX
@@ -2185,6 +2242,21 @@ addbgstatus(pid_t pid, int status)
 	if (!bgstatus_list)
 	    return;
     }
+#ifdef DEBUG
+    /* See if an entry already exists for the pid */
+    for (node = firstnode(bgstatus_list); node; incnode(node)) {
+	bgstatus_entry = (Bgstatus)getdata(node);
+	if (bgstatus_entry->pid == pid) {
+	    /* In theory this should not happen because addbgstatus() is
+	     * called only once when the process exits or gets killed. */
+	    dputs("addbgstatus called again: pid %d: status %d -> %d",
+		    pid, bgstatus_entry->status, status);
+	    bgstatus_entry->status = status;
+	    return;
+	}
+    }
+#endif
+    /* Add an entry for the pid */
     if (bgstatus_count == child_max) {
 	/* Overflow.  List is in order, remove first */
 	rembgstatus(firstnode(bgstatus_list));
@@ -2261,6 +2333,13 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	memcpy(hackzero, *argv, len);
 	memset(hackzero + len, 0, hackspace - len);
 #endif
+
+#ifdef HAVE_PRCTL
+	/* try to change /proc/$$/comm which will *
+	 * be used when checking with "ps -e"  */
+#include <sys/prctl.h>
+	prctl(PR_SET_NAME, *argv);
+#endif
 	unqueue_signals();
 	return 0;
     }
@@ -2318,7 +2397,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    int curmaxjob, ignorejob;
 	    if (unset(MONITOR) && oldmaxjob) {
 		jobptr = oldjobtab;
-		curmaxjob = oldmaxjob ? oldmaxjob - 1 : 0;
+		curmaxjob = oldmaxjob;
 		ignorejob = 0;
 	    } else {
 		jobptr = jobtab;
@@ -2417,10 +2496,12 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	case BIN_BG:
 	case BIN_WAIT:
 	    if (func == BIN_BG) {
+		clearoldjobtab();
 		jobtab[job].stat |= STAT_NOSTTY;
 		jobtab[job].stat &= ~STAT_CURSH;
 	    }
 	    if ((stopped = (jobtab[job].stat & STAT_STOPPED))) {
+		/* WIFCONTINUED will makerunning() again at killjb() */
 		makerunning(jobtab + job);
 		if (func == BIN_BG) {
 		    /* Set $! to indicate this was backgrounded */
@@ -2469,7 +2550,8 @@ bin_fg(char *name, char **argv, Options ops, int func)
 		    if ((jobtab[job].stat & STAT_SUPERJOB) &&
 			((!jobtab[job].procs->next ||
 			  (jobtab[job].stat & STAT_SUBLEADER) ||
-			  killpg(jobtab[job].gleader, 0) == -1)) &&
+			  (killpg(jobtab[job].gleader, 0) == -1  &&
+			  errno == ESRCH))) &&
 			jobtab[jobtab[job].other].gleader)
 			attachtty(jobtab[jobtab[job].other].gleader);
 		    else

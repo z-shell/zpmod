@@ -1039,7 +1039,7 @@ checkaddparam(const char *nam, int opt_i)
 	 * non-autoloadable parameter already there.  This
 	 * is consistent with the way add_auto* functions work.
 	 */
-	if (!opt_i || !pm->level) {
+	if (!opt_i || pm->level) {
 	    zwarn("Can't add module parameter `%s': %s",
 		  nam, pm->level ?
 		  "local parameter exists" :
@@ -2474,7 +2474,7 @@ bin_zmodload(char *nam, char **args, Options ops, UNUSED(int func))
 	return 1;
     }
     for (fp = fonly; *fp; fp++) {
-	if (OPT_ISSET(ops,STOUC(*fp)) && !OPT_ISSET(ops,'F')) {
+	if (OPT_ISSET(ops,(unsigned char) *fp) && !OPT_ISSET(ops,'F')) {
 	    zwarnnam(nam, "-%c is only allowed with -F", *fp);
 	    return 1;
 	}
