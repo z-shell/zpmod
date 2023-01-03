@@ -68,7 +68,8 @@ build_zpmod_module() {
         CFLAGS="-g -Wall -O3" ./configure --disable-gdbm --without-tcsetpgrp --quiet
 
         printf '%s\n' "$col_info2-- Running make --$col_rst"
-        if make -j 4 >/dev/null; then
+        if make -j 4 >/dev/null && [ -f Src/zi/zpmod.so ]; then
+          cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
 [38;5;219m▓▒░[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:
@@ -83,11 +84,13 @@ EOF
         else
           printf '%s\n' "${col_error}Module didn't build.$col_rst. You can copy the error messages and submit"
           printf '%s\n' "error-report at: https://github.com/z-shell/zpmod/issues"
+          exit 255
         fi
       )
     fi
   else
     printf '%s\n' "${col_error} Zsh is not installed. Please install zsh and try again.$col_rst"
+    exit 255
   fi
 }
 

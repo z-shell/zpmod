@@ -1,5 +1,5 @@
 ---
-name: ✅ Test installer
+name: ✅ Build (Linux)
 on:
   push:
     branches: [main]
@@ -23,38 +23,21 @@ jobs:
           scandir: "./Scripts/install.sh"
 
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [shellcheck]
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v3.2.0
       - uses: rlespinasse/github-slug-action@v4
-      - name: 📦 Dependencies (Linux)
-        if: startsWith(matrix.os, 'ubuntu-latest')
+      - name: 📦 Prepare
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
-      - name: 🍎 Dependencies (MacOS)
-        if: startsWith(matrix.os, 'macos')
-        run: |
-          brew install zsh
-      - name: 🐧 Install on Linux
-        if: startsWith(matrix.os, 'ubuntu')
+      - name: 🐧 Build
         run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
         #run: |
         #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
         #  zmodload zi/zpmod
         #  zpmod source-study -l
         #shell: zsh {0}
-      - name: 🍎 Install on MacOS
-        if: startsWith(matrix.os, 'macos')
-        run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
-        #run: |
-        #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
-        #  zmodload zi/zpmod
-        #  zpmod source-study -l
