@@ -59,8 +59,14 @@ build_zpmod_module() {
             make clean
           fi
         fi
-        CPPFLAGS=-"I/usr/local/include" CFLAGS="-g -Wall -O3" LDFLAGS="-L/usr/local/lib" \
-          ./configure --disable-gdbm --without-tcsetpgrp --enable-shared
+
+        INSTALL_PATH="/usr/local"
+        export PATH=$INSTALL_PATH/bin:"$PATH"
+        export LD_LIBRARY_PATH=$INSTALL_PATH/lib:"$LD_LIBRARY_PATH"
+        export CFLAGS=-I$INSTALL_PATH/include
+        export CPPFLAGS="-I$INSTALL_PATH/include" LDFLAGS="-L$INSTALL_PATH/lib"
+        CFLAGS="-g -Wall -O3" ./configure --disable-gdbm --without-tcsetpgrp --quiet
+
         printf '%s\n' "$col_info2-- Running make --$col_rst"
         if make -j 4 >/dev/null; then
           command cat <<-EOF
