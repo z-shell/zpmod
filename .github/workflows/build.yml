@@ -16,7 +16,7 @@ jobs:
       - name: ☑️ ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:
-          scandir: ".build.sh"
+          scandir: "./Scripts/install.sh"
 
   build:
     strategy:
@@ -41,10 +41,10 @@ jobs:
       - name: 🍎 Dependencies (MacOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          brew install zsh autoconf automake libtool
+          brew install zsh
       - name: 🐧 Install on Linux
         if: startsWith(matrix.os, 'ubuntu')
-        run: sh -x ./build.sh
+        run: sh -x ./Scripts/install.sh
         #run: |
         #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
         #  zmodload zi/zpmod
@@ -52,7 +52,7 @@ jobs:
         #shell: zsh {0}
       - name: 🍎 Install on MacOS
         if: startsWith(matrix.os, 'macos')
-        run: sh -x ./build.sh
+        run: sh -x ./Scripts/install.sh
         #run: |
         #  module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
         #  zmodload zi/zpmod
