@@ -25,7 +25,7 @@ lint:
         - "preconfig"
         - "configure*"
         - "install-sh"
-        - "mkinstalldirs"
+        - "Scripts/mkinstalldirs"
 runtimes:
   enabled:
     - go@1.18.3
