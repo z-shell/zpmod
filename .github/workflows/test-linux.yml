@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: ☑️ ShellCheck
         uses: ludeeus/action-shellcheck@6d3f514f44620b9d4488e380339edc0d9bbe2fba
         with:
@@ -28,7 +28,7 @@ jobs:
     needs: [shellcheck]
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: ⚙️ Prepare
         run: |
           sudo apt-get update
