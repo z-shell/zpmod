@@ -60,16 +60,12 @@ build_zpmod_module() {
           fi
         fi
 
-        INSTALL_PATH="/usr/local"
-        export PATH=$INSTALL_PATH/bin:"$PATH"
-        export LD_LIBRARY_PATH=$INSTALL_PATH/lib:"$LD_LIBRARY_PATH"
-        export CFLAGS=-I$INSTALL_PATH/include
-        export CPPFLAGS="-I$INSTALL_PATH/include" LDFLAGS="-L$INSTALL_PATH/lib"
-        CFLAGS="-g -Wall -O3" ./configure --disable-gdbm --without-tcsetpgrp --quiet
-
+        ./configure --enable-cflags=-g -Wall -Wextra -O3 --enable-libs=-lposix --disable-gdbm --without-tcsetpgrp --quiet
         printf '%s\n' "$col_info2-- Running make --$col_rst"
-        if make -j 4 >/dev/null && [ -f Src/zi/zpmod.so ]; then
-          cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
+
+        cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || command getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+        if command make --jobs=$cores >/dev/null && [ -f Src/zi/zpmod.so ]; then
+          command cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
 [38;5;219m▓▒░[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:
