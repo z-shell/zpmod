@@ -22,7 +22,6 @@ lint:
         - "Test/*"
         - "Config/*"
         - "config*"
-        - "preconfig"
         - "configure*"
         - "install-sh"
         - "mkinstalldirs"

@@ -60,7 +60,7 @@ build_zpmod_module() {
           fi
         fi
 
-        ./configure --enable-cflags='-g -Wall -Wextra -O3' --enable-libs=-lposix --disable-gdbm --without-tcsetpgrp --quiet
+        ./configure --enable-cflags='-g -Wall -Wextra -O3' --disable-gdbm --without-tcsetpgrp --quiet
         printf '%s\n' "$col_info2-- Running make --$col_rst"
 
         cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || command getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
