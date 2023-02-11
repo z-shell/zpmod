@@ -15,7 +15,7 @@ nl='
 '
 IFS=" ""	$nl"
 errstatus=0
-dirmode=
+dirmode=755
 
 usage="\
 Usage: mkinstalldirs [-h] [--help] [--version] [-m MODE] DIR ...
