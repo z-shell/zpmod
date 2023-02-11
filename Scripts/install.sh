@@ -28,10 +28,10 @@ setup_environment() {
 setup_zpmod_repository() {
   printf '%s\n' "$col_pname== Downloading ZPMOD module to ${MOD_HOME}"
   if test -d "${MOD_HOME}/.git"; then
-    cd "${MOD_HOME}" || exit 255
-    git pull -q origin main
+    builtin cd "${MOD_HOME}" || exit 255
+    command git pull -q origin main
   else
-    git clone --depth 10 -q https://github.com/z-shell/zpmod.git "$MOD_HOME"
+    command git clone --depth 10 -q https://github.com/z-shell/zpmod.git "$MOD_HOME"
   fi
 }
 
@@ -52,19 +52,19 @@ build_zpmod_module() {
         if test -f Makefile; then
           if [ "$1" = "--clean" ]; then
             printf '%s\n' "$col_info2-- make distclean --$col_rst"
-            make distclean
+            command make distclean
             true
           else
             printf '%s\n' "$col_info2-- make clean (pass --clean to invoke \`make distclean') --$col_rst"
-            make clean
+            command make clean
           fi
         fi
 
-        ./configure --enable-cflags=-g -Wall -Wextra -O3 --enable-libs=-lposix --disable-gdbm --without-tcsetpgrp --quiet
+        ./configure --enable-cflags='-g -Wall -Wextra -O3' --enable-libs=-lposix --disable-gdbm --without-tcsetpgrp --quiet
         printf '%s\n' "$col_info2-- Running make --$col_rst"
 
         cores=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || command getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
-        if command make --jobs=$cores >/dev/null && [ -f Src/zi/zpmod.so ]; then
+        if command make --jobs="$cores" >/dev/null && [ -f Src/zi/zpmod.so ]; then
           command cp -vf Src/zi/zpmod.so Src/zi/zpmod.bundle
           command cat <<-EOF
 [38;5;219m▓▒░[0m [38;5;220mModule [38;5;177mhas been built correctly.
