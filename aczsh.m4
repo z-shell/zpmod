@@ -47,7 +47,7 @@ AC_DEFUN(zsh_64_BIT_TYPE,
 int
 main()
 {
-  $1 foo = 0; 
+  $1 foo = 0;
   int bar = (int) foo;
   return sizeof($1) != 8;
 }
@@ -107,7 +107,7 @@ echo '
 void *zsh_getaddr1()
 {
 #ifdef __CYGWIN__
-	__attribute__((__dllimport__))	
+	__attribute__((__dllimport__))
 #endif
 	extern $2;
 	return $3;
@@ -645,7 +645,7 @@ AC_DEFUN(zsh_COMPILE_FLAGS,
 	else LIBS="$enable_libs"
 	fi)])
 
-dnl 
+dnl
 dnl zsh_CHECK_SOCKLEN_T
 dnl
 dnl	check type of third argument of some network functions; currently
