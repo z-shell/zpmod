@@ -22,7 +22,7 @@ jobs:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: 🏗 Initialize CodeQL
-        uses: github/codeql-action/init@16964e90ba004cdf0cd845b866b5df21038b7723
+        uses: github/codeql-action/init@168b99b3c22180941ae7dbdd5f5c9678ede476ba
       - run: |
           INSTALL_PATH="/usr/local"
           export PATH=$INSTALL_PATH/bin:"$PATH"
@@ -32,4 +32,4 @@ jobs:
           CFLAGS="-g -Wall -O3" ./configure --disable-gdbm --without-tcsetpgrp --quiet
           make
       - name: 🚀 Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@16964e90ba004cdf0cd845b866b5df21038b7723
+        uses: github/codeql-action/analyze@168b99b3c22180941ae7dbdd5f5c9678ede476ba
