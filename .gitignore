@@ -8,6 +8,7 @@ COMPILED_AT
 *.a
 *.so
 *.dll
+*.log
 *.bundle
 *~
 .*.sw?

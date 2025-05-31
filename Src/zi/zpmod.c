@@ -1426,7 +1426,10 @@ int bin_readarray(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
             break;
         }
 
-        setsparam(oarr_name, line);
+        // Create indexed name for array assignment
+        char indexed_name[strlen(oarr_name) + 15]; // Ensure buffer is large enough for name + [index]
+        sprintf(indexed_name, "%s[%d]", oarr_name, index);
+        setsparam(indexed_name, line);
 
         if (callback && (index - start_at + 1) % quantum == 0)
         {
@@ -1442,18 +1445,20 @@ int bin_readarray(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     free(line); // getline's buffer must be freed
 #else
     // If HAVE_GETLINE is not defined, the main loop is skipped.
-    // Mark variables that would have been used in the loop as UNUSED
-    // to suppress compiler warnings.
-    UNUSED(delim);
-    UNUSED(to_copy);
-    UNUSED(start_at);
-    UNUSED(skip_first);
-    UNUSED(remdel);
-    UNUSED(quantum);
-    // callback and oarr_name are freed later, but their primary
-    // functional use is within the HAVE_GETLINE block.
-    UNUSED(callback);
-    UNUSED(oarr_name);
+    // Mark variables that would have been used in the loop as "used"
+    // to suppress compiler warnings, fixing the attribute syntax error.
+    (void)delim;
+    (void)to_copy;
+    (void)start_at;
+    (void)skip_first;
+    (void)remdel;
+    (void)quantum;
+    // callback and oarr_name are freed later.
+    // Using (void) ensures they are marked as "used" to prevent
+    // "set but not used" warnings if their only other use (freeing)
+    // isn't sufficient for that specific warning, and to fix the attribute error.
+    (void)callback;
+    (void)oarr_name;
 #endif
 
     // Cleanup resources before returning
@@ -1648,7 +1653,6 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 	char *report, zp_tmp[20];
 	int current_size, space_left, current_end, idx, printed;
 	SEventNode node;
-	FILE *null_fle;
 
 	current_size = 127;
 	current_end = 0;
@@ -1663,14 +1667,6 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 		return ztrdup("ERROR: couldn't allocate initial buffer, aborted\n");
 	}
 
-	null_fle = fopen("/dev/null", "w");
-	if (!null_fle)
-	{
-		zfree(report, *rep_size);
-		*rep_size = 0;
-		return ztrdup("ERROR: couldn't open /dev/null, aborted\n");
-	}
-
 	for (idx = 1; idx <= zp_sevent_count; ++idx)
 	{
 		sprintf(zp_tmp, "%d", idx);
@@ -1681,7 +1677,7 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 			continue;
 		}
 
-		printed = fprintf(null_fle, "%4.0lf ms    %s\n", node->event.duration,
+		printed = snprintf(NULL, 0, "%4.0lf ms    %s\n", node->event.duration,
 				  no_paths ? node->event.file_name : node->event.full_path);
 		if (space_left < printed)
 		{
@@ -1693,19 +1689,17 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 			{
 				zfree(report, *rep_size);
 				*rep_size = 0;
-				fclose(null_fle);
 				return ztrdup("ERROR: Couldn't realloc buffer, aborted\n");
 			}
 			report = report_;
 			*rep_size = current_size + 1;
 		}
 
-		printed = sprintf(report + current_end, "%4.0lf ms    %s\n", node->event.duration,
+		printed = snprintf(report + current_end, space_left + 1, "%4.0lf ms    %s\n", node->event.duration,
 				  no_paths ? node->event.file_name : node->event.full_path);
 		current_end += printed;
 		space_left -= printed;
 	}
-	fclose(null_fle);
 	return report;
 }
 /* }}} */
@@ -1998,6 +1992,12 @@ int finish_(UNUSED(Module m))
 
 	bn = (Builtin)builtintab->getnode2(builtintab, "source");
 	bn->handlerfunc = originalSource;
+
+	if (zp_source_events)
+	{
+		deletehashtable(zp_source_events);
+		zp_source_events = NULL;
+	}
 
 	printf("zi/zpmod module unloaded\n");
 	fflush(stdout);

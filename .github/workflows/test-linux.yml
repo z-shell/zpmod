@@ -36,11 +36,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
+      - name: ⚙️ Determine Branch
+        id: branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # For PR events, use HEAD_REF; for push events, use REF_NAME
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "branch=$HEAD_REF" >> $GITHUB_OUTPUT
+          else
+            echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
+          fi
       - name: ⚙️ Build
-        run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
+        env:
+          BRANCH_NAME: ${{ steps.branch.outputs.branch }}
+        run: |
+          sh ./Scripts/install.sh --no-git --target=$(pwd) --branch="$BRANCH_NAME"
+          ls -la ./Src/zi
       - name: ⚙️ Load
         run: |
-          module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
+          module_path+=( "$PWD/Src" )
           zmodload zi/zpmod
           zpmod source-study -l
         shell: zsh {0}

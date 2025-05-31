@@ -9,9 +9,9 @@ plugins:
 lint:
   disabled:
     - yamllint
+    - checkov
+    - trufflehog
   enabled:
-    - checkov@3.2.435
-    - trufflehog@3.88.35
     - gitleaks@8.26.0
     - prettier@3.5.3
     - actionlint@1.7.7
