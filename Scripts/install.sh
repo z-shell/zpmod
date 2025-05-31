@@ -6,11 +6,11 @@ col_info2="[32m"
 col_rst="[0m"
 
 if [ -z "${ZI_HOME}" ]; then
-  if [ -d "${HOME}"/.zi ]; then
+  if [ -d "${HOME}/.zi" ]; then
     ZI_HOME="${HOME}/.zi"
-  elif [ -d "${ZDOTDIR}"/.zi ]; then
+  elif [ -d "${ZDOTDIR}/.zi" ]; then
     ZI_HOME="${ZDOTDIR}/.zi"
-  elif [ -d "${XDG_DATA_HOME}"/.zi ]; then
+  elif [ -d "${XDG_DATA_HOME}/.zi" ]; then
     ZI_HOME="${XDG_DATA_HOME}/.zi"
   else
     ZI_HOME="${HOME}/.zi"

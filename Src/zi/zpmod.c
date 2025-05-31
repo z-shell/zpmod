@@ -512,12 +512,23 @@ struct fdhead
 /**/
 static void zp_setup_options_table()
 {
-	int i, optno;
-	for (i = 0; i < sizeof(zp_options) / sizeof(struct zp_option_name) - 10 - 1; ++i)
-	{
-		optno = optlookup(zp_options[i].name);
-		zp_opt_for_zsh_version[zp_options[i].enum_val] = optno;
-	}
+    int i, optno;
+    // Calculate the loop limit using signed arithmetic to avoid underflow
+    // issues with unsigned size_t when subtracting.
+    // sizeof() returns size_t, cast to long for signed arithmetic.
+    long num_total_elements = (long)(sizeof(zp_options) / sizeof(struct zp_option_name));
+    // The loop should iterate over main options, excluding the 10 aliases and 1 sentinel.
+    long loop_bound = num_total_elements - 10 - 1;
+
+    for (i = 0; i < loop_bound; ++i)
+    {
+        optno = optlookup(zp_options[i].name);
+        if (optno >= 0)
+            zp_opt_for_zsh_version[zp_options[i].enum_val] = optno;
+        else
+            /* Handle unknown option or warn about it */
+            zwarn("Unknown option: %s", zp_options[i].name);
+    }
 }
 /* }}} */
 /* STATIC FUNCTION: zp_conv_opt {{{ */
@@ -1296,96 +1307,161 @@ custom_load_dump_header(char *nam, char *name, int err)
  */
 int bin_readarray(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
-	int delim = '\n', to_copy = 0, start_at = 1, skip_first = 0, remdel = 0, srcfd = 0, quantum = 5000;
-	char *callback = NULL, *oarr_name = NULL; // unused: **oarr = NULL;
-	FILE *stream = NULL;
+    int delim = '\n', to_copy = 0, start_at = 1, skip_first = 0, remdel = 0, srcfd = 0, quantum = 5000;
+    char *callback = NULL, *oarr_name = NULL; // unused: **oarr = NULL;
+    FILE *stream = NULL; // Initialize stream to NULL
 
-	/* Usage message */
-	if (OPT_ISSET(ops, 'h'))
-	{
-		readarray_usage();
-		return 0;
-	}
+    /* Usage message */
+    if (OPT_ISSET(ops, 'h'))
+    {
+        readarray_usage();
+        // callback might have been allocated if -C was processed before -h.
+        // To be safe, free if it was allocated.
+        if (callback) zsfree(callback);
+        return 0;
+    }
 
-	/* -d {delim} - terminator for each record read (default: newline) */
-	if (OPT_ISSET(ops, 'd'))
-	{
-		delim = OPT_ARG(ops, 'd') ? OPT_ARG(ops, 'd')[0] : '\n';
-	}
+    /* -d {delim} - terminator for each record read (default: newline) */
+    if (OPT_ISSET(ops, 'd'))
+    {
+        delim = OPT_ARG(ops, 'd') ? OPT_ARG(ops, 'd')[0] : '\n';
+    }
 
-	/* -n {count} - copy at most {count} records */
-	if (OPT_ISSET(ops, 'n'))
-	{
-		to_copy = OPT_ARG(ops, 'n') ? atoi(OPT_ARG(ops, 'n')) : 0;
-	}
+    /* -n {count} - copy at most {count} records */
+    if (OPT_ISSET(ops, 'n'))
+    {
+        to_copy = OPT_ARG(ops, 'n') ? atoi(OPT_ARG(ops, 'n')) : 0;
+    }
 
-	/* -O {origin} - begin storing in {array} at index {origin} */
-	if (OPT_ISSET(ops, 'O'))
-	{
-		start_at = OPT_ARG(ops, 'O') ? atoi(OPT_ARG(ops, 'O')) : 1;
-	}
+    /* -O {origin} - begin storing in {array} at index {origin} */
+    if (OPT_ISSET(ops, 'O'))
+    {
+        start_at = OPT_ARG(ops, 'O') ? atoi(OPT_ARG(ops, 'O')) : 1;
+    }
 
-	/* -s {count} - discard first {count} lines read */
-	if (OPT_ISSET(ops, 's'))
-	{
-		skip_first = OPT_ARG(ops, 's') ? atoi(OPT_ARG(ops, 's')) : 0;
-	}
+    /* -s {count} - discard first {count} lines read */
+    if (OPT_ISSET(ops, 's'))
+    {
+        skip_first = OPT_ARG(ops, 's') ? atoi(OPT_ARG(ops, 's')) : 0;
+    }
 
-	/* -t - remove trailing {delim} from result */
-	if (OPT_ISSET(ops, 't'))
-	{
-		remdel = 1;
-	}
+    /* -t - remove trailing {delim} from result */
+    if (OPT_ISSET(ops, 't'))
+    {
+        remdel = 1;
+    }
 
-	/* -u {fd} - read from file descriptor {fd} */
-	if (OPT_ISSET(ops, 'u'))
-	{
-		srcfd = OPT_ARG(ops, 'u') ? atoi(OPT_ARG(ops, 'u')) : 0;
-	}
+    /* -u {fd} - read from file descriptor {fd} */
+    if (OPT_ISSET(ops, 'u'))
+    {
+        srcfd = OPT_ARG(ops, 'u') ? atoi(OPT_ARG(ops, 'u')) : 0;
+    }
 
-	/* -C {callback} - eval {callback} each time {quantum} records are read */
-	if (OPT_ISSET(ops, 'C'))
-	{
-		callback = OPT_ARG(ops, 'C') ? ztrdup(OPT_ARG(ops, 'C')) : NULL;
-	}
+    /* -C {callback} - eval {callback} each time {quantum} records are read */
+    if (OPT_ISSET(ops, 'C'))
+    {
+        callback = OPT_ARG(ops, 'C') ? ztrdup(OPT_ARG(ops, 'C')) : NULL;
+    }
 
-	/* -c {quantum} - the # of records for the above -C option */
-	if (OPT_ISSET(ops, 'c'))
-	{
-		quantum = OPT_ARG(ops, 'c') ? atoi(OPT_ARG(ops, 'c')) : 5000;
-	}
+    /* -c {quantum} - the # of records for the above -C option */
+    if (OPT_ISSET(ops, 'c'))
+    {
+        quantum = OPT_ARG(ops, 'c') ? atoi(OPT_ARG(ops, 'c')) : 5000;
+    }
 
-	/* The name of output array */
-	if (!*argv)
-	{
-		zwarnnam(nam, "%d: Name of the output array is required, aborting", __LINE__);
-		return 1;
-	}
-	else
-	{
-		oarr_name = ztrdup(*argv);
-		++argv;
-	}
+    /* The name of output array */
+    if (!*argv)
+    {
+        zwarnnam(nam, "%d: Name of the output array is required, aborting", __LINE__);
+        if (callback) zsfree(callback); // Free allocated callback
+        return 1;
+    }
+    else
+    {
+        oarr_name = ztrdup(*argv);
+        ++argv;
+    }
 
-	/* Extra arguments -> error */
-	if (*argv)
-	{
-		zwarnnam(nam, "%d: Extra arguments detected, only one argument is needed, see -h, aborting", __LINE__);
-		return 1;
-	}
+    /* Extra arguments -> error */
+    if (*argv)
+    {
+        zwarnnam(nam, "%d: Extra arguments detected, only one argument is needed, see -h, aborting", __LINE__);
+        if (callback) zsfree(callback); // Free allocated callback
+        if (oarr_name) zsfree(oarr_name); // Free allocated oarr_name
+        return 1;
+    }
 
-	stream = fdopen(srcfd, "r");
-	if (!stream)
-	{
-		zwarnnam(nam, "%d: Couldn't read descriptor: %d", __LINE__, nam, srcfd);
-		return 1;
-	}
+    stream = fdopen(srcfd, "r");
+    if (!stream)
+    {
+        // Corrected warning message arguments
+        zwarnnam(nam, "line %d: couldn't open/read descriptor %d", __LINE__, srcfd);
+        if (callback) zsfree(callback); // Free allocated callback
+        if (oarr_name) zsfree(oarr_name); // Free allocated oarr_name
+        // stream is NULL, no fclose needed here
+        return 1;
+    }
 
 #ifdef HAVE_GETLINE
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read_len; // Renamed from `read` to avoid potential conflicts
+    int index = start_at;
 
+    while ((read_len = getline(&line, &len, stream)) != -1)
+    {
+        if (skip_first > 0)
+        {
+            skip_first--;
+            continue;
+        }
+
+        if (remdel && read_len > 0 && line[read_len - 1] == delim)
+        {
+            line[--read_len] = '\0';
+        }
+
+        if (to_copy > 0 && index - start_at >= to_copy)
+        {
+            break;
+        }
+
+        setsparam(oarr_name, line);
+
+        if (callback && (index - start_at + 1) % quantum == 0)
+        {
+            char idx_str[20];
+            sprintf(idx_str, "%d", index);
+            char *args[] = {idx_str, line, NULL};
+            execstring(callback, args, 0, 0);
+        }
+
+        index++;
+    }
+
+    free(line); // getline's buffer must be freed
+#else
+    // If HAVE_GETLINE is not defined, the main loop is skipped.
+    // Mark variables that would have been used in the loop as UNUSED
+    // to suppress compiler warnings.
+    UNUSED(delim);
+    UNUSED(to_copy);
+    UNUSED(start_at);
+    UNUSED(skip_first);
+    UNUSED(remdel);
+    UNUSED(quantum);
+    // callback and oarr_name are freed later, but their primary
+    // functional use is within the HAVE_GETLINE block.
+    UNUSED(callback);
+    UNUSED(oarr_name);
 #endif
 
-	return 0;
+    // Cleanup resources before returning
+    if (stream) fclose(stream);
+    if (callback) zsfree(callback);
+    if (oarr_name) zsfree(oarr_name);
+
+    return 0;
 }
 
 /**/
@@ -1504,7 +1580,7 @@ void zpmod_usage()
 /* FUNCTION: zp_append_report {{{ */
 /**/
 static int
-zp_append_report(const char *nam, const char *target, int target_len, const char *body, int body_len)
+zp_append_report(const char *nam, const char *target, UNUSED(int target_len), const char *body, int body_len)
 {
 	Param pm = NULL, val_pm = NULL;
 	HashTable ht = NULL;
@@ -1550,8 +1626,7 @@ zp_append_report(const char *nam, const char *target, int target_len, const char
 	/* Extend the string with additional body_len-bytes */
 	new_extended_len = target_string_len + body_len;
 	target_string = realloc(target_string, (new_extended_len + 1) * sizeof(char));
-	if (NULL == target_string)
-	{
+	if (NULL == target_string) {
 		zwarnnam(nam, "%d: Couldn't allocate new memory (2), operation aborted", __LINE__);
 		return 1;
 	}
@@ -1665,35 +1740,38 @@ zp_createhashtable(char *name)
 /* }}} */
 /* FUNCTION: zp_createhashparam {{{ */
 /**/
-static Param
+static Param __attribute__((unused))
 zp_createhashparam(char *name, int flags)
 {
-	Param pm;
-	HashTable ht;
+    Param pm;
+    HashTable ht;
 
-	pm = createparam(name, flags | PM_SPECIAL | PM_HASHED);
-	if (!pm)
-	{
-		return NULL;
-	}
+    pm = createparam(name, flags | PM_SPECIAL | PM_HASHED);
+    if (!pm)
+    {
+        return NULL;
+    }
 
-	if (pm->old)
-		pm->level = locallevel;
+    if (pm->old)
+        pm->level = locallevel;
 
-	/* This creates standard hash. */
-	ht = pm->u.hash = newparamtable(7, name);
-	if (!pm->u.hash)
-	{
-		paramtab->removenode(paramtab, name);
-		paramtab->freenode(&pm->node);
-		zwarnnam(name, "%d: Out of memory when allocating user-visible hash parameter", __LINE__);
-		return NULL;
-	}
+    /* This creates standard hash. */
+    ht = pm->u.hash = newparamtable(7, name);
+    if (!pm->u.hash)
+    {
+        paramtab->removenode(paramtab, name);
+        paramtab->freenode(&pm->node);
+        zwarnnam(name, "%d: Out of memory when allocating user-visible hash parameter", __LINE__);
+        return NULL;
+    }
 
-	/* Does free Param (unsetfn is called) */
-	ht->freenode = zp_freeparamnode;
+    pm->gsu.h = &stdhash_gsu;
+    pm->node.flags = (flags | PM_SPECIAL | PM_HASHED);
 
-	return pm;
+    /* Does free Param (unsetfn is called) */
+    ht->freenode = zp_freeparamnode;
+
+    return pm;
 }
 /* }}} */
 /* FUNCTION: zp_free_sevent_node {{{ */
@@ -1701,8 +1779,12 @@ zp_createhashparam(char *name, int flags)
 static void
 zp_free_sevent_node(HashNode hn)
 {
-	zsfree(hn->nam);
-	zfree(hn, sizeof(struct zp_sevent_node));
+    SEventNode s = (SEventNode)hn;
+    zsfree(hn->nam);                 /* existing */
+    zsfree(s->event.dir_path);
+    zsfree(s->event.file_name);
+    zsfree(s->event.full_path);
+    zfree(s, sizeof(struct zp_sevent_node));
 }
 /* }}} */
 /* FUNCTION: zp_freeparamnode {{{ */
@@ -1740,22 +1822,28 @@ void zp_freeparamnode(HashNode hn)
 static int
 zp_has_option(char **argv, char opt)
 {
-	char *string;
-	while ((string = *argv))
-	{
-		if (string[0] == '-')
-		{
-			while (*++string)
-			{
-				if (string[0] == opt)
-				{
-					return 1;
-				}
-			}
-		}
-		++argv;
-	}
-	return 0;
+    char *string;
+    while ((string = *argv))
+    {
+        if (string[0] == '-')
+        {
+            if (string[1] == '-' && string[2] == '\0') // Check for "--"
+            {
+                return 0; // End of options, opt cannot be found further
+            }
+            // string was already checked for string[0] == '-'
+            // now advance past the '-' to check subsequent characters
+            while (*++string)
+            {
+                if (string[0] == opt)
+                {
+                    return 1;
+                }
+            }
+        }
+        ++argv;
+    }
+    return 0;
 }
 /* }}} */
 /* FUNCTION: my_ztrdup_glen {{{ */
@@ -1889,9 +1977,9 @@ int enables_(Module m, int **enables)
 /* }}} */
 /* FUNCTION: boot_ {{{ */
 /**/
-int boot_(Module m)
+int boot_(UNUSED(Module m))
 {
-	return 0;
+    return 0;
 }
 /* }}} */
 /* FUNCTION: cleanup_ {{{ */
