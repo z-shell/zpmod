@@ -15,7 +15,7 @@ SKIP_GIT=0
 FORCE_REBUILD=0
 BUILD_ONLY=0
 CUSTOM_CFLAGS="-g -Wall -Wextra -O3"
-BRANCH="main"
+BRANCH=""
 ZSH_EXEC=""
 JOBS=""
 NO_INSTALL=0
@@ -61,6 +61,15 @@ Options:
   --help, -h                   Show this help message
 EOF
 }
+
+# Auto-detect current git branch if not specified and we're in a git repo
+if [ -z "${BRANCH}" ] && command -v git >/dev/null && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  verbose "Auto-detected git branch: ${BRANCH}"
+else
+  # Default to main if we can't detect
+  BRANCH="main"
+fi
 
 # Check for essential build tools
 check_dependencies() {
@@ -220,16 +229,16 @@ fi
 if [ "${SKIP_GIT}" -eq 0 ]; then
   if test -d "${INSTALL_DIR}/.git"; then
     info "${col_pname}== Updating ZPMOD module at ${INSTALL_DIR} =="
-    builtin cd "${INSTALL_DIR}" || exit 255
+    cd "${INSTALL_DIR}" || exit 255
     command git pull -q origin "${BRANCH}"
   else
     info "${col_pname}== Downloading ZPMOD module to ${INSTALL_DIR} =="
     command git clone --depth 10 -q -b "${BRANCH}" https://github.com/z-shell/zpmod.git "${INSTALL_DIR}"
   fi
-  builtin cd "${INSTALL_DIR}" || exit 255
+  cd "${INSTALL_DIR}" || exit 255
 else
   verbose "Skipping git operations as --no-git was specified"
-  builtin cd "${INSTALL_DIR}" || exit 255
+  cd "${INSTALL_DIR}" || exit 255
 fi
 
 # Check Zsh version and build the module
@@ -302,19 +311,19 @@ else
 
       # Display success message and instructions
       if [ "${BUILD_ONLY}" -eq 1 ]; then
-        info "[38;5;219m[0m [38;5;220mModule [38;5;177mhas been built correctly."
-        info "[38;5;219m[0m [38;5;220mFiles are available in ${INSTALL_DIR}/Src"
+        info "Module has been built correctly."
+        info "Files are available in ${INSTALL_DIR}/Src"
       else
         command cat <<-EOF
-[38;5;219m[0m [38;5;220mModule [38;5;177mhas been built correctly.
-[38;5;219m[0m [38;5;220mTo [38;5;160mload the module, add following [38;5;220m2 lines to [38;5;172m.zshrc, at top:
+- Module has been built correctly.
+- To load the module, add following 2 lines to .zshrc, at top:
 
-[0m [38;5;51m module_path+=( "${INSTALL_DIR}/Src" )
-[0m [38;5;51m zmodload zi/zpmod
+module_path+=( "${INSTALL_DIR}/Src" )
+zmodload zi/zpmod
 
-[38;5;219m[0m [38;5;220mSee 'zpmod -h' for more information.
-[38;5;219m[0m [38;5;220mRun 'zpmod source-study' to see profile data,
-[38;5;219m[0m [38;5;177mGuaranteed, automatic compilation of any sourced script.
+- See 'zpmod -h' for more information.
+- Run 'zpmod source-study' to see profile data,
+- Guaranteed, automatic compilation of any sourced script.
 EOF
       fi
     else
