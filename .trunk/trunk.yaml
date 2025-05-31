@@ -1,20 +1,24 @@
 version: 0.1
 cli:
-  version: 1.4.1
+  version: 1.24.0
 plugins:
   sources:
     - id: trunk
-      ref: v0.0.10
+      ref: v1.7.0
       uri: https://github.com/trunk-io/plugins
 lint:
+  disabled:
+    - yamllint
   enabled:
-    - gitleaks@8.15.3
-    - prettier@2.8.4
-    - actionlint@1.6.23
-    - markdownlint@0.33.0
+    - checkov@3.2.435
+    - trufflehog@3.88.35
+    - gitleaks@8.26.0
+    - prettier@3.5.3
+    - actionlint@1.7.7
+    - markdownlint@0.45.0
     - git-diff-check
-    - shfmt@3.5.0
-    - shellcheck@0.9.0
+    - shfmt@3.6.0
+    - shellcheck@0.10.0
   ignore:
     - linters: [ALL]
       paths:
@@ -27,8 +31,9 @@ lint:
         - "mkinstalldirs"
 runtimes:
   enabled:
-    - go@1.18.3
-    - node@18.12.1
+    - python@3.10.8
+    - go@1.21.0
+    - node@22.16.0
 actions:
   enabled:
     - trunk-announce
