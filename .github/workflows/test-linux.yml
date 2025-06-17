@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions: {}
 
@@ -20,7 +20,7 @@ jobs:
       contents: read    
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: ☑️ ShellCheck
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
         with:
@@ -47,13 +47,28 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
-
-      - name: ⚙️ Build and List Files
-        run: sh ./Scripts/install.sh && ls -a $HOME/.zi/zmodules/zpmod/Src/zi
-
-      - name: ⚙️ Load Module
+      - name: ⚙️ Determine Branch
+        id: branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          module_path+=( "$HOME/.zi/zmodules/zpmod/Src" )
+          # For PR events, use HEAD_REF; for push events, use REF_NAME
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "branch=$HEAD_REF" >> $GITHUB_OUTPUT
+          else
+            echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
+          fi
+      - name: ⚙️ Build
+        env:
+          BRANCH_NAME: ${{ steps.branch.outputs.branch }}
+        run: |
+          sh ./Scripts/install.sh --no-git --target=$(pwd) --branch="$BRANCH_NAME"
+          ls -la ./Src/zi
+      - name: ⚙️ Load
+        run: |
+          module_path+=( "$PWD/Src" )
           zmodload zi/zpmod
           zpmod source-study -l
         shell: zsh {0}
