@@ -35,14 +35,6 @@ jobs:
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871
-      - name: 📦 Cache Zsh
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/zsh
-          key: ${{ runner.os }}-zsh-${{ hashFiles('**/Scripts/install.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-zsh-
-
       - name: ⚙️ Prepare
         run: |
           sudo apt-get update
