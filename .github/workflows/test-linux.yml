@@ -5,10 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch: {}
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -17,6 +16,8 @@ concurrency:
 jobs:
   shellcheck:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read    
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -27,11 +28,21 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 30
     needs: [shellcheck]
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871
+      - name: 📦 Cache Zsh
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/zsh
+          key: ${{ runner.os }}-zsh-${{ hashFiles('**/Scripts/install.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-zsh-
+
       - name: ⚙️ Prepare
         run: |
           sudo apt-get update
