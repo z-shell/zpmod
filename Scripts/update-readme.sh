@@ -36,12 +36,12 @@ log() {
   local level="$1"
   shift
 
-  case "$level" in
+  case "${level}" in
   "INFO") echo -e "${BLUE}[INFO]${NC}  $*" >&2 ;;
   "WARN") echo -e "${YELLOW}[WARN]${NC}  $*" >&2 ;;
   "ERROR") echo -e "${RED}[ERROR]${NC} $*" >&2 ;;
   "SUCCESS") echo -e "${GREEN}[SUCCESS]${NC} $*" >&2 ;;
-  "DEBUG") [[ $VERBOSE == true ]] && echo -e "${BLUE}[DEBUG]${NC} $*" >&2 ;;
+  "DEBUG") [[ ${VERBOSE} == true ]] && echo -e "${BLUE}[DEBUG]${NC} $*" >&2 ;;
   esac
 }
 
@@ -96,8 +96,8 @@ check_files() {
 
   local missing_files=false
 
-  if [[ ! -d $DOCS_DIR ]]; then
-    log "ERROR" "Docs directory not found: $DOCS_DIR"
+  if [[ ! -d ${DOCS_DIR} ]]; then
+    log "ERROR" "Docs directory not found: ${DOCS_DIR}"
     missing_files=true
   fi
 
@@ -108,7 +108,7 @@ check_files() {
     fi
   done
 
-  if [[ $missing_files == true ]]; then
+  if [[ ${missing_files} == true ]]; then
     return 1
   else
     log "SUCCESS" "All required files found"
@@ -124,31 +124,32 @@ extract_key_features() {
   local key_features=$(sed -n '/## Features/,/^## /p' "${DOCS_DIR}/GUIDE.md" 2>/dev/null | grep "^- " | head -n 4)
 
   # If not found in GUIDE.md, try index.md
-  if [[ -z $key_features ]]; then
+  if [[ -z ${key_features} ]]; then
     key_features=$(sed -n '/## Features/,/^## /p' "${DOCS_DIR}/index.md" 2>/dev/null | grep "^- " | head -n 4)
   fi
 
   # If still not found, use existing features from README.md
-  if [[ -z $key_features && -f $README_PATH ]]; then
-    key_features=$(sed -n '/## 🚀 Key Features/,/^## /p' "$README_PATH" | grep "^- " | head -n 4)
+  if [[ -z ${key_features} && -f ${README_PATH} ]]; then
+    key_features=$(sed -n '/## 🚀 Key Features/,/^## /p' "${README_PATH}" | grep "^- " | head -n 4)
   fi
 
   # If still not found, use default features
-  if [[ -z $key_features ]]; then
+  if [[ -z ${key_features} ]]; then
     key_features='- **Intelligent Script Compilation**: Automatically compiles `.zsh` scripts to optimized `.zwc` bytecode
 - **Advanced Performance Tracking**: Comprehensive timing analysis for all sourced files
 - **Robust Error Handling**: Graceful handling of edge cases including file descriptors and device files
 - **Seamless Zi Integration**: Enhanced performance tracking with the Zi plugin manager'
   fi
 
-  echo "$key_features"
+  echo "${key_features}"
 }
 
 # Generate the README.md content
 generate_readme() {
   log "INFO" "Generating README.md content..."
 
-  local key_features=$(extract_key_features)
+  local key_features
+  key_features=$(extract_key_features)
 
   cat <<EOF
 # Module: \`zpmod\`
@@ -165,7 +166,7 @@ generate_readme() {
 
 ## 🚀 Key Features
 
-$key_features
+${key_features}
 
 ## 📦 Installation
 
@@ -195,20 +196,20 @@ update_readme() {
   log "INFO" "Updating README.md..."
 
   local temp_file="${README_PATH}.new"
-  generate_readme >"$temp_file"
+  generate_readme >"${temp_file}"
 
   # Check if there are actual differences
-  if diff -q "$temp_file" "$README_PATH" >/dev/null 2>&1; then
+  if diff -q "${temp_file}" "${README_PATH}" >/dev/null 2>&1; then
     log "SUCCESS" "README.md is already up to date"
-    rm "$temp_file"
+    rm "${temp_file}"
     return 0
   else
-    if [[ $CHECK_ONLY == true ]]; then
+    if [[ ${CHECK_ONLY} == true ]]; then
       log "WARN" "README.md needs to be updated"
-      rm "$temp_file"
+      rm "${temp_file}"
       return 1
     else
-      mv "$temp_file" "$README_PATH"
+      mv "${temp_file}" "${README_PATH}"
       log "SUCCESS" "README.md has been updated"
       return 0
     fi
@@ -228,7 +229,7 @@ main() {
   fi
 
   if ! update_readme; then
-    if [[ $CHECK_ONLY == true ]]; then
+    if [[ ${CHECK_ONLY} == true ]]; then
       log "WARN" "README.md needs to be updated"
       exit 1
     else

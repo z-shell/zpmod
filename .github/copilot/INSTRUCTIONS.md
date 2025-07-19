@@ -45,7 +45,7 @@ This repository follows standard GitHub best practices:
 
 **Root Structure**:
 
-```
+```bash
 /
 ├── Config/             # Configuration files and templates
 ├── Scripts/            # Shell scripts for building, installing, and utility functions
@@ -63,7 +63,7 @@ This repository follows standard GitHub best practices:
 
 **Documentation Structure**:
 
-```
+```bash
 /docs/
 ├── API.md              # API reference documentation
 ├── CONTRIBUTING.md     # Contribution guidelines
@@ -74,7 +74,7 @@ This repository follows standard GitHub best practices:
 
 **GitHub Structure**:
 
-```
+```bash
 /.github/
 ├── workflows/          # GitHub Actions workflows
 ├── copilot/            # GitHub Copilot instructions

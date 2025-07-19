@@ -114,7 +114,7 @@ if (func) {
 zp_lazy_loader_destroy(loader);
 ```
 
-### Memory Optimization
+### Memory Usage Optimization
 
 ```c
 // After using some rarely used functions, unload them to free memory

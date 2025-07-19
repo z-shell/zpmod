@@ -18,7 +18,7 @@ set -euo pipefail
 # Configuration
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly REPO_URL="https://github.com/z-shell/zpmod"
-readonly RELEASES_URL="$REPO_URL/releases"
+readonly RELEASES_URL="${REPO_URL}/releases"
 readonly RAW_URL="https://raw.githubusercontent.com/z-shell/zpmod/main"
 
 # Colors for output
@@ -33,7 +33,7 @@ readonly NC='\033[0m' # No Color
 
 # Global variables
 INSTALL_TYPE="binary"
-INSTALL_DIR="$HOME/.local"
+INSTALL_DIR="${HOME}/.local"
 MODULE_DIR=""
 ZI_INTEGRATION=false
 DEVELOPMENT_MODE=false
@@ -50,12 +50,12 @@ log() {
   shift
   local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
 
-  case "$level" in
+  case "${level}" in
   "INFO") echo -e "${BLUE}[INFO]${NC}  $*" ;;
   "WARN") echo -e "${YELLOW}[WARN]${NC}  $*" ;;
   "ERROR") echo -e "${RED}[ERROR]${NC} $*" >&2 ;;
   "SUCCESS") echo -e "${GREEN}[SUCCESS]${NC} $*" ;;
-  "DEBUG") [[ $VERBOSE == true ]] && echo -e "${PURPLE}[DEBUG]${NC} $*" ;;
+  "DEBUG") [[ ${VERBOSE} == true ]] && echo -e "${PURPLE}[DEBUG]${NC} $*" ;;
   esac
 }
 
@@ -72,11 +72,11 @@ show_header() {
 
 show_help() {
   cat <<EOF
-Usage: $SCRIPT_NAME [OPTIONS]
+Usage: ${SCRIPT_NAME} [OPTIONS]
 
 Installation Options:
   -t, --type TYPE         Installation type: binary, source, dev (default: binary)
-  -d, --dir DIRECTORY     Installation directory (default: $HOME/.local)
+  -d, --dir DIRECTORY     Installation directory (default: ${HOME}/.local)
   --zi                    Enable Zi integration setup
   --dev                   Development mode (includes debug symbols)
 
@@ -95,10 +95,10 @@ Installation Types:
   dev                     Development setup with all tools
 
 Examples:
-  $SCRIPT_NAME                          # Quick binary install
-  $SCRIPT_NAME --type source --zi       # Source install with Zi integration
-  $SCRIPT_NAME --dev --verbose          # Development setup with verbose output
-  $SCRIPT_NAME --dir /usr/local --force # System-wide installation
+  ${SCRIPT_NAME}                          # Quick binary install
+  ${SCRIPT_NAME} --type source --zi       # Source install with Zi integration
+  ${SCRIPT_NAME} --dev --verbose          # Development setup with verbose output
+  ${SCRIPT_NAME} --dir /usr/local --force # System-wide installation
 
 EOF
 }
@@ -107,29 +107,29 @@ detect_platform() {
   local os="$(uname -s)"
   local arch="$(uname -m)"
 
-  case "$os" in
+  case "${os}" in
   "Linux")
-    case "$arch" in
+    case "${arch}" in
     "x86_64") echo "linux-x86_64" ;;
     "aarch64" | "arm64") echo "linux-arm64" ;;
     *)
-      log "ERROR" "Unsupported architecture: $arch"
+      log "ERROR" "Unsupported architecture: ${arch}"
       exit 1
       ;;
     esac
     ;;
   "Darwin")
-    case "$arch" in
+    case "${arch}" in
     "x86_64") echo "macos-x86_64" ;;
     "arm64") echo "macos-arm64" ;;
     *)
-      log "ERROR" "Unsupported architecture: $arch"
+      log "ERROR" "Unsupported architecture: ${arch}"
       exit 1
       ;;
     esac
     ;;
   *)
-    log "ERROR" "Unsupported operating system: $os"
+    log "ERROR" "Unsupported operating system: ${os}"
     exit 1
     ;;
   esac
@@ -139,13 +139,13 @@ check_dependencies() {
   local deps=("curl" "zsh")
   local missing=()
 
-  if [[ $INSTALL_TYPE == "source" || $INSTALL_TYPE == "dev" ]]; then
+  if [[ ${INSTALL_TYPE} == "source" || ${INSTALL_TYPE} == "dev" ]]; then
     deps+=("git" "make" "gcc")
   fi
 
   for dep in "${deps[@]}"; do
-    if ! command -v "$dep" >/dev/null 2>&1; then
-      missing+=("$dep")
+    if ! command -v "${dep}" >/dev/null 2>&1; then
+      missing+=("${dep}")
     fi
   done
 
@@ -160,7 +160,7 @@ check_dependencies() {
 
 get_latest_version() {
   log "DEBUG" "Fetching latest version information"
-  curl -s "$RELEASES_URL/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/' || echo "unknown"
+  curl -s "${RELEASES_URL}/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/' || echo "unknown"
 }
 
 get_module_extension() {
@@ -181,22 +181,22 @@ install_binary() {
   local platform="$(detect_platform)"
   local version="$(get_latest_version)"
   local ext="$(get_module_extension)"
-  local module_file="zpmod.$ext"
+  local module_file="zpmod.${ext}"
 
-  log "INFO" "Platform: $platform"
-  log "INFO" "Version: $version"
-  log "INFO" "Module extension: $ext"
+  log "INFO" "Platform: ${platform}"
+  log "INFO" "Version: ${version}"
+  log "INFO" "Module extension: ${ext}"
 
   # Create module directory
-  MODULE_DIR="$INSTALL_DIR/lib/zsh/modules/zi"
-  mkdir -p "$MODULE_DIR"
+  MODULE_DIR="${INSTALL_DIR}/lib/zsh/modules/zi"
+  mkdir -p "${MODULE_DIR}"
 
   # Download binary
-  local download_url="$RELEASES_URL/latest/download/$module_file"
-  log "INFO" "Downloading from: $download_url"
+  local download_url="${RELEASES_URL}/latest/download/${module_file}"
+  log "INFO" "Downloading from: ${download_url}"
 
-  if curl -L -o "$MODULE_DIR/$module_file" "$download_url"; then
-    chmod 755 "$MODULE_DIR/$module_file"
+  if curl -L -o "${MODULE_DIR}/${module_file}" "${download_url}"; then
+    chmod 755 "${MODULE_DIR}/${module_file}"
     log "SUCCESS" "Binary downloaded and installed"
   else
     log "ERROR" "Failed to download binary"
@@ -214,23 +214,23 @@ install_source() {
   local ext="$(get_module_extension)"
 
   # Clone repository
-  log "INFO" "Cloning repository to $temp_dir"
-  git clone "$REPO_URL" "$temp_dir"
-  cd "$temp_dir"
+  log "INFO" "Cloning repository to ${temp_dir}"
+  git clone "${REPO_URL}" "${temp_dir}"
+  cd "${temp_dir}"
 
   # Build
   log "INFO" "Building zpmod module"
-  if [[ $DEVELOPMENT_MODE == true ]]; then
+  if [[ ${DEVELOPMENT_MODE} == true ]]; then
     log "INFO" "Building with debug symbols"
-    CFLAGS="-g -O0" ./Scripts/install.sh --target="$INSTALL_DIR" --verbose
+    CFLAGS="-g -O0" ./Scripts/install.sh --target="${INSTALL_DIR}" --verbose
   else
-    ./Scripts/install.sh --target="$INSTALL_DIR" --verbose
+    ./Scripts/install.sh --target="${INSTALL_DIR}" --verbose
   fi
 
-  MODULE_DIR="$INSTALL_DIR/lib/zsh/modules/zi"
+  MODULE_DIR="${INSTALL_DIR}/lib/zsh/modules/zi"
 
   # Verify build
-  if [[ -f "$MODULE_DIR/zpmod.$ext" ]]; then
+  if [[ -f "${MODULE_DIR}/zpmod.${ext}" ]]; then
     log "SUCCESS" "Source compilation completed"
   else
     log "ERROR" "Build failed - module file not found"
@@ -239,7 +239,7 @@ install_source() {
 
   # Cleanup
   cd - >/dev/null
-  rm -rf "$temp_dir"
+  rm -rf "${temp_dir}"
 }
 
 install_development() {
@@ -249,11 +249,11 @@ install_development() {
   install_source
 
   # Additional development tools
-  local dev_dir="$INSTALL_DIR/share/zpmod-dev"
-  mkdir -p "$dev_dir"
+  local dev_dir="${INSTALL_DIR}/share/zpmod-dev"
+  mkdir -p "${dev_dir}"
 
   # Create development configuration
-  cat >"$dev_dir/zpmod-dev.zsh" <<'EOF'
+  cat >"${dev_dir}/zpmod-dev.zsh" <<'EOF'
 # ZPMOD Development Configuration
 
 # Enable comprehensive debugging
@@ -290,21 +290,21 @@ echo "Use 'zpmod-dev-test' to run development tests"
 EOF
 
   log "SUCCESS" "Development environment configured"
-  log "INFO" "Development config: $dev_dir/zpmod-dev.zsh"
+  log "INFO" "Development config: ${dev_dir}/zpmod-dev.zsh"
 }
 
 setup_zi_integration() {
   log "INFO" "Setting up Zi integration"
 
-  local zi_config="$HOME/.config/zi/zpmod-integration.zsh"
-  mkdir -p "$(dirname "$zi_config")"
+  local zi_config="${HOME}/.config/zi/zpmod-integration.zsh"
+  mkdir -p "$(dirname "${zi_config}")"
 
-  cat >"$zi_config" <<EOF
+  cat >"${zi_config}" <<EOF
 # ZPMOD Zi Integration Configuration
 # Auto-generated by zpmod advanced installer
 
 # Load zpmod module with Zi
-module_path+=("$MODULE_DIR/..")
+module_path+=("${MODULE_DIR}/..")
 zmodload zi/zpmod
 
 # Enhanced Zi integration
@@ -333,45 +333,45 @@ else
 fi
 EOF
 
-  log "SUCCESS" "Zi integration configured: $zi_config"
+  log "SUCCESS" "Zi integration configured: ${zi_config}"
 
   # Add to user's Zi configuration if it exists
-  local zi_init="$HOME/.config/zi/init.zsh"
-  if [[ -f $zi_init ]] && ! grep -q "zpmod-integration.zsh" "$zi_init"; then
-    echo "source \"$zi_config\"" >>"$zi_init"
+  local zi_init="${HOME}/.config/zi/init.zsh"
+  if [[ -f ${zi_init} ]] && ! grep -q "zpmod-integration.zsh" "${zi_init}"; then
+    echo "source \"${zi_config}\"" >>"${zi_init}"
     log "INFO" "Added to Zi initialization"
   fi
 }
 
 setup_configuration() {
-  if [[ $CONFIG_SETUP != true ]]; then
+  if [[ ${CONFIG_SETUP} != true ]]; then
     log "INFO" "Skipping configuration setup"
     return
   fi
 
   log "INFO" "Setting up zpmod configuration"
 
-  local config_dir="$HOME/.config/zpmod"
-  mkdir -p "$config_dir"
+  local config_dir="${HOME}/.config/zpmod"
+  mkdir -p "${config_dir}"
 
   # Download configuration file
-  local config_url="$RAW_URL/Config/zpmod-config.zsh"
-  if curl -s -o "$config_dir/config.zsh" "$config_url"; then
-    log "SUCCESS" "Configuration downloaded: $config_dir/config.zsh"
+  local config_url="${RAW_URL}/Config/zpmod-config.zsh"
+  if curl -s -o "${config_dir}/config.zsh" "${config_url}"; then
+    log "SUCCESS" "Configuration downloaded: ${config_dir}/config.zsh"
   else
     log "WARN" "Could not download configuration file"
   fi
 
   # Create user configuration
-  local user_config="$config_dir/user-config.zsh"
-  if [[ ! -f $user_config ]]; then
-    cat >"$user_config" <<EOF
+  local user_config="${config_dir}/user-config.zsh"
+  if [[ ! -f ${user_config} ]]; then
+    cat >"${user_config}" <<EOF
 # ZPMOD User Configuration
 # Customize zpmod behavior here
 
 # Installation-specific settings
-export ZPMOD_INSTALL_DIR="$INSTALL_DIR"
-export ZPMOD_MODULE_DIR="$MODULE_DIR"
+export ZPMOD_INSTALL_DIR="${INSTALL_DIR}"
+export ZPMOD_MODULE_DIR="${MODULE_DIR}"
 
 # Performance settings (adjust to your needs)
 export ZPMOD_MIN_SIZE=1024
@@ -380,27 +380,27 @@ export ZPMOD_TRACK_LEVEL=1
 # Add your custom settings below:
 
 EOF
-    log "SUCCESS" "User configuration created: $user_config"
+    log "SUCCESS" "User configuration created: ${user_config}"
   fi
 }
 
 configure_shell() {
   log "INFO" "Configuring shell integration"
 
-  local zshrc="$HOME/.zshrc"
-  local backup="$zshrc.zpmod-backup-$(date +%s)"
+  local zshrc="${HOME}/.zshrc"
+  local backup="${zshrc}.zpmod-backup-$(date +%s)"
 
   # Create backup
-  if [[ -f $zshrc ]]; then
-    cp "$zshrc" "$backup"
-    log "INFO" "Created backup: $backup"
+  if [[ -f ${zshrc} ]]; then
+    cp "${zshrc}" "${backup}"
+    log "INFO" "Created backup: ${backup}"
   fi
 
   # Configuration block
   local config_block="
 # ZPMOD Configuration - Added by advanced installer
-if [[ -d \"$MODULE_DIR\" ]]; then
-    module_path+=(\"$(dirname "$MODULE_DIR")\")
+if [[ -d \"${MODULE_DIR}\" ]]; then
+    module_path+=(\"$(dirname "${MODULE_DIR}")\")
 
     # Load configuration if available
     [[ -f \"\$HOME/.config/zpmod/config.zsh\" ]] && source \"\$HOME/.config/zpmod/config.zsh\"
@@ -416,10 +416,10 @@ fi
 "
 
   # Add configuration if not already present
-  if [[ -f $zshrc ]] && grep -q "ZPMOD Configuration" "$zshrc"; then
+  if [[ -f ${zshrc} ]] && grep -q "ZPMOD Configuration" "${zshrc}"; then
     log "INFO" "zpmod configuration already present in .zshrc"
   else
-    echo "$config_block" >>"$zshrc"
+    echo "${config_block}" >>"${zshrc}"
     log "SUCCESS" "Added zpmod configuration to .zshrc"
   fi
 }
@@ -428,16 +428,16 @@ verify_installation() {
   log "INFO" "Verifying installation"
 
   local ext="$(get_module_extension)"
-  local module_file="$MODULE_DIR/zpmod.$ext"
+  local module_file="${MODULE_DIR}/zpmod.${ext}"
 
   # Check module file
-  if [[ ! -f $module_file ]]; then
-    log "ERROR" "Module file not found: $module_file"
+  if [[ ! -f ${module_file} ]]; then
+    log "ERROR" "Module file not found: ${module_file}"
     return 1
   fi
 
   # Check if loadable
-  if zsh -c "module_path+=('$(dirname "$MODULE_DIR")'); zmodload zi/zpmod" 2>/dev/null; then
+  if zsh -c "module_path+=('$(dirname "${MODULE_DIR}")'); zmodload zi/zpmod" 2>/dev/null; then
     log "SUCCESS" "Module loads successfully"
   else
     log "ERROR" "Module failed to load"
@@ -445,7 +445,7 @@ verify_installation() {
   fi
 
   # Test basic functionality
-  if zsh -c "module_path+=('$(dirname "$MODULE_DIR")'); zmodload zi/zpmod; zpmod source-study" 2>/dev/null; then
+  if zsh -c "module_path+=('$(dirname "${MODULE_DIR}")'); zmodload zi/zpmod; zpmod source-study" 2>/dev/null; then
     log "SUCCESS" "Basic functionality verified"
   else
     log "WARN" "Basic functionality test failed (may be normal for fresh install)"
@@ -460,23 +460,23 @@ show_completion_message() {
   echo "         ZPMOD Installation Completed!"
   echo -e "==================================================${NC}"
   echo
-  echo "📁 Installation directory: $INSTALL_DIR"
-  echo "🔧 Module location: $MODULE_DIR"
-  echo "⚙️  Configuration: $HOME/.config/zpmod/"
+  echo "📁 Installation directory: ${INSTALL_DIR}"
+  echo "🔧 Module location: ${MODULE_DIR}"
+  echo "⚙️  Configurati${n:$}HOME/.config/zpmod/"
   echo
   echo -e "${YELLOW}Next Steps:${NC}"
   echo "1. Restart your shell or run: source ~/.zshrc"
   echo "2. Test the installation: zpmod source-study"
   echo "3. View configuration: cat ~/.config/zpmod/config.zsh"
   echo
-  if [[ $ZI_INTEGRATION == true ]]; then
+  if [[ ${ZI_INTEGRATION} == true ]]; then
     echo -e "${BLUE}Zi Integration:${NC}"
     echo "- Use 'zi zpmod-stats' for performance reports"
     echo "- Use 'zi zpmod-report' for detailed analysis"
     echo
   fi
   echo -e "${PURPLE}Documentation:${NC}"
-  echo "- GitHub: $REPO_URL"
+  echo "- GitHub: ${REPO_URL}"
   echo "- Configuration: ~/.config/zpmod/config.zsh"
   echo "- Logs: ~/.cache/zpmod/debug.log (if debug enabled)"
   echo
@@ -492,8 +492,8 @@ parse_arguments() {
     case $1 in
     -t | --type)
       INSTALL_TYPE="$2"
-      if [[ ! $INSTALL_TYPE =~ ^(binary|source|dev)$ ]]; then
-        log "ERROR" "Invalid install type: $INSTALL_TYPE"
+      if [[ ! ${INSTALL_TYPE} =~ ^(binary|source|dev)$ ]]; then
+        log "ERROR" "Invalid install type: ${INSTALL_TYPE}"
         exit 1
       fi
       shift 2
@@ -545,15 +545,15 @@ main() {
   parse_arguments "$@"
 
   log "INFO" "Starting zpmod installation"
-  log "INFO" "Type: $INSTALL_TYPE"
-  log "INFO" "Directory: $INSTALL_DIR"
-  log "INFO" "Zi Integration: $ZI_INTEGRATION"
+  log "INFO" "Type: ${INSTALL_TYPE}"
+  log "INFO" "Directory: ${INSTALL_DIR}"
+  log "INFO" "Zi Integration: ${ZI_INTEGRATION}"
 
   # Pre-installation checks
   check_dependencies
 
   # Installation based on type
-  case "$INSTALL_TYPE" in
+  case "${INSTALL_TYPE}" in
   "binary")
     install_binary
     ;;
@@ -568,7 +568,7 @@ main() {
   # Post-installation setup
   setup_configuration
 
-  if [[ $ZI_INTEGRATION == true ]]; then
+  if [[ ${ZI_INTEGRATION} == true ]]; then
     setup_zi_integration
   fi
 

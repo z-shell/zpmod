@@ -10,13 +10,13 @@ This document provides a detailed technical reference for the zpmod Zsh module, 
 
 Displays performance data for sourced files.
 
-#### Options:
+#### Options
 
 - `-l`: Show full file paths instead of just filenames
 - `-s`: Sort by load time (slowest first)
 - `-n <number>`: Show only the top N entries
 
-#### Example:
+#### Example
 
 ```zsh
 # Show basic report
