@@ -44,7 +44,7 @@ if command -v zi >/dev/null; then
   info "  zi module build zpmod"
   info "${col_info}This script is for standalone installations. Do you want to continue anyway? [y/N]${col_rst}"
   read -r a
-  if [ "$a" != "y" ] && [ "$a" != "Y" ]; then
+  if [ "${a}" != "y" ] && [ "${a}" != "Y" ]; then
     info "Installation aborted."
     exit 0
   fi

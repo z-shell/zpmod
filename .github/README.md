@@ -40,7 +40,7 @@ If you are using the [Zi](https://github.com/z-shell/zi) plugin manager, the rec
 
     Available options include:
 
-    ```
+    ```text
     -B,--build       →  Build the module, append --clean to run distclean.
     -h,--help        →  Show this help message.
     -I,--info        →  Display additional information.
@@ -55,7 +55,6 @@ If you are using the [Zi](https://github.com/z-shell/zi) plugin manager, the rec
 
 2.  **Follow the instructions**:
     After the build is complete, the command will output information about the module installation.
-
     - If you have the Zi initialization script (`$HOME/.config/zi/init.sh`), it will automatically handle the module loading.
     - If you don't have this initialization script, follow the output instructions to add the necessary lines to your `.zshrc` file.
 

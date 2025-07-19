@@ -5,13 +5,11 @@ This directory contains various utility scripts for building, installing, and ma
 ## Available Scripts
 
 - **install.sh** - Main installation and build script for compiling the zpmod module
-
   - Supports various command-line options (run with `--help` to see all options)
   - Handles configuration, compilation, and installation
   - This is the recommended script for most users
 
 - **clean.sh** - Cleans up build artifacts and temporary files
-
   - Removes object files, shared libraries, and other generated files
   - Use with `--verbose` to see all commands being executed
 
