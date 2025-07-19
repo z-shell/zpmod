@@ -490,7 +490,7 @@ show_completion_message() {
   echo
   echo "📁 Installation directory: ${INSTALL_DIR}"
   echo "🔧 Module location: ${MODULE_DIR}"
-  echo "⚙️  Configurati${n:$}HOME/.config/zpmod/"
+  echo "⚙️  Configuration: ${HOME}/.config/zpmod/"
   echo
   echo -e "${YELLOW}Next Steps:${NC}"
   echo "1. Restart your shell or run: source ~/.zshrc"

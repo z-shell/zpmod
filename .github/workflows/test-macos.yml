@@ -24,6 +24,7 @@ jobs:
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
         with:
           scandir: "./Scripts"
+          ignore_paths: "copy_from_zsh_src.zsh"
 
   build:
     runs-on: macos-latest
