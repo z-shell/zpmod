@@ -2,8 +2,8 @@
 
 <div align="center">
 
-[![🍎 Build (MacOS)](https://github.com/z-shell/zpmod/actions/workflows/test-macos.yml/badge.svg)](https://github.com/z-shell/zpmod/actions/workflows/test-macos.yml)
-[![🐧 Build (Linux)](https://github.com/z-shell/zpmod/actions/workflows/test-linux.yml/badge.svg)](https://github.com/z-shell/zpmod/actions/workflows/test-linux.yml)
+[![🚀 CI/CD](https://github.com/z-shell/zpmod/actions/workflows/ci.yml/badge.svg)](https://github.com/z-shell/zpmod/actions/workflows/ci.yml)
+[![� CodeQL](https://github.com/z-shell/zpmod/actions/workflows/codeql.yml/badge.svg)](https://github.com/z-shell/zpmod/actions/workflows/codeql.yml)
 [![📦 Create Release](https://github.com/z-shell/zpmod/actions/workflows/release.yml/badge.svg)](https://github.com/z-shell/zpmod/actions/workflows/release.yml)
 
 </div><hr />

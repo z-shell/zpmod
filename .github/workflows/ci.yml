@@ -1,0 +1,69 @@
+---
+name: 🚀 zpmod CI/CD (Optimized with Org Actions)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    name: 🔍 ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code
+        uses: actions/checkout@v4
+
+      - name: ☑️ ShellCheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
+        with:
+          scandir: "./Scripts"
+          ignore_paths: "**/copy_from_zsh_src.zsh"
+
+  test:
+    name: 🧪 Test (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    needs: [shellcheck]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: Linux
+          - os: macos-latest
+            platform: macOS
+
+    steps:
+      - name: ⤵️ Check out code
+        uses: actions/checkout@v4
+
+      # Use organization action for complete Zsh development environment
+      - name: ⚙️ Setup Zsh development environment
+        uses: z-shell/.github/actions/setup-zsh-development@main
+
+      # Use organization action for branch determination
+      - name: ⚙️ Determine Branch
+        id: branch
+        uses: z-shell/.github/actions/determine-branch@main
+
+      # Use organization action for building zpmod
+      - name: 🔨 Build zpmod module
+        uses: z-shell/.github/actions/build-zpmod-module@main
+        with:
+          branch-name: ${{ steps.branch.outputs.branch }}
+
+      # Use organization action for comprehensive testing
+      - name: 🧪 Test zpmod module
+        uses: z-shell/.github/actions/test-zpmod-module@main
+        with:
+          module-name: zpmod
+          test-scripts-path: test_files

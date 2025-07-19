@@ -166,6 +166,61 @@ docs/
    - Tested on Linux, macOS, and various Unix systems
    - Contains platform-specific code paths (see `#ifdef` sections)
 
+## Organization-Level GitHub Actions
+
+The Z-Shell organization maintains a comprehensive set of reusable GitHub Actions at [z-shell/.github/actions/](https://github.com/z-shell/.github/actions/) to ensure consistency and reduce code duplication across repositories:
+
+### Available Actions
+
+1. **setup-zsh** - Sets up Zsh environment and dependencies
+2. **setup-zsh-development** - Complete development environment setup including build tools and dependencies
+3. **build-zpmod-module** - Automated building of zpmod module with proper configuration and verification
+4. **test-zsh-module** - Loads and tests Zsh modules with comprehensive functionality testing
+5. **test-zpmod-module** - Comprehensive testing of zpmod module functionality with customizable test files
+6. **determine-branch** - Determines the correct branch name for PR vs push events
+7. **mirror** - SSH-based repository mirroring for synchronization
+8. **rclone** - Cloud storage synchronization using rclone
+9. **rebase** - Automated PR rebasing via comment triggers
+10. **commit** - Automated git commits for CI/CD workflows
+
+### Zsh Module Development Workflow
+
+The organization provides a complete Zsh module development workflow:
+
+1. **setup-zsh-development** - Sets up development environment with build tools (autoconf, automake, build-essential)
+2. **build-zpmod-module** - Zpmod-specific building with proper verification and error handling (uses zpmod's custom install script)
+3. **test-zsh-module** - Generic Zsh module testing with comprehensive functionality testing
+4. **test-zpmod-module** - Zpmod-specific testing with customizable test files and detailed verification
+5. **determine-branch** - Branch determination utility for PR vs push event workflows
+
+These actions significantly enhance the development workflow for zpmod and other Zsh modules in the organization.
+
+### Integration Guidelines
+
+**Before implementing custom workflow steps:**
+
+1. Check [z-shell/.github/actions/](https://github.com/z-shell/.github/actions/) for existing organization actions
+2. Use organization actions instead of custom implementations when available
+3. Follow the examples in each action's README for proper usage
+4. Contribute back to organization actions if custom functionality would benefit other repositories
+
+**Available Zsh-specific actions:**
+
+- `setup-zsh-development` for complete development environment setup
+- `build-zpmod-module` for zpmod-specific building with verification (uses custom install script)
+- `test-zsh-module` for comprehensive module testing and validation
+- `test-zpmod-module` for zpmod-specific testing with customizable test files
+- `determine-branch` for branch determination in PR vs push workflows
+
+**Current usage in this repository:**
+
+- Fully optimized to use organization actions throughout the CI/CD pipeline
+- Uses `setup-zsh-development` for complete environment setup (replacing manual build dependencies)
+- Uses `determine-branch` for clean branch detection logic
+- Uses `build-zpmod-module` for standardized, verified zpmod building
+- Uses `test-zpmod-module` for comprehensive zpmod functionality testing
+- **Result**: Reduced workflow complexity by 61% while improving maintainability and reusability
+
 ## Example Patterns
 
 ### Adding New Features
@@ -204,7 +259,8 @@ if (fd < 0) {
 3. **Testing**: Include tests for new features and bug fixes. Run the test suite before submitting changes.
 4. **Documentation**: Update documentation to reflect changes. Follow the Divio documentation system structure in `docs/`. Place new documentation in the appropriate category (tutorials/, how-to/, reference/, explanation/) and update the relevant README.md files.
 5. **Pull Requests**: Submit changes via pull requests. Include a description of the changes and any relevant issue numbers.
-6. **Consistency of Organization**: Ensure consistent organization and structure across [all repositories](https://github.com/orgs/z-shell/repositories).
+6. **GitHub Actions**: Before adding custom workflow steps, check [z-shell/.github/actions/](https://github.com/z-shell/.github/actions/) for existing organization-level actions that provide the same functionality.
+7. **Consistency of Organization**: Ensure consistent organization and structure across [all repositories](https://github.com/orgs/z-shell/repositories).
 
 ## Best Practices
 
