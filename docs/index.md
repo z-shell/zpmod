@@ -33,6 +33,7 @@ Discussions that clarify and illuminate particular topics. They broaden understa
 - **[Internal Architecture](explanation/internal-architecture.md)** - Deep dive into zpmod's internal implementation
 - **[Technical Improvements](explanation/technical-improvements.md)** - Recent enhancements and development progress
 - **[Documentation Workflow](explanation/documentation-workflow.md)** - How this documentation is maintained
+- **[GitHub Actions Strategy](explanation/github-actions-strategy.md)** - Organization-level CI/CD implementation and best practices
 
 ---
 

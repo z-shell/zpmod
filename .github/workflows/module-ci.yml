@@ -1,0 +1,38 @@
+---
+name: "Z-Shell Module CI/CD"
+on:
+  workflow_call:
+    inputs:
+      module-name:
+        required: true
+        type: string
+      test-platforms:
+        required: false
+        type: string
+        default: '["ubuntu-latest", "macos-latest"]'
+      run-security-scan:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ${{ fromJSON(inputs.test-platforms) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: z-shell/.github/actions/setup-zsh-development@main
+      - uses: z-shell/.github/actions/build-zsh-module@main
+        with:
+          module-name: ${{ inputs.module-name }}
+      - uses: z-shell/.github/actions/test-zsh-module@main
+        with:
+          module-name: ${{ inputs.module-name }}
+
+  security:
+    if: inputs.run-security-scan
+    uses: z-shell/.github/workflows/security-scan.yml@main
+    with:
+      module-name: ${{ inputs.module-name }}

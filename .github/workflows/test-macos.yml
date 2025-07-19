@@ -46,9 +46,8 @@ jobs:
           else
             echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
           fi
-      - name: ⚙️ Prepare environment
-        run: |
-          brew install zsh
+      - name: ⚙️ Setup Zsh
+        uses: z-shell/.github/actions/setup-zsh@main
 
       - name: 🔨 Build zpmod module
         env:

@@ -16,6 +16,7 @@ Explanations clarify and illuminate particular topics. They broaden the document
 - **[internal-architecture.md](internal-architecture.md)** - Deep dive into zpmod's internal implementation and design
 - **[technical-improvements.md](technical-improvements.md)** - Recent enhancements and development progress
 - **[documentation-workflow.md](documentation-workflow.md)** - How this documentation is maintained and organized
+- **[github-actions-strategy.md](github-actions-strategy.md)** - Organization-level GitHub Actions implementation strategy and best practices
 
 ## Writing Guidelines
 

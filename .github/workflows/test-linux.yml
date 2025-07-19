@@ -37,10 +37,13 @@ jobs:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: ⚙️ Prepare environment
+      - name: ⚙️ Setup Zsh and dependencies
+        uses: z-shell/.github/actions/setup-zsh@main
+
+      - name: ⚙️ Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh build-essential
+          sudo apt-get install -y build-essential
 
       - name: ⚙️ Determine Branch
         id: branch
