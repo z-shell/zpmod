@@ -12,8 +12,10 @@
 set -euo pipefail
 
 # Configuration
-readonly SCRIPT_NAME="$(basename "$0")"
-readonly ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+readonly ROOT_DIR
 readonly DOCS_DIR="${ROOT_DIR}/docs"
 readonly README_PATH="${ROOT_DIR}/README.md"
 
@@ -42,6 +44,9 @@ log() {
   "ERROR") echo -e "${RED}[ERROR]${NC} $*" >&2 ;;
   "SUCCESS") echo -e "${GREEN}[SUCCESS]${NC} $*" >&2 ;;
   "DEBUG") [[ ${VERBOSE} == true ]] && echo -e "${BLUE}[DEBUG]${NC} $*" >&2 ;;
+  *)
+    echo -e "${RED}[UNKNOWN]${NC} $*" >&2
+    ;;
   esac
 }
 
@@ -121,7 +126,8 @@ extract_key_features() {
   log "DEBUG" "Extracting key features from documentation..."
 
   # Try to extract from GUIDE.md first
-  local key_features=$(sed -n '/## Features/,/^## /p' "${DOCS_DIR}/GUIDE.md" 2>/dev/null | grep "^- " | head -n 4)
+  local key_features
+  key_features=$(sed -n '/## Features/,/^## /p' "${DOCS_DIR}/GUIDE.md" 2>/dev/null | grep "^- " | head -n 4)
 
   # If not found in GUIDE.md, try index.md
   if [[ -z ${key_features} ]]; then
@@ -133,15 +139,36 @@ extract_key_features() {
     key_features=$(sed -n '/## 🚀 Key Features/,/^## /p' "${README_PATH}" | grep "^- " | head -n 4)
   fi
 
-  # If still not found, use default features
-  if [[ -z ${key_features} ]]; then
-    key_features='- **Intelligent Script Compilation**: Automatically compiles `.zsh` scripts to optimized `.zwc` bytecode
-- **Advanced Performance Tracking**: Comprehensive timing analysis for all sourced files
-- **Robust Error Handling**: Graceful handling of edge cases including file descriptors and device files
-- **Seamless Zi Integration**: Enhanced performance tracking with the Zi plugin manager'
+  echo "${key_features}"
+}
+
+# Update a section in the README.md
+update_readme_section() {
+  local section_name="$1"
+  local new_content="$2"
+  local readme_content
+  readme_content=$(cat "${README_PATH}")
+
+  local start_marker="<!-- BEGIN ${section_name} -->"
+  local end_marker="<!-- END ${section_name} -->"
+
+  # Check if markers exist
+  if ! grep -q "${start_marker}" "${README_PATH}" || ! grep -q "${end_marker}" "${README_PATH}"; then
+    log "WARN" "Section markers for '${section_name}' not found in README.md. Skipping update."
+    return 1
   fi
 
-  echo "${key_features}"
+  # Replace the content between the markers
+  local updated_content
+  updated_content=$(awk -v start="${start_marker}" -v end="${end_marker}" -v content="${new_content}" '
+    BEGIN {p=1}
+    $0 == start {print; print content; p=0}
+    $0 == end {p=1}
+    p {print}
+  ' "${readme_content}")
+
+  echo "${updated_content}" >"${README_PATH}"
+  log "SUCCESS" "Section '${section_name}' updated successfully."
 }
 
 # Generate the README.md content
@@ -221,29 +248,37 @@ update_readme() {
 # =============================================================================
 
 main() {
+  parse_args "$@"
+
   log "INFO" "Starting README.md update process..."
 
-  if ! check_files; then
-    log "ERROR" "Required files missing, cannot update README.md"
-    exit 1
-  fi
+  local intro
+  intro=$(extract_section "Introduction")
+  local features
+  features=$(extract_key_features)
+  local installation
+  installation=$(extract_section "Installation")
+  local usage
+  usage=$(extract_section "Usage")
 
-  if ! update_readme; then
-    if [[ ${CHECK_ONLY} == true ]]; then
-      log "WARN" "README.md needs to be updated"
-      exit 1
+  update_readme_section "INTRODUCTION" "${intro}"
+  update_readme_section "FEATURES" "${features}"
+  update_readme_section "INSTALLATION" "${installation}"
+  update_readme_section "USAGE" "${usage}"
+
+  log "INFO" "README.md update process finished."
+
+  if [[ ${CHECK_ONLY} == true ]]; then
+    log "INFO" "Running in check-only mode. Verifying changes..."
+    if git diff --quiet "${README_PATH}"; then
+      log "SUCCESS" "README.md is up to date."
+      exit 0
     else
-      log "ERROR" "Failed to update README.md"
+      log "ERROR" "README.md is out of sync. Please run the script to update."
+      git --no-pager diff --color=always "${README_PATH}"
       exit 1
     fi
   fi
-
-  log "SUCCESS" "README.md update process complete"
 }
 
-# =============================================================================
-# Script Execution
-# =============================================================================
-
-parse_args "$@"
-main
+main "$@"

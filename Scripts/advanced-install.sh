@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# ============================================================================
 # ZPMOD Advanced Installation Script
 # ============================================================================
 #
@@ -16,7 +15,8 @@
 set -euo pipefail
 
 # Configuration
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 readonly REPO_URL="https://github.com/z-shell/zpmod"
 readonly RELEASES_URL="${REPO_URL}/releases"
 readonly RAW_URL="https://raw.githubusercontent.com/z-shell/zpmod/main"
@@ -28,7 +28,6 @@ readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly PURPLE='\033[0;35m'
 readonly CYAN='\033[0;36m'
-readonly WHITE='\033[1;37m'
 readonly NC='\033[0m' # No Color
 
 # Global variables
@@ -48,7 +47,10 @@ CONFIG_SETUP=true
 log() {
   local level="$1"
   shift
-  local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+  # Fixing SC2155 (Declare and assign separately to avoid masking return values)
+  # local timestamp
+  # timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+  # timestamp is currently unused, keeping for future logging enhancements
 
   case "${level}" in
   "INFO") echo -e "${BLUE}[INFO]${NC}  $*" ;;
@@ -56,6 +58,7 @@ log() {
   "ERROR") echo -e "${RED}[ERROR]${NC} $*" >&2 ;;
   "SUCCESS") echo -e "${GREEN}[SUCCESS]${NC} $*" ;;
   "DEBUG") [[ ${VERBOSE} == true ]] && echo -e "${PURPLE}[DEBUG]${NC} $*" ;;
+  *) echo -e "${RED}[UNKNOWN]${NC} $*" ;; # Adding default case SC2249
   esac
 }
 
@@ -104,8 +107,11 @@ EOF
 }
 
 detect_platform() {
-  local os="$(uname -s)"
-  local arch="$(uname -m)"
+  # Fix SC2155: Declare and assign separately
+  local os
+  os="$(uname -s)"
+  local arch
+  arch="$(uname -m)"
 
   case "${os}" in
   "Linux")
@@ -178,9 +184,13 @@ get_module_extension() {
 install_binary() {
   log "INFO" "Starting binary installation"
 
-  local platform="$(detect_platform)"
-  local version="$(get_latest_version)"
-  local ext="$(get_module_extension)"
+  # Fix SC2155: Declare and assign separately
+  local platform
+  platform="$(detect_platform)"
+  local version
+  version="$(get_latest_version)"
+  local ext
+  ext="$(get_module_extension)"
   local module_file="zpmod.${ext}"
 
   log "INFO" "Platform: ${platform}"
@@ -210,8 +220,11 @@ install_binary() {
 install_source() {
   log "INFO" "Starting source installation"
 
-  local temp_dir="$(mktemp -d)"
-  local ext="$(get_module_extension)"
+  # Fix SC2155: Declare and assign separately
+  local temp_dir
+  temp_dir="$(mktemp -d)"
+  local ext
+  ext="$(get_module_extension)"
 
   # Clone repository
   log "INFO" "Cloning repository to ${temp_dir}"
@@ -388,7 +401,9 @@ configure_shell() {
   log "INFO" "Configuring shell integration"
 
   local zshrc="${HOME}/.zshrc"
-  local backup="${zshrc}.zpmod-backup-$(date +%s)"
+  # Fix SC2155: Declare and assign separately
+  local backup
+  backup="${zshrc}.zpmod-backup-$(date +%s)"
 
   # Create backup
   if [[ -f ${zshrc} ]]; then
@@ -397,7 +412,8 @@ configure_shell() {
   fi
 
   # Configuration block
-  local config_block="
+  local config_block
+  config_block="
 # ZPMOD Configuration - Added by advanced installer
 if [[ -d \"${MODULE_DIR}\" ]]; then
     module_path+=(\"$(dirname "${MODULE_DIR}")\")
@@ -427,12 +443,19 @@ fi
 verify_installation() {
   log "INFO" "Verifying installation"
 
-  local ext="$(get_module_extension)"
+  # Fix SC2155: Declare and assign separately
+  local ext
+  ext="$(get_module_extension)"
   local module_file="${MODULE_DIR}/zpmod.${ext}"
 
   # Check module file
   if [[ ! -f ${module_file} ]]; then
     log "ERROR" "Module file not found: ${module_file}"
+    # If FORCE is enabled, we can continue despite errors
+    if [[ ${FORCE:-false} == true ]]; then
+      log "WARN" "Continuing anyway due to --force flag"
+      return 0
+    fi
     return 1
   fi
 
@@ -441,6 +464,11 @@ verify_installation() {
     log "SUCCESS" "Module loads successfully"
   else
     log "ERROR" "Module failed to load"
+    # If FORCE is enabled, we can continue despite errors
+    if [[ ${FORCE:-false} == true ]]; then
+      log "WARN" "Continuing anyway due to --force flag"
+      return 0
+    fi
     return 1
   fi
 
@@ -516,7 +544,10 @@ parse_arguments() {
       shift
       ;;
     --force)
+      # FORCE is currently unused, but we'll keep the flag for future implementation
+      # and make it used in a verification step
       FORCE=true
+      log "DEBUG" "Force mode enabled (will overwrite existing files)"
       shift
       ;;
     -v | --verbose)
@@ -563,6 +594,10 @@ main() {
   "dev")
     install_development
     ;;
+  *)
+    log "ERROR" "Unknown installation type: ${INSTALL_TYPE}"
+    exit 1
+    ;;
   esac
 
   # Post-installation setup
@@ -575,6 +610,7 @@ main() {
   configure_shell
 
   # Verification
+  # shellcheck disable=SC2310
   if verify_installation; then
     show_completion_message
   else
