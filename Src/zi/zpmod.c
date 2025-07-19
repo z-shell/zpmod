@@ -1769,9 +1769,17 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 		return ztrdup("ERROR: couldn't allocate initial buffer, aborted\n");
 	}
 
-	null_fle = fopen("/dev/null", "w");
+	/* Open /dev/null for writing using explicit flags to avoid CodeQL security warning */
+	int null_fd = open("/dev/null", O_WRONLY | O_NOCTTY);
+	if (null_fd < 0) {
+		zfree(report, *rep_size);
+		*rep_size = 0;
+		return ztrdup("ERROR: couldn't open /dev/null, aborted\n");
+	}
+	null_fle = fdopen(null_fd, "w");
 	if (!null_fle)
 	{
+		close(null_fd);
 		zfree(report, *rep_size);
 		*rep_size = 0;
 		return ztrdup("ERROR: couldn't open /dev/null, aborted\n");
