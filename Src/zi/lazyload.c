@@ -39,22 +39,14 @@ void zp_lazy_loader_destroy(ZpLazyLoader loader)
                 dlclose(func->library_handle);
             }
 
-            if (func->name) {
-                free(func->name);
-            }
-
-            if (func->library_path) {
-                free(func->library_path);
-            }
+            free(func->name);
+            free(func->library_path);
 
             free(func);
         }
     }
 
-    if (loader->functions) {
-        free(loader->functions);
-    }
-
+    free(loader->functions);
     free(loader);
 }
 
@@ -104,8 +96,8 @@ int zp_lazy_loader_register(ZpLazyLoader loader, const char *name, const char *l
     func->library_handle = NULL;
 
     if (!func->name || !func->library_path) {
-        if (func->name) free(func->name);
-        if (func->library_path) free(func->library_path);
+        free(func->name);
+        free(func->library_path);
         free(func);
         return 1;
     }

@@ -1555,11 +1555,11 @@ bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 			fprintf(stdout, "  Registered Functions: %d\n", zp_lazy_loader->function_count);
 
 			for (int i = 0; i < zp_lazy_loader->function_count; i++) {
-				ZpLazyFunction func = zp_lazy_loader->functions[i];
+				ZpLazyFunction lazy_func = zp_lazy_loader->functions[i];
 				fprintf(stdout, "    %s: %s (%s)\n",
-					func->name,
-					func->loaded ? "loaded" : "not loaded",
-					func->library_path);
+					lazy_func->name,
+					lazy_func->loaded ? "loaded" : "not loaded",
+					lazy_func->library_path);
 			}
 			fflush(stdout);
 		} else if (0 == strcmp(action, "debug")) {

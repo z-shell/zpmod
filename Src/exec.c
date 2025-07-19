@@ -2216,11 +2216,11 @@ clobber_open(struct redir *f)
     /* If clobbering, just open. */
     if (isset(CLOBBER) || IS_CLOBBER_REDIR(f->type))
 	return open(ufname,
-		O_WRONLY | O_CREAT | O_TRUNC | O_NOCTTY, 0666);
+		O_WRONLY | O_CREAT | O_TRUNC | O_NOCTTY, 0644);
 
     /* If not clobbering, attempt to create file exclusively. */
     if ((fd = open(ufname,
-		   O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0666)) >= 0)
+		   O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0644)) >= 0)
 	return fd;
 
     /* If that fails, we are still allowed to open non-regular files. *
@@ -3740,7 +3740,7 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 		    fil = open(unmeta(fn->name), O_RDONLY | O_NOCTTY);
 		else
 		    fil = open(unmeta(fn->name),
-			       O_RDWR | O_CREAT | O_NOCTTY, 0666);
+			       O_RDWR | O_CREAT | O_NOCTTY, 0644);
 		if (fil == -1) {
 		    closemnodes(mfds);
 		    fixfds(save);
@@ -3878,7 +3878,7 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 			       ((unset(CLOBBER) && unset(APPENDCREATE)) &&
 				!IS_CLOBBER_REDIR(fn->type)) ?
 			       O_WRONLY | O_APPEND | O_NOCTTY :
-			       O_WRONLY | O_APPEND | O_CREAT | O_NOCTTY, 0666);
+			       O_WRONLY | O_APPEND | O_CREAT | O_NOCTTY, 0644);
 		else
 		    fil = clobber_open(fn);
 		if(fil != -1 && IS_ERROR_REDIR(fn->type))
@@ -5239,7 +5239,7 @@ exectime(Estate state, UNUSED(int do_exec))
  */
 static const char *const ANONYMOUS_FUNCTION_NAME = "(anon)";
 
-/* 
+/*
  * Take a function name argument and return true iff it is equal to the string
  * used for the names of anonymous functions, "(anon)".
  *
