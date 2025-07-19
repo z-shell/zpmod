@@ -4,4 +4,4 @@ load=no
 
 autofeatures=""
 
-objects="zpmod.o"
+objects="zpmod.o pathcache.o compileconfig.o lazyload.o"

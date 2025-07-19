@@ -1,0 +1,55 @@
+#!/usr/bin/env zsh
+
+# Test file for zpmod module
+# Should be run from the zpmod root directory
+
+# zpmod module tests
+%prep
+
+# Load helper functions
+. $ZTST_srcdir/../Config/zpmod-config.zsh
+
+# Setup
+MODULE_PATH=($ZTST_srcdir/../Src/zi)
+if [[ ! -f $MODULE_PATH/zpmod.$ZPMOD_MODULE_EXT ]]; then
+  ZTST_skip="zpmod module not built; skipping tests"
+  return 0
+fi
+
+# Tests
+%test
+
+# Test 1: Load the module
+zmodload zi/zpmod
+ret=$?
+echo "Exit code: $ret"
+[[ $ret -eq 0 ]] || print "Failed to load module"
+0:Load zpmod module
+>Exit code: 0
+
+# Test 2: Basic module presence
+(( $+commands[zpmod] ))
+0:zpmod command is available
+
+# Test 3: Basic functionality - source study
+source $ZTST_srcdir/../Config/zpmod-config.zsh
+zpmod source-study | grep -q 'ms'
+0:zpmod source-study reports timing data
+
+# Test 4: Source study with -l option
+zpmod source-study -l | grep -q 'ms'
+0:zpmod source-study -l reports detailed timing data
+
+# Test 5: Test file descriptor handling
+tmpfile=$(mktemp)
+echo "# Test file" > $tmpfile
+source $tmpfile
+rm $tmpfile
+zpmod source-study | grep -q 'ms'
+0:zpmod handles regular file sourcing correctly
+
+# Cleanup
+%clean
+
+# Unload module
+zmodload -u zi/zpmod

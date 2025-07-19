@@ -1,0 +1,5 @@
+E#ifndef have_Src_zi_compileconfig_globals
+E#define have_Src_zi_compileconfig_globals
+E
+E
+E#endif /* !have_Src_zi_compileconfig_globals */

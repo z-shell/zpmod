@@ -31,11 +31,25 @@
 
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "pathcache.h"
+#include "compileconfig.h"
+#include "lazyload.h"
 
 /* Source/bin_dot related data structures {{{ */
 static HandlerFunc originalDot = NULL, originalSource = NULL;
 static HashTable zp_source_events = NULL;
 static int zp_sevent_count = 0;
+
+/* Global path cache */
+static ZpPathCache zp_path_cache = NULL;
+#define ZP_CACHE_SIZE 1024      /* Size of path cache hash table */
+#define ZP_CACHE_LIFETIME 30    /* Cache entry lifetime in seconds */
+
+/* Global compilation configuration */
+static ZpCompileConfig zp_compile_config = NULL;
+
+/* Global lazy loader */
+static ZpLazyLoader zp_lazy_loader = NULL;
 
 struct source_event
 {
@@ -512,23 +526,12 @@ struct fdhead
 /**/
 static void zp_setup_options_table()
 {
-    int i, optno;
-    // Calculate the loop limit using signed arithmetic to avoid underflow
-    // issues with unsigned size_t when subtracting.
-    // sizeof() returns size_t, cast to long for signed arithmetic.
-    long num_total_elements = (long)(sizeof(zp_options) / sizeof(struct zp_option_name));
-    // The loop should iterate over main options, excluding the 10 aliases and 1 sentinel.
-    long loop_bound = num_total_elements - 10 - 1;
-
-    for (i = 0; i < loop_bound; ++i)
-    {
-        optno = optlookup(zp_options[i].name);
-        if (optno >= 0)
-            zp_opt_for_zsh_version[zp_options[i].enum_val] = optno;
-        else
-            /* Handle unknown option or warn about it */
-            zwarn("Unknown option: %s", zp_options[i].name);
-    }
+	int i, optno;
+	for (i = 0; i < sizeof(zp_options) / sizeof(struct zp_option_name) - 10 - 1; ++i)
+	{
+		optno = optlookup(zp_options[i].name);
+		zp_opt_for_zsh_version[zp_options[i].enum_val] = optno;
+	}
 }
 /* }}} */
 /* STATIC FUNCTION: zp_conv_opt {{{ */
@@ -572,7 +575,7 @@ int bin_custom_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func
 	errno = ENOENT;
 	ret = SOURCE_NOT_FOUND;
 	/* for source only, check in current directory first */
-	if (*name != '.' && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
+	if (*name != '.' && access(s, F_OK) == 0 && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
 	{
 		diddot = 1;
 		ret = custom_source(enam);
@@ -611,7 +614,7 @@ int bin_custom_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func
 					buf = zhtricat(*t, "/", arg0);
 
 				s = unmeta(buf);
-				if (stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
+				if (access(s, F_OK) == 0 && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
 				{
 					ret = custom_source(enam = buf);
 					break;
@@ -864,17 +867,34 @@ zp_should_skip_compilation(const char *file, const struct stat *file_stat)
 	    strcmp(file, "/dev/stderr") == 0)
 		return 1;
 
+	/* Check if compilation is globally disabled */
+	if (zp_compile_config && !zp_compile_config->enabled)
+		return 1;
+
+	/* Check if file is in the inclusion list (always compile) */
+	if (zp_compile_config && zp_compile_config_should_include(zp_compile_config, file))
+		return 0;
+
+	/* Check if file should be excluded based on patterns */
+	if (zp_compile_config && zp_compile_config_should_exclude(zp_compile_config, file))
+		return 1;
+
 	/* Skip if file doesn't exist or isn't a regular file */
 	if (file_stat) {
 		/* Use the provided stat struct */
 		if (!S_ISREG(file_stat->st_mode))
 			return 1;
+	} else if (zp_path_cache) {
+		/* Use our path cache */
+		if (!zp_path_cache_is_regular(zp_path_cache, file))
+			return 1;
 	} else {
+		/* Fall back to direct stat if cache not initialized */
 		struct stat st;
 		if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
-			/* Fall back to stat() if no struct provided */
 			return 1;
 		}
+	}
 
 	return 0;
 }
@@ -902,8 +922,14 @@ Eprog custom_try_source_file(char *file)
 	}
 	wc = dyncat(file, FD_EXT);
 
-	rc = stat(wc, &stc);
-	rn = stat(file, &stn);
+	/* Use path cache for file stats if available */
+	if (zp_path_cache) {
+		rc = zp_path_cache_stat(zp_path_cache, wc, &stc);
+		rn = zp_path_cache_stat(zp_path_cache, file, &stn);
+	} else {
+		rc = stat(wc, &stc);
+		rn = stat(file, &stn);
+	}
 
 	/* ZP-CODE */
 	if (file != tail)
@@ -919,37 +945,46 @@ Eprog custom_try_source_file(char *file)
 	}
 	/* If there is no zwc file, or if it is less recent than script file */
 	int has_write_access = (access(file_dup, W_OK) == 0);
-	int is_debug_mode = (0 == strcmp(
-						 getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
-						 "1"));
+	int is_debug_mode = zp_compile_config ? zp_compile_config->debug_mode : 0;
+
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
 	    !zp_should_skip_compilation(file, &stn) &&
 	    (has_write_access || is_debug_mode))
 	{
-		char *args[] = {file, NULL};
-		struct options ops;
+		/* Check if batch mode is enabled */
+		if (zp_compile_config && zp_compile_config->batch_mode) {
+			/* Add to batch for later compilation */
+			zp_compile_config_add_pending(zp_compile_config, file);
 
-		/* Initialise options structure */
-		memset(ops.ind, 0, MAX_OPS * sizeof(unsigned char));
-		ops.args = NULL;
-		ops.argscount = ops.argsalloc = 0;
-		ops.ind['U'] = 1;
+			/* Check if the batch should be processed now */
+			zp_compile_config_process_batch(zp_compile_config);
+		} else {
+			/* Immediate compilation */
+			char *args[] = {file, NULL};
+			struct options ops;
 
-		/* Invoke compilation */
-		if (access(file, R_OK) == 0 && access(file, F_OK) == 0 &&
-		    0 != strcmp(file, "/dev/null") && 0 != strcmp(file, "./"))
-		{
-			bin_zcompile("ZIModule_", args, &ops, 0);
-		}
-		else
-		{
-			if (0 == strcmp(
-				     getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
-				     "1"))
+			/* Initialise options structure */
+			memset(ops.ind, 0, MAX_OPS * sizeof(unsigned char));
+			ops.args = NULL;
+			ops.argscount = ops.argsalloc = 0;
+			ops.ind['U'] = 1;
+
+			/* Invoke compilation */
+			if (access(file, R_OK) == 0 && access(file, F_OK) == 0 &&
+				0 != strcmp(file, "/dev/null") && 0 != strcmp(file, "./"))
 			{
-				zwarnnam("ZIModule",
-					 "%d: Couldn't read the script: `%s', compilation skipped",
-					 __LINE__, file);
+				bin_zcompile("ZIModule_", args, &ops, 0);
+			}
+			else
+			{
+				if (0 == strcmp(
+						getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
+						"1"))
+				{
+					zwarnnam("ZIModule",
+							"%d: Couldn't read the script: `%s', compilation skipped",
+							__LINE__, file);
+				}
 			}
 		}
 
@@ -1001,22 +1036,28 @@ static FuncDump dumps;
 static int
 custom_zwcstat(char *filename, struct stat *buf)
 {
-	if (stat(filename, buf))
-	{
-#ifdef HAVE_FSTAT
-		FuncDump f;
-
-		for (f = dumps; f; f = f->next)
-		{
-			if (!strncmp(filename, f->filename, strlen(f->filename)) &&
-			    !fstat(f->fd, buf))
-				return 0;
-		}
-#endif
-		return 1;
+	/* If we have a path cache, use it */
+	if (zp_path_cache) {
+		int result = zp_path_cache_stat(zp_path_cache, filename, buf);
+		if (result == 0)
+			return 0;
+	} else {
+		/* Fall back to direct stat if cache not initialized */
+		if (stat(filename, buf) == 0)
+			return 0;
 	}
-	else
-		return 0;
+
+#ifdef HAVE_FSTAT
+	FuncDump f;
+
+	for (f = dumps; f; f = f->next)
+	{
+		if (!strncmp(filename, f->filename, strlen(f->filename)) &&
+		    !fstat(f->fd, buf))
+			return 0;
+	}
+#endif
+	return 1;
 }
 /* }}} */
 /* STATIC FUNCTION: custom_load_dump_file {{{ */
@@ -1318,203 +1359,6 @@ custom_load_dump_header(char *nam, char *name, int err)
 /* }}} */
 
 /*
- * readarray {{{
- *
- * readarray [-d delim] [-n count] [-O origin] [-s count] [-t] [-u fd]
- *   [-C callback] [-c quantum] [array]
- *
- * Reads from stdin or from {fd} (-u option).
- * -d {delim} - terminator for each record read (default: newline)
- * -n {count} - copy at most {count} records
- * -O {origin} - begin storing in {array} at index {origin}
- * -s {count} - discard first {count} lines read
- * -t - remove trailing {delim} from result
- * -u {fd} - read from file descriptor {fd}
- * -C {callback} - eval {callback} each time {quantum} records are read
- * -c {quantum} - the # of records for the above -C option
- *
- * Default {quantum} is 5000. Callback obtains 2 arguments, <assign-index> <content-to-assign>,
- * i.e. where the record will be assigned in the {array}, and body of the record.
- *
- * Without -O, readarray clears the array at start.
- *
- * readarray returns successfully unless a bad option or option argument is
- * supplied, {array} is unassignable, or if {array} is not an indexed array.
- */
-int bin_readarray(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
-{
-    int delim = '\n', to_copy = 0, start_at = 1, skip_first = 0, remdel = 0, srcfd = 0, quantum = 5000;
-    char *callback = NULL, *oarr_name = NULL; // unused: **oarr = NULL;
-    FILE *stream = NULL; // Initialize stream to NULL
-
-    /* Usage message */
-    if (OPT_ISSET(ops, 'h'))
-    {
-        readarray_usage();
-        // callback might have been allocated if -C was processed before -h.
-        // To be safe, free if it was allocated.
-        if (callback) zsfree(callback);
-        return 0;
-    }
-
-    /* -d {delim} - terminator for each record read (default: newline) */
-    if (OPT_ISSET(ops, 'd'))
-    {
-        delim = OPT_ARG(ops, 'd') ? OPT_ARG(ops, 'd')[0] : '\n';
-    }
-
-    /* -n {count} - copy at most {count} records */
-    if (OPT_ISSET(ops, 'n'))
-    {
-        to_copy = OPT_ARG(ops, 'n') ? atoi(OPT_ARG(ops, 'n')) : 0;
-    }
-
-    /* -O {origin} - begin storing in {array} at index {origin} */
-    if (OPT_ISSET(ops, 'O'))
-    {
-        start_at = OPT_ARG(ops, 'O') ? atoi(OPT_ARG(ops, 'O')) : 1;
-    }
-
-    /* -s {count} - discard first {count} lines read */
-    if (OPT_ISSET(ops, 's'))
-    {
-        skip_first = OPT_ARG(ops, 's') ? atoi(OPT_ARG(ops, 's')) : 0;
-    }
-
-    /* -t - remove trailing {delim} from result */
-    if (OPT_ISSET(ops, 't'))
-    {
-        remdel = 1;
-    }
-
-    /* -u {fd} - read from file descriptor {fd} */
-    if (OPT_ISSET(ops, 'u'))
-    {
-        srcfd = OPT_ARG(ops, 'u') ? atoi(OPT_ARG(ops, 'u')) : 0;
-    }
-
-    /* -C {callback} - eval {callback} each time {quantum} records are read */
-    if (OPT_ISSET(ops, 'C'))
-    {
-        callback = OPT_ARG(ops, 'C') ? ztrdup(OPT_ARG(ops, 'C')) : NULL;
-    }
-
-    /* -c {quantum} - the # of records for the above -C option */
-    if (OPT_ISSET(ops, 'c'))
-    {
-        quantum = OPT_ARG(ops, 'c') ? atoi(OPT_ARG(ops, 'c')) : 5000;
-    }
-
-    /* The name of output array */
-    if (!*argv)
-    {
-        zwarnnam(nam, "%d: Name of the output array is required, aborting", __LINE__);
-        if (callback) zsfree(callback); // Free allocated callback
-        return 1;
-    }
-    else
-    {
-        oarr_name = ztrdup(*argv);
-        ++argv;
-    }
-
-    /* Extra arguments -> error */
-    if (*argv)
-    {
-        zwarnnam(nam, "%d: Extra arguments detected, only one argument is needed, see -h, aborting", __LINE__);
-        if (callback) zsfree(callback); // Free allocated callback
-        if (oarr_name) zsfree(oarr_name); // Free allocated oarr_name
-        return 1;
-    }
-
-    stream = fdopen(srcfd, "r");
-    if (!stream)
-    {
-        // Corrected warning message arguments
-        zwarnnam(nam, "line %d: couldn't open/read descriptor %d", __LINE__, srcfd);
-        if (callback) zsfree(callback); // Free allocated callback
-        if (oarr_name) zsfree(oarr_name); // Free allocated oarr_name
-        // stream is NULL, no fclose needed here
-        return 1;
-    }
-
-#ifdef HAVE_GETLINE
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t read_len; // Renamed from `read` to avoid potential conflicts
-    int index = start_at;
-
-    while ((read_len = getline(&line, &len, stream)) != -1)
-    {
-        if (skip_first > 0)
-        {
-            skip_first--;
-            continue;
-        }
-
-        if (remdel && read_len > 0 && line[read_len - 1] == delim)
-        {
-            line[--read_len] = '\0';
-        }
-
-        if (to_copy > 0 && index - start_at >= to_copy)
-        {
-            break;
-        }
-
-        // Create indexed name for array assignment
-        char indexed_name[strlen(oarr_name) + 15]; // Ensure buffer is large enough for name + [index]
-        sprintf(indexed_name, "%s[%d]", oarr_name, index);
-        setsparam(indexed_name, line);
-
-        if (callback && (index - start_at + 1) % quantum == 0)
-        {
-            char idx_str[20];
-            sprintf(idx_str, "%d", index);
-            char *args[] = {idx_str, line, NULL};
-            execstring(callback, args, 0, 0);
-        }
-
-        index++;
-    }
-
-    free(line); // getline's buffer must be freed
-#else
-    // If HAVE_GETLINE is not defined, the main loop is skipped.
-    // Mark variables that would have been used in the loop as "used"
-    // to suppress compiler warnings, fixing the attribute syntax error.
-    (void)delim;
-    (void)to_copy;
-    (void)start_at;
-    (void)skip_first;
-    (void)remdel;
-    (void)quantum;
-    // callback and oarr_name are freed later.
-    // Using (void) ensures they are marked as "used" to prevent
-    // "set but not used" warnings if their only other use (freeing)
-    // isn't sufficient for that specific warning, and to fix the attribute error.
-    (void)callback;
-    (void)oarr_name;
-#endif
-
-    // Cleanup resources before returning
-    if (stream) fclose(stream);
-    if (callback) zsfree(callback);
-    if (oarr_name) zsfree(oarr_name);
-
-    return 0;
-}
-
-/**/
-static void
-readarray_usage()
-{
-	fprintf(stdout, "Usage: readarray\n");
-	fflush(stdout);
-}
-/* }}} */
-
-/*
  * Main builtin `zpmod' and its subcommands
  */
 
@@ -1584,6 +1428,187 @@ bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 			zsfree(report);
 		}
 	}
+	else if (0 == strcmp(subcmd, "clear-path-cache"))
+	{
+		if (zp_path_cache) {
+			zp_path_cache_clear(zp_path_cache);
+			fprintf(stdout, "Path cache cleared (%d entries removed)\n", zp_path_cache->count);
+			fflush(stdout);
+		} else {
+			fprintf(stdout, "Path cache not initialized\n");
+			fflush(stdout);
+		}
+	}
+	else if (0 == strcmp(subcmd, "compile-config"))
+	{
+		if (!zp_compile_config) {
+			fprintf(stdout, "Compilation configuration not initialized\n");
+			fflush(stdout);
+			return 1;
+		}
+
+		char *action = *argv++;
+		if (!action) {
+			/* Display current config */
+			fprintf(stdout, "Compilation Configuration:\n");
+			fprintf(stdout, "  Enabled: %s\n", zp_compile_config->enabled ? "yes" : "no");
+			fprintf(stdout, "  Debug Mode: %s\n", zp_compile_config->debug_mode ? "yes" : "no");
+			fprintf(stdout, "  Batch Mode: %s\n", zp_compile_config->batch_mode ? "yes" : "no");
+			fprintf(stdout, "  Batch Size: %d\n", zp_compile_config->batch_size);
+			fprintf(stdout, "  Batch Interval: %d seconds\n", zp_compile_config->batch_interval);
+			fprintf(stdout, "  Max File Size: %d bytes\n", zp_compile_config->max_file_size);
+
+			fprintf(stdout, "  Exclusion Patterns: %d\n", zp_compile_config->exclusion_count);
+			for (int i = 0; i < zp_compile_config->exclusion_count; i++) {
+				fprintf(stdout, "    %s\n", zp_compile_config->exclusion_patterns[i]);
+			}
+
+			fprintf(stdout, "  Inclusion Patterns: %d\n", zp_compile_config->inclusion_count);
+			for (int i = 0; i < zp_compile_config->inclusion_count; i++) {
+				fprintf(stdout, "    %s\n", zp_compile_config->inclusion_patterns[i]);
+			}
+
+			fprintf(stdout, "  Pending Files: %d\n", zp_compile_config->pending_count);
+			fflush(stdout);
+		} else if (0 == strcmp(action, "enable")) {
+			zp_compile_config->enabled = 1;
+			fprintf(stdout, "Compilation enabled\n");
+			fflush(stdout);
+		} else if (0 == strcmp(action, "disable")) {
+			zp_compile_config->enabled = 0;
+			fprintf(stdout, "Compilation disabled\n");
+			fflush(stdout);
+		} else if (0 == strcmp(action, "batch")) {
+			char *mode = *argv++;
+			if (!mode) {
+				fprintf(stdout, "Batch mode is %s\n",
+					zp_compile_config->batch_mode ? "enabled" : "disabled");
+				fflush(stdout);
+			} else if (0 == strcmp(mode, "on")) {
+				zp_compile_config->batch_mode = 1;
+				fprintf(stdout, "Batch mode enabled\n");
+				fflush(stdout);
+			} else if (0 == strcmp(mode, "off")) {
+				zp_compile_config->batch_mode = 0;
+				fprintf(stdout, "Batch mode disabled\n");
+				fflush(stdout);
+			} else {
+				fprintf(stdout, "Invalid batch mode: use 'on' or 'off'\n");
+				fflush(stdout);
+				return 1;
+			}
+		} else if (0 == strcmp(action, "exclude")) {
+			char *pattern = *argv++;
+			if (!pattern) {
+				fprintf(stdout, "Missing pattern to exclude\n");
+				fflush(stdout);
+				return 1;
+			}
+
+			if (zp_compile_config_add_exclusion(zp_compile_config, pattern)) {
+				fprintf(stdout, "Failed to add exclusion pattern: %s\n", pattern);
+				fflush(stdout);
+				return 1;
+			}
+
+			fprintf(stdout, "Added exclusion pattern: %s\n", pattern);
+			fflush(stdout);
+		} else if (0 == strcmp(action, "include")) {
+			char *pattern = *argv++;
+			if (!pattern) {
+				fprintf(stdout, "Missing pattern to include\n");
+				fflush(stdout);
+				return 1;
+			}
+
+			if (zp_compile_config_add_inclusion(zp_compile_config, pattern)) {
+				fprintf(stdout, "Failed to add inclusion pattern: %s\n", pattern);
+				fflush(stdout);
+				return 1;
+			}
+
+			fprintf(stdout, "Added inclusion pattern: %s\n", pattern);
+			fflush(stdout);
+		} else if (0 == strcmp(action, "process-batch")) {
+			zp_compile_config_process_batch(zp_compile_config);
+			fprintf(stdout, "Processed pending compilation batch\n");
+			fflush(stdout);
+		} else {
+			fprintf(stdout, "Unknown compile-config action: %s\n", action);
+			fflush(stdout);
+			return 1;
+		}
+	}
+	else if (0 == strcmp(subcmd, "lazy-load"))
+	{
+		if (!zp_lazy_loader) {
+			fprintf(stdout, "Lazy loading system not initialized\n");
+			fflush(stdout);
+			return 1;
+		}
+
+		char *action = *argv++;
+		if (!action) {
+			/* Display status */
+			fprintf(stdout, "Lazy Loading Status:\n");
+			fprintf(stdout, "  Debug Mode: %s\n", zp_lazy_loader->debug_mode ? "yes" : "no");
+			fprintf(stdout, "  Registered Functions: %d\n", zp_lazy_loader->function_count);
+
+			for (int i = 0; i < zp_lazy_loader->function_count; i++) {
+				ZpLazyFunction func = zp_lazy_loader->functions[i];
+				fprintf(stdout, "    %s: %s (%s)\n",
+					func->name,
+					func->loaded ? "loaded" : "not loaded",
+					func->library_path);
+			}
+			fflush(stdout);
+		} else if (0 == strcmp(action, "debug")) {
+			char *mode = *argv++;
+			if (!mode) {
+				fprintf(stdout, "Debug mode is %s\n",
+					zp_lazy_loader->debug_mode ? "enabled" : "disabled");
+				fflush(stdout);
+			} else if (0 == strcmp(mode, "on")) {
+				zp_lazy_loader_set_debug(zp_lazy_loader, 1);
+				fprintf(stdout, "Debug mode enabled\n");
+				fflush(stdout);
+			} else if (0 == strcmp(mode, "off")) {
+				zp_lazy_loader_set_debug(zp_lazy_loader, 0);
+				fprintf(stdout, "Debug mode disabled\n");
+				fflush(stdout);
+			} else {
+				fprintf(stdout, "Invalid debug mode: use 'on' or 'off'\n");
+				fflush(stdout);
+				return 1;
+			}
+		} else if (0 == strcmp(action, "register")) {
+			char *name = *argv++;
+			char *library = *argv++;
+
+			if (!name || !library) {
+				fprintf(stdout, "Usage: zpmod lazy-load register {function-name} {library-path}\n");
+				fflush(stdout);
+				return 1;
+			}
+
+			if (zp_lazy_loader_register(zp_lazy_loader, name, library)) {
+				fprintf(stdout, "Failed to register function: %s\n", name);
+				fflush(stdout);
+				return 1;
+			}
+
+			fprintf(stdout, "Registered function %s from %s\n", name, library);
+			fflush(stdout);
+		} else if (0 == strcmp(action, "unload")) {
+			zp_lazy_loader_unload_all(zp_lazy_loader);
+			fprintf(stdout, "All functions unloaded\n");
+			fflush(stdout);
+		} else {
+			fprintf(stdout, "Unknown lazy-load action: %s\n", action);
+			fflush(stdout);
+			return 1;
+		}
+	}
 	else
 	{
 		zwarnnam(nam, "%d: Unknown zpmod-module command: `%s', see `-h'", __LINE__, subcmd);
@@ -1599,21 +1624,60 @@ void zpmod_usage()
 	fprintf(stdout, "Usage: zpmod {subcommand} {subcommand-arguments}\n"
 			"       zpmod report-append {plugin-ID} {new-report-body}\n"
 			"       zpmod source-study [-l]\n"
+			"       zpmod clear-path-cache\n"
+			"       zpmod compile-config [action] [arguments]\n"
+			"       zpmod lazy-load [action] [arguments]\n"
 			"\n"
-			"[33mCommand <report-append>:[0m\n"
+			"[33mCommand <report-append>:[0m\n"
 			"\n"
 			"Used by zpmod internally to speed up loading plugins with tracking (reporting).\n"
 			"It extends the given field {plugin-ID} in $ZI_REPORTS hash, with the given string\n"
 			"{new-report-body}.\n"
 			"\n"
-			"[33mCommand <source-study>:[0m\n"
+			"[33mCommand <source-study>:[0m\n"
 			"\n"
 			"Displays list of files loaded via `source' or `.' builtins, with duration that each\n"
 			"loading lasted, in milliseconds. The module tracks all calls to those builtins and\n"
 			"measures the time each call took. This can be used to e.g. profile loading of plugins,\n"
 			"regardless of the plugin manager used.\n"
 			"\n"
-			"Option -l shows full paths to the files.\n");
+			"Option -l shows full paths to the files.\n"
+			"\n"
+			"[33mCommand <clear-path-cache>:[0m\n"
+			"\n"
+			"Clears the internal cache of file paths. The module maintains a cache of frequently\n"
+			"checked file paths to improve performance when loading files. This command can be\n"
+			"used to reset the cache if needed during development or troubleshooting.\n"
+			"\n"
+			"[33mCommand <compile-config>:[0m\n"
+			"\n"
+			"Manages the automatic compilation system configuration. When called without arguments,\n"
+			"it displays the current configuration. The following actions are supported:\n"
+			"\n"
+			"  [none]               - Display current configuration\n"
+			"  enable               - Enable automatic compilation\n"
+			"  disable              - Disable automatic compilation\n"
+			"  batch [on|off]       - Enable/disable batch mode or show current state\n"
+			"  exclude {pattern}    - Add a pattern to exclude from compilation\n"
+			"  include {pattern}    - Add a pattern to always include for compilation\n"
+			"  process-batch        - Force processing of the pending compilation batch\n"
+			"\n"
+			"Batch mode queues files for compilation and processes them in batches to reduce\n"
+			"overhead. Patterns use extended regular expressions for matching file paths.\n"
+			"\n"
+			"[33mCommand <lazy-load>:[0m\n"
+			"\n"
+			"Manages the lazy loading system for dynamically loading functions on demand. When\n"
+			"called without arguments, it displays the current status of registered functions.\n"
+			"The following actions are supported:\n"
+			"\n"
+			"  [none]               - Display current status of all registered functions\n"
+			"  debug [on|off]       - Enable/disable debug mode or show current state\n"
+			"  register {name} {lib}- Register a function for lazy loading from a library\n"
+			"  unload               - Unload all loaded functions to free memory\n"
+			"\n"
+			"Lazy loading improves performance by only loading rarely used functionality when\n"
+			"it's actually needed, reducing memory usage and startup time.\n");
 	fflush(stdout);
 }
 /* }}} */
@@ -1621,7 +1685,7 @@ void zpmod_usage()
 /* FUNCTION: zp_append_report {{{ */
 /**/
 static int
-zp_append_report(const char *nam, const char *target, UNUSED(int target_len), const char *body, int body_len)
+zp_append_report(const char *nam, const char *target, int target_len, const char *body, int body_len)
 {
 	Param pm = NULL, val_pm = NULL;
 	HashTable ht = NULL;
@@ -1667,7 +1731,8 @@ zp_append_report(const char *nam, const char *target, UNUSED(int target_len), co
 	/* Extend the string with additional body_len-bytes */
 	new_extended_len = target_string_len + body_len;
 	target_string = realloc(target_string, (new_extended_len + 1) * sizeof(char));
-	if (NULL == target_string) {
+	if (NULL == target_string)
+	{
 		zwarnnam(nam, "%d: Couldn't allocate new memory (2), operation aborted", __LINE__);
 		return 1;
 	}
@@ -1689,6 +1754,7 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 	char *report, zp_tmp[20];
 	int current_size, space_left, current_end, idx, printed;
 	SEventNode node;
+	FILE *null_fle;
 
 	current_size = 127;
 	current_end = 0;
@@ -1703,6 +1769,14 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 		return ztrdup("ERROR: couldn't allocate initial buffer, aborted\n");
 	}
 
+	null_fle = fopen("/dev/null", "w");
+	if (!null_fle)
+	{
+		zfree(report, *rep_size);
+		*rep_size = 0;
+		return ztrdup("ERROR: couldn't open /dev/null, aborted\n");
+	}
+
 	for (idx = 1; idx <= zp_sevent_count; ++idx)
 	{
 		sprintf(zp_tmp, "%d", idx);
@@ -1713,7 +1787,7 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 			continue;
 		}
 
-		printed = snprintf(NULL, 0, "%4.0lf ms    %s\n", node->event.duration,
+		printed = fprintf(null_fle, "%4.0lf ms    %s\n", node->event.duration,
 				  no_paths ? node->event.file_name : node->event.full_path);
 		if (space_left < printed)
 		{
@@ -1725,17 +1799,19 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 			{
 				zfree(report, *rep_size);
 				*rep_size = 0;
+				fclose(null_fle);
 				return ztrdup("ERROR: Couldn't realloc buffer, aborted\n");
 			}
 			report = report_;
 			*rep_size = current_size + 1;
 		}
 
-		printed = snprintf(report + current_end, space_left + 1, "%4.0lf ms    %s\n", node->event.duration,
+		printed = sprintf(report + current_end, "%4.0lf ms    %s\n", node->event.duration,
 				  no_paths ? node->event.file_name : node->event.full_path);
 		current_end += printed;
 		space_left -= printed;
 	}
+	fclose(null_fle);
 	return report;
 }
 /* }}} */
@@ -1768,53 +1844,13 @@ zp_createhashtable(char *name)
 	return ht;
 }
 /* }}} */
-/* FUNCTION: zp_createhashparam {{{ */
-/**/
-static Param __attribute__((unused))
-zp_createhashparam(char *name, int flags)
-{
-    Param pm;
-    HashTable ht;
-
-    pm = createparam(name, flags | PM_SPECIAL | PM_HASHED);
-    if (!pm)
-    {
-        return NULL;
-    }
-
-    if (pm->old)
-        pm->level = locallevel;
-
-    /* This creates standard hash. */
-    ht = pm->u.hash = newparamtable(7, name);
-    if (!pm->u.hash)
-    {
-        paramtab->removenode(paramtab, name);
-        paramtab->freenode(&pm->node);
-        zwarnnam(name, "%d: Out of memory when allocating user-visible hash parameter", __LINE__);
-        return NULL;
-    }
-
-    pm->gsu.h = &stdhash_gsu;
-    pm->node.flags = (flags | PM_SPECIAL | PM_HASHED);
-
-    /* Does free Param (unsetfn is called) */
-    ht->freenode = zp_freeparamnode;
-
-    return pm;
-}
-/* }}} */
 /* FUNCTION: zp_free_sevent_node {{{ */
 /**/
 static void
 zp_free_sevent_node(HashNode hn)
 {
-    SEventNode s = (SEventNode)hn;
-    zsfree(hn->nam);                 /* existing */
-    zsfree(s->event.dir_path);
-    zsfree(s->event.file_name);
-    zsfree(s->event.full_path);
-    zfree(s, sizeof(struct zp_sevent_node));
+	zsfree(hn->nam);
+	zfree(hn, sizeof(struct zp_sevent_node));
 }
 /* }}} */
 /* FUNCTION: zp_freeparamnode {{{ */
@@ -1852,28 +1888,22 @@ void zp_freeparamnode(HashNode hn)
 static int
 zp_has_option(char **argv, char opt)
 {
-    char *string;
-    while ((string = *argv))
-    {
-        if (string[0] == '-')
-        {
-            if (string[1] == '-' && string[2] == '\0') // Check for "--"
-            {
-                return 0; // End of options, opt cannot be found further
-            }
-            // string was already checked for string[0] == '-'
-            // now advance past the '-' to check subsequent characters
-            while (*++string)
-            {
-                if (string[0] == opt)
-                {
-                    return 1;
-                }
-            }
-        }
-        ++argv;
-    }
-    return 0;
+	char *string;
+	while ((string = *argv))
+	{
+		if (string[0] == '-')
+		{
+			while (*++string)
+			{
+				if (string[0] == opt)
+				{
+					return 1;
+				}
+			}
+		}
+		++argv;
+	}
+	return 0;
 }
 /* }}} */
 /* FUNCTION: my_ztrdup_glen {{{ */
@@ -1987,6 +2017,27 @@ int setup_(UNUSED(Module m))
 		return 1;
 	}
 
+	/* Initialize path cache */
+	zp_path_cache = zp_path_cache_init(ZP_CACHE_SIZE, ZP_CACHE_LIFETIME);
+	if (!zp_path_cache) {
+		zwarn("Could not initialize path cache");
+	}
+
+	/* Initialize compilation configuration */
+	zp_compile_config = zp_compile_config_init();
+	if (!zp_compile_config) {
+		zwarn("Could not initialize compilation configuration");
+	} else {
+		/* Load settings from environment variables */
+		zp_compile_config_load_env(zp_compile_config);
+	}
+
+	/* Initialize lazy loading system */
+	zp_lazy_loader = zp_lazy_loader_init();
+	if (!zp_lazy_loader) {
+		zwarn("Could not initialize lazy loading system");
+	}
+
 	return 0;
 }
 /* }}} */
@@ -2007,9 +2058,9 @@ int enables_(Module m, int **enables)
 /* }}} */
 /* FUNCTION: boot_ {{{ */
 /**/
-int boot_(UNUSED(Module m))
+int boot_(Module m)
 {
-    return 0;
+	return 0;
 }
 /* }}} */
 /* FUNCTION: cleanup_ {{{ */
@@ -2029,10 +2080,22 @@ int finish_(UNUSED(Module m))
 	bn = (Builtin)builtintab->getnode2(builtintab, "source");
 	bn->handlerfunc = originalSource;
 
-	if (zp_source_events)
-	{
-		deletehashtable(zp_source_events);
-		zp_source_events = NULL;
+	/* Destroy path cache */
+	if (zp_path_cache) {
+		zp_path_cache_destroy(zp_path_cache);
+		zp_path_cache = NULL;
+	}
+
+	/* Destroy compilation configuration */
+	if (zp_compile_config) {
+		zp_compile_config_destroy(zp_compile_config);
+		zp_compile_config = NULL;
+	}
+
+	/* Destroy lazy loader */
+	if (zp_lazy_loader) {
+		zp_lazy_loader_destroy(zp_lazy_loader);
+		zp_lazy_loader = NULL;
 	}
 
 	printf("zi/zpmod module unloaded\n");
