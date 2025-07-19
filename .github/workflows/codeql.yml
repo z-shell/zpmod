@@ -1,0 +1,55 @@
+---
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 1 * * 0"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze C/C++
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: ⤵️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh build-essential autoconf automake
+
+      - name: 🔍 Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          config: |
+            name: "Default CodeQL config"
+            queries:
+              - uses: security-and-quality
+
+      - name: 🔨 Manual build with CI-friendly configure options
+        run: |
+          # Configure with options that work in CI environments without TTY
+          # --with-tcsetpgrp: Assumes tcsetpgrp() works (avoids TTY test)
+          # --disable-gdbm: Skip GDBM library search (not needed for core module)
+          # --disable-pcre: Skip PCRE library search (not needed for core functionality)
+          ./configure --with-tcsetpgrp --disable-gdbm --disable-pcre
+
+          # Build the module
+          make
+
+      - name: 🔍 Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:cpp"
