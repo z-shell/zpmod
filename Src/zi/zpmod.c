@@ -849,7 +849,7 @@ custom_source(char *s)
 /* STATIC FUNCTION: zp_should_skip_compilation {{{ */
 /**/
 static int
-zp_should_skip_compilation(const char *file)
+zp_should_skip_compilation(const char *file, const struct stat *file_stat)
 {
 	if (!file)
 		return 1;
@@ -866,10 +866,14 @@ zp_should_skip_compilation(const char *file)
 
 	/* Skip if file doesn't exist or isn't a regular file */
 	struct stat st;
-	if (stat(file, &st) != 0)
+	if (file_stat) {
+		/* Use the provided stat struct */
+		if (!S_ISREG(file_stat->st_mode))
+			return 1;
+	} else if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
+		/* Fall back to stat() if no struct provided */
 		return 1;
-	if (!S_ISREG(st.st_mode))
-		return 1;
+	}
 
 	return 0;
 }
@@ -918,7 +922,7 @@ Eprog custom_try_source_file(char *file)
 						 getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
 						 "1"));
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
-	    !zp_should_skip_compilation(file) &&
+	    !zp_should_skip_compilation(file, &stn) &&
 	    (has_write_access || is_debug_mode))
 	{
 		char *args[] = {file, NULL};

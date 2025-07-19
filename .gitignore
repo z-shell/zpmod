@@ -13,6 +13,19 @@ COMPILED_AT
 *~
 .*.sw?
 \#*
+*.la
+*.lo
+*.gch
+*.pch
+*.dylib
+.DS_Store
+.deps/
+.libs/
+
+# Specific binary files
+Src/zi/zpmod.bundle
+Src/zi/zpmod..o
+Src/zi/zpmod.so
 
 /META-FAQ
 /config.cache

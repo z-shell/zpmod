@@ -1,0 +1,45 @@
+---
+name: 📦 Create Release
+
+on:
+  push:
+    tags:
+      - "v*" # Push events to tag v*, i.e. v1.0, v20.15.10
+
+permissions:
+  contents: write # Needed for creating releases
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
+      - name: 🔨 Build module
+        run: |
+          sh ./Scripts/install.sh --no-git --target=$(pwd) --verbose
+
+      - name: 🧪 Test module loading
+        run: |
+          module_path+=( "$PWD/Src" )
+          zmodload zi/zpmod
+          zpmod source-study -l
+        shell: zsh {0}
+
+      - name: 📦 Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./Src/zi/zpmod.so
+            ./Src/zi/zpmod.bundle
+          draft: false
+          prerelease: false
+          generate_release_notes: true
