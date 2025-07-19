@@ -92,4 +92,4 @@ jobs:
             - ✅ Source study reports
             - ✅ Fixed file descriptor compilation issues
 
-            See the [README](https://github.com/z-shell/zpmod/blob/main/.github/README.md) for detailed usage instructions.
+            See the [README](https://github.com/z-shell/zpmod/blob/main/README.md) for detailed usage instructions.

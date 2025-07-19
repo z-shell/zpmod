@@ -21,21 +21,24 @@
 
 For detailed installation instructions, please refer to:
 
-- [Installation with Zi](docs/GUIDE.md#installation-with-zi) - Recommended method
-- [Manual Installation](docs/GUIDE.md#manual-installation) - Step-by-step guide
-- [Pre-built Binaries](docs/GUIDE.md#pre-built-binaries) - Quick download options
+- [Installation with Zi](docs/tutorials/getting-started.md#installation-with-zi) - Recommended method
+- [Manual Installation](docs/tutorials/getting-started.md#manual-installation) - Step-by-step guide
+- [Pre-built Binaries](docs/tutorials/getting-started.md#pre-built-binaries) - Quick download options
 
 ## 📚 Documentation
 
 For comprehensive documentation, please visit our [documentation pages](docs/index.md):
 
-- [User Guide](docs/GUIDE.md) - Detailed installation and usage instructions
-- [API Reference](docs/API.md) - Technical reference and command details
-- [Technical Improvements](docs/IMPROVEMENTS.md) - Recent and planned enhancements
-- [Path Cache](docs/PATH_CACHE.md) - Documentation for file path caching
-- [Compilation Optimization](docs/COMPILE_OPTIMIZATION.md) - Documentation for compilation improvements
-- [Lazy Loading](docs/LAZY_LOADING.md) - Documentation for lazy loading functionality
-- [Contributing Guide](docs/CONTRIBUTING.md) - How to contribute to the project
+- **[Getting Started Guide](docs/tutorials/getting-started.md)** - Complete installation and first-time usage
+- **[API Reference](docs/reference/api.md)** - Technical reference and command details
+- **[How-to Guides](docs/how-to/)** - Problem-solving guides for specific tasks:
+  - [Configure Path Caching](docs/how-to/configure-path-caching.md)
+  - [Optimize Compilation](docs/how-to/optimize-compilation.md)
+  - [Configure Lazy Loading](docs/how-to/configure-lazy-loading.md)
+- **[Technical Background](docs/explanation/)** - Understanding the architecture:
+  - [Technical Improvements](docs/explanation/technical-improvements.md)
+  - [Internal Architecture](docs/explanation/internal-architecture.md)
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute to the project
 
 ## 📄 License
 
