@@ -1,0 +1,49 @@
+name: Sync Documentation
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "docs/**"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "docs/**"
+  workflow_dispatch:
+
+jobs:
+  sync-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zsh
+        uses: z-shell/setup-zsh@v1
+
+      - name: Check README.md status
+        id: check
+        run: |
+          chmod +x ./Scripts/update-readme.sh
+          if ! ./Scripts/update-readme.sh --check-only; then
+            echo "readme_needs_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "readme_needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update README.md
+        if: steps.check.outputs.readme_needs_update == 'true'
+        run: |
+          ./Scripts/update-readme.sh --verbose
+
+      - name: Commit changes
+        if: steps.check.outputs.readme_needs_update == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "docs: update README.md from documentation"
+          commit_user_name: "GitHub Actions"
+          commit_user_email: "actions@github.com"
+          commit_author: "GitHub Actions <actions@github.com>"
+          file_pattern: "README.md"

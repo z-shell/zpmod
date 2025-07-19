@@ -1,0 +1,6 @@
+{
+  "instructionsUrl": ".github/copilot/INSTRUCTIONS.md",
+  "priority": 1,
+  "requirementsUrl": ".github/copilot/REQUIREMENTS.md",
+  "remind": true
+}

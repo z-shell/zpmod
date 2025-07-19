@@ -38,18 +38,6 @@ error() {
   printf '%s\n' "${col_error}$1${col_rst}" >&2
 }
 
-# Check for Zi and guide the user if found
-if command -v zi >/dev/null; then
-  info "${col_info}Zi detected. The recommended way to install zpmod is by running:${col_rst}"
-  info "  zi module build zpmod"
-  info "${col_info}This script is for standalone installations. Do you want to continue anyway? [y/N]${col_rst}"
-  read -r a
-  if [ "${a}" != "y" ] && [ "${a}" != "Y" ]; then
-    info "Installation aborted."
-    exit 0
-  fi
-fi
-
 show_help() {
   cat <<EOF
 Usage: $0 [OPTIONS]

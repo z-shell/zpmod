@@ -9,6 +9,11 @@ This directory contains various utility scripts for building, installing, and ma
   - Handles configuration, compilation, and installation
   - This is the recommended script for most users
 
+- **advanced-install.sh** - Advanced installation script with additional options
+  - Provides multiple installation methods (binary, source, development)
+  - Includes more detailed control over the build process
+  - Useful for developers and advanced users
+
 - **clean.sh** - Cleans up build artifacts and temporary files
   - Removes object files, shared libraries, and other generated files
   - Use with `--verbose` to see all commands being executed
@@ -16,6 +21,11 @@ This directory contains various utility scripts for building, installing, and ma
 - **copy_from_zsh_src.zsh** - Updates source files from a Zsh source tree
   - Used for syncing with newer versions of Zsh
   - Primarily for development and maintenance
+
+- **update-readme.sh** - Maintains the root README.md based on docs content
+  - Automatically extracts key information from documentation files
+  - Options: `--check-only` to verify without making changes, `--verbose` for detailed output
+  - Used by the GitHub Actions workflow to keep docs in sync
 
 ## Usage
 

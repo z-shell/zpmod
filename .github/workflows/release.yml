@@ -12,15 +12,31 @@ permissions:
 jobs:
   build:
     name: Create Release
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            module_ext: so
+          - os: macos-latest
+            platform: macos
+            module_ext: bundle
+    runs-on: ${{ matrix.os }}
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup environment
+      - name: ⚙️ Setup environment (Linux)
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y zsh
+
+      - name: ⚙️ Setup environment (macOS)
+        if: matrix.platform == 'macos'
+        run: |
+          brew install zsh
 
       - name: 🔨 Build module
         run: |
@@ -33,13 +49,47 @@ jobs:
           zpmod source-study -l
         shell: zsh {0}
 
-      - name: 📦 Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
+      - name: � Check built files
+        run: |
+          echo "Built files in Src/zi:"
+          ls -la ./Src/zi/zpmod.*
+          echo "Looking for module file: ./Src/zi/zpmod.${{ matrix.module_ext }}"
+          if [ -f "./Src/zi/zpmod.${{ matrix.module_ext }}" ]; then
+            echo "✅ Module file found"
+          else
+            echo "❌ Module file not found"
+            exit 1
+          fi
+
+      - name: 📦 Upload Release Assets
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
         with:
           files: |
-            ./Src/zi/zpmod.so
-            ./Src/zi/zpmod.bundle
+            ./Src/zi/zpmod.${{ matrix.module_ext }}
           draft: false
           prerelease: false
           generate_release_notes: true
+          name: Release ${{ github.ref_name }} (${{ matrix.platform }})
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## zpmod Release ${{ github.ref_name }}
+
+            ### Platform: ${{ matrix.platform }}
+
+            This release includes the compiled zpmod module for ${{ matrix.platform }}.
+
+            **Installation:**
+            1. Download the `zpmod.${{ matrix.module_ext }}` file
+            2. Place it in your Zsh modules directory
+            3. Load with `zmodload zi/zpmod`
+
+            **What's included:**
+            - `zpmod.${{ matrix.module_ext }}` - Compiled zpmod module for ${{ matrix.platform }}
+
+            **Features:**
+            - ✅ Automatic script compilation
+            - ✅ Performance tracking
+            - ✅ Source study reports
+            - ✅ Fixed file descriptor compilation issues
+
+            See the [README](https://github.com/z-shell/zpmod/blob/main/.github/README.md) for detailed usage instructions.
