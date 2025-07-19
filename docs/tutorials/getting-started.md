@@ -1,8 +1,8 @@
-# zpmod User Guide
+# Getting Started with zpmod
 
 ## Introduction
 
-This guide provides detailed information about installing, configuring, and using the `zpmod` Zsh module. zpmod is a binary Zsh module that enhances your shell experience by automatically compiling scripts and tracking performance metrics.
+This tutorial will guide you through installing, configuring, and using the `zpmod` Zsh module. zpmod is a binary Zsh module that enhances your shell experience by automatically compiling scripts and tracking performance metrics.
 
 ## Installation
 
