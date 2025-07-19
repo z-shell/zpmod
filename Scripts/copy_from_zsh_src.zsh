@@ -23,7 +23,11 @@ fi
 # Confirm before cleaning
 print "WARNING: Will invoke git clean -dxf, which removes all untracked files."
 print "Press Ctrl+C to abort or Enter to continue..."
-read -q "?Are you sure you want to continue? [y/N] " || { print "\nAborted."; exit 0 }
+read -r "?Are you sure you want to continue? [y/N] "
+if [[ -z "$REPLY" || "$REPLY" = [Nn] ]]; then
+    print "\nAborted."
+    exit 0
+fi
 print
 
 # Clean the repository
