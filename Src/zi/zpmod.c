@@ -911,11 +911,13 @@ Eprog custom_try_source_file(char *file)
 		*tail++ = '/';
 	}
 	/* If there is no zwc file, or if it is less recent than script file */
+	bool has_write_access = (access(file_dup, W_OK) == 0);
+	bool is_debug_mode = (0 == strcmp(
+						 getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
+						 "1"));
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
 	    !zp_should_skip_compilation(file) &&
-	    (access(file_dup, W_OK) == 0 || 0 == strcmp(
-						     getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
-						     "1")))
+	    (has_write_access || is_debug_mode))
 	{
 		char *args[] = {file, NULL};
 		struct options ops;
