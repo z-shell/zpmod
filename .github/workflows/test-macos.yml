@@ -23,7 +23,7 @@ jobs:
       - name: ☑️ ShellCheck
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
         with:
-          scandir: "./Scripts/install.sh"
+          scandir: "./Scripts"
 
   build:
     runs-on: macos-latest
@@ -45,10 +45,11 @@ jobs:
           else
             echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
           fi
-      - name: ⚙️ Prepare
+      - name: ⚙️ Prepare environment
         run: |
           brew install zsh
-      - name: ⚙️ Build
+
+      - name: 🔨 Build zpmod module
         env:
           BRANCH_NAME: ${{ steps.branch.outputs.branch }}
         run: |
@@ -56,9 +57,110 @@ jobs:
           # Use --target to build in the current directory
           sh ./Scripts/install.sh --no-git --target=$(pwd) --branch="$BRANCH_NAME"
           ls -la ./Src/zi
-      - name: ⚙️ Load
+          echo "✅ macOS build completed successfully"
+
+      - name: 📁 Create test files for functionality testing
+        run: |
+          mkdir -p test_files
+
+          # Create test Zsh scripts (same as Linux but testing macOS compatibility)
+          cat > test_files/macos_test1.zsh << 'EOF'
+          #!/usr/bin/env zsh
+          # macOS-specific test script 1
+          echo "macOS Test script 1 executing"
+          for i in {1..3}; do
+            echo "macOS Loop iteration: $i"
+          done
+          EOF
+
+          cat > test_files/macos_test2.zsh << 'EOF'
+          #!/usr/bin/env zsh
+          # macOS-specific test script 2
+          function macos_test_function() {
+            echo "macOS Test function called with args: $@"
+          }
+          macos_test_function "hello" "macOS"
+          EOF
+
+          chmod +x test_files/*.zsh
+          echo "✅ macOS test files created"
+
+      - name: 🔄 Load and verify zpmod module
+        run: |
+          module_path+=( "$PWD/Src" )
+          if zmodload zi/zpmod; then
+            echo "✅ zpmod module loaded successfully on macOS"
+          else
+            echo "❌ Failed to load zpmod module on macOS"
+            exit 1
+          fi
+        shell: zsh {0}
+
+      - name: 📊 Test core zpmod functionality on macOS
         run: |
           module_path+=( "$PWD/Src" )
           zmodload zi/zpmod
-          zpmod source-study -l
+
+          echo "=== Testing zpmod core functionality on macOS ==="
+
+          # Test source-study report
+          if zpmod source-study -l; then
+            echo "✅ source-study works on macOS"
+          else
+            echo "❌ source-study failed on macOS"
+            exit 1
+          fi
+
+          # Test path cache
+          if zpmod clear-path-cache; then
+            echo "✅ Path cache operations work on macOS"
+          else
+            echo "❌ Path cache operations failed on macOS"
+            exit 1
+          fi
+
+          # Test compilation config
+          if zpmod compile-config; then
+            echo "✅ Compilation config works on macOS"
+          else
+            echo "❌ Compilation config failed on macOS"
+            exit 1
+          fi
+        shell: zsh {0}
+
+      - name: 🧪 Test script compilation on macOS
+        run: |
+          module_path+=( "$PWD/Src" )
+          zmodload zi/zpmod
+
+          echo "=== Testing script compilation on macOS ==="
+
+          # Enable compilation and test scripts
+          zpmod compile-config enable
+
+          for script in test_files/*.zsh; do
+            echo "Testing macOS script: $script"
+            if source "$script"; then
+              echo "✅ Successfully sourced $script on macOS"
+            else
+              echo "❌ Failed to source $script on macOS"
+              exit 1
+            fi
+          done
+        shell: zsh {0}
+
+      - name: 📈 macOS performance verification
+        run: |
+          module_path+=( "$PWD/Src" )
+          zmodload zi/zpmod
+
+          echo "=== Final macOS verification ==="
+
+          # Generate final performance report
+          if zpmod source-study; then
+            echo "✅ All macOS zpmod functionality tests completed successfully"
+          else
+            echo "❌ Final macOS verification failed"
+            exit 1
+          fi
         shell: zsh {0}
