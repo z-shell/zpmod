@@ -49,6 +49,8 @@ jobs:
       # Use organization action for complete Zsh development environment
       - name: ⚙️ Setup Zsh development environment
         uses: z-shell/.github/actions/setup-zsh-development@main
+        with:
+          install-build-tools: "true"
 
       # Use organization action for branch determination
       - name: ⚙️ Determine Branch
