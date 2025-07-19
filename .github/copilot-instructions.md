@@ -52,7 +52,7 @@ make test
 
 - `Scripts/install.sh`: Main installation script
 - `Scripts/clean.sh`: Cleans build artifacts and temporary files
-- `Scripts/update-readme.sh`: Updates README.md based on documentation
+- `Scripts/advanced-install.sh`: Advanced installation with additional options
 
 ## Code Architecture
 
@@ -80,9 +80,70 @@ The module follows Zsh's module architecture with these key components:
 
 ### Documentation Strategy
 
-- Documentation-driven development approach
-- `docs/` directory contains detailed documentation
-- Root `README.md` is automatically generated from docs using `Scripts/update-readme.sh`
+This repository follows the **Divio Documentation System** for consistent, maintainable documentation across the Z-Shell organization. All repositories should implement this structure.
+
+#### Divio Documentation System Structure
+
+The `docs/` directory is organized into four distinct categories:
+
+```text
+docs/
+├── tutorials/          # Learning-oriented (hands-on lessons)
+├── how-to/             # Problem-oriented (practical guides)
+├── reference/          # Information-oriented (technical specs)
+├── explanation/        # Understanding-oriented (background knowledge)
+├── index.md            # Main documentation hub
+└── CONTRIBUTING.md     # Contribution guidelines (root level for GitHub visibility)
+```
+
+#### Documentation Categories
+
+1. **`tutorials/`** - Learning-oriented documentation
+   - Step-by-step guides for beginners
+   - Complete meaningful projects from start to finish
+   - Focus on building confidence through successful completion
+   - Example: `getting-started.md` with complete installation and first usage
+
+2. **`how-to/`** - Problem-oriented documentation
+   - Solutions to specific problems
+   - Assume some knowledge and focus on getting things done
+   - Task-oriented with clear outcomes
+   - Examples: `configure-lazy-loading.md`, `optimize-compilation.md`
+
+3. **`reference/`** - Information-oriented documentation
+   - Technical specifications, API documentation
+   - Comprehensive details organized for lookup
+   - Dry, factual information
+   - Examples: `api.md`, command references, configuration options
+
+4. **`explanation/`** - Understanding-oriented documentation
+   - Background knowledge and architectural discussions
+   - Explains why things work the way they do
+   - Provides context and deeper understanding
+   - Examples: `internal-architecture.md`, `technical-improvements.md`
+
+#### Documentation Guidelines
+
+**When adding new documentation:**
+
+1. **Determine the category** - Ask: "Is this teaching, solving a problem, providing reference info, or explaining concepts?"
+2. **Place in correct directory** - Use the appropriate category folder
+3. **Follow naming conventions** - Use descriptive, kebab-case filenames
+4. **Update category README** - Add entry to the relevant `README.md` file
+5. **Link from index.md** - Ensure discoverability from main documentation page
+
+**When editing existing documentation:**
+
+1. **Maintain category integrity** - Don't mix tutorial content in reference docs
+2. **Update cross-references** - Check and update any links that may be affected
+3. **Follow the category's writing style** - Tutorials are hands-on, references are factual, etc.
+
+**Consistency across Z-Shell organization:**
+
+- All repositories should implement this same structure
+- Use identical category names and README formats
+- Maintain consistent navigation and cross-linking patterns
+- Apply this structure when creating new repositories or refactoring existing documentation
 
 ### Temporary Files
 
@@ -141,17 +202,27 @@ if (fd < 0) {
 1. **Code Style**: Follow the existing code style and conventions. Use `clang-format` for formatting C code.
 2. **Commit Messages**: Write clear and descriptive commit messages. Use the imperative mood ("Add feature" not "Added feature").
 3. **Testing**: Include tests for new features and bug fixes. Run the test suite before submitting changes.
-4. **Documentation**: Update documentation to reflect changes. Use `Scripts/update-readme.sh` to regenerate README.md.
+4. **Documentation**: Update documentation to reflect changes. Follow the Divio documentation system structure in `docs/`. Place new documentation in the appropriate category (tutorials/, how-to/, reference/, explanation/) and update the relevant README.md files.
 5. **Pull Requests**: Submit changes via pull requests. Include a description of the changes and any relevant issue numbers.
 6. **Consistency of Organization**: Ensure consistent organization and structure across [all repositories](https://github.com/orgs/z-shell/repositories).
 
 ## Best Practices
+
+### Code Quality
 
 - Use Zsh's built-in functions for file operations to ensure compatibility
 - Avoid using global variables; prefer passing data through function parameters
 - Keep functions small and focused on a single task
 - Use meaningful variable and function names to improve readability
 - Regularly review and refactor code to maintain quality and performance
+
+### Documentation Maintenance
+
+- **Always follow the Divio documentation system** when adding or modifying documentation
+- **Categorize correctly**: Ask yourself whether content is teaching (tutorials), problem-solving (how-to), informational (reference), or explanatory (explanation)
+- **Update navigation**: When adding new documentation, update the appropriate category README.md and link from `docs/index.md`
+- **Maintain consistency**: Use the same structure and naming conventions across all Z-Shell organization repositories
+- **Cross-reference properly**: Ensure internal links are updated when moving or renaming documentation files
 
 ## Additional Resources
 
