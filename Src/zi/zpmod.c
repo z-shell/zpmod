@@ -846,6 +846,32 @@ custom_source(char *s)
 	return ret;
 }
 /* }}} */
+/* STATIC FUNCTION: zp_should_skip_compilation {{{ */
+/**/
+static int
+zp_should_skip_compilation(const char *file)
+{
+	if (!file)
+		return 1;
+
+	/* Skip file descriptor paths like /proc/self/fd/X */
+	if (strncmp(file, "/proc/self/fd/", 14) == 0)
+		return 1;
+
+	/* Skip standard device files */
+	if (strcmp(file, "/dev/stdin") == 0 ||
+	    strcmp(file, "/dev/stdout") == 0 ||
+	    strcmp(file, "/dev/stderr") == 0)
+		return 1;
+
+	/* Skip if file doesn't exist or isn't a regular file */
+	struct stat st;
+	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode))
+		return 1;
+
+	return 0;
+}
+/* }}} */
 /* FUNCTION: custom_try_source_file {{{ */
 /**/
 Eprog custom_try_source_file(char *file)
@@ -886,6 +912,7 @@ Eprog custom_try_source_file(char *file)
 	}
 	/* If there is no zwc file, or if it is less recent than script file */
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
+	    !zp_should_skip_compilation(file) &&
 	    (access(file_dup, W_OK) == 0 || 0 == strcmp(
 						     getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
 						     "1")))
