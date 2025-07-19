@@ -866,7 +866,9 @@ zp_should_skip_compilation(const char *file)
 
 	/* Skip if file doesn't exist or isn't a regular file */
 	struct stat st;
-	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode))
+	if (stat(file, &st) != 0)
+		return 1;
+	if (!S_ISREG(st.st_mode))
 		return 1;
 
 	return 0;
