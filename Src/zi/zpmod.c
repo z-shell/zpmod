@@ -911,8 +911,8 @@ Eprog custom_try_source_file(char *file)
 		*tail++ = '/';
 	}
 	/* If there is no zwc file, or if it is less recent than script file */
-	bool has_write_access = (access(file_dup, W_OK) == 0);
-	bool is_debug_mode = (0 == strcmp(
+	int has_write_access = (access(file_dup, W_OK) == 0);
+	int is_debug_mode = (0 == strcmp(
 						 getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
 						 "1"));
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
