@@ -572,7 +572,7 @@ int bin_custom_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func
 	errno = ENOENT;
 	ret = SOURCE_NOT_FOUND;
 	/* for source only, check in current directory first */
-	if (*name != '.' && access(s, F_OK) == 0 && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
+	if (*name != '.' && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
 	{
 		diddot = 1;
 		ret = custom_source(enam);
@@ -611,7 +611,7 @@ int bin_custom_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func
 					buf = zhtricat(*t, "/", arg0);
 
 				s = unmeta(buf);
-				if (access(s, F_OK) == 0 && stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
+				if (stat(s, &st) >= 0 && !S_ISDIR(st.st_mode))
 				{
 					ret = custom_source(enam = buf);
 					break;

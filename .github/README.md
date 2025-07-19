@@ -1,4 +1,4 @@
-# ZPMOD
+# Module: `zpmod`
 
 <div align="center">
 
@@ -54,6 +54,9 @@ The build script supports these options:
 | `--prefix=DIR`                 | Set installation prefix (for system installs)                     |
 | `--no-install`                 | Skip installation after building                                  |
 | `--help`, `-h`                 | Show help message                                                 |
+
+> **Note**
+> The `--branch` parameter will automatically use the current git branch if you're in a git repository and no branch is specified.
 
 #### Examples
 
@@ -127,3 +130,7 @@ If you encounter build issues:
 3. Make sure your Zsh version is compatible (5.8.1+)
 4. Try with `--clean` to perform a fresh build
 5. Submit an issue with the error messages on the [GitHub repository](https://github.com/z-shell/zpmod/issues)
+
+## License
+
+The zpmod module is available under the same license as Zsh itself.
