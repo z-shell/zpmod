@@ -364,19 +364,19 @@ setup_configuration() {
 
   log "INFO" "Setting up zpmod configuration"
 
-  local config_dir="${HOME}/.config/zpmod"
+  local config_dir="${HOME}/.config/zi"
   mkdir -p "${config_dir}"
 
   # Download configuration file
   local config_url="${RAW_URL}/Config/zpmod-config.zsh"
-  if curl -s -o "${config_dir}/config.zsh" "${config_url}"; then
-    log "SUCCESS" "Configuration downloaded: ${config_dir}/config.zsh"
+  if curl -s -o "${config_dir}/zpmod-config.zsh" "${config_url}"; then
+    log "SUCCESS" "Configuration downloaded: ${config_dir}/zpmod-config.zsh"
   else
     log "WARN" "Could not download configuration file"
   fi
 
   # Create user configuration
-  local user_config="${config_dir}/user-config.zsh"
+  local user_config="${config_dir}/zpmod-user-config.zsh"
   if [[ ! -f ${user_config} ]]; then
     cat >"${user_config}" <<EOF
 # ZPMOD User Configuration
@@ -419,8 +419,8 @@ if [[ -d \"${MODULE_DIR}\" ]]; then
     module_path+=(\"$(dirname "${MODULE_DIR}")\")
 
     # Load configuration if available
-    [[ -f \"\$HOME/.config/zpmod/config.zsh\" ]] && source \"\$HOME/.config/zpmod/config.zsh\"
-    [[ -f \"\$HOME/.config/zpmod/user-config.zsh\" ]] && source \"\$HOME/.config/zpmod/user-config.zsh\"
+    [[ -f \"\$HOME/.config/zi/zpmod-config.zsh\" ]] && source \"\$HOME/.config/zi/zpmod-config.zsh\"
+    [[ -f \"\$HOME/.config/zi/zpmod-user-config.zsh\" ]] && source \"\$HOME/.config/zi/zpmod-user-config.zsh\"
 
     # Load the module
     zmodload zi/zpmod
@@ -490,12 +490,12 @@ show_completion_message() {
   echo
   echo "📁 Installation directory: ${INSTALL_DIR}"
   echo "🔧 Module location: ${MODULE_DIR}"
-  echo "⚙️  Configuration: ${HOME}/.config/zpmod/"
+  echo "⚙️  Configuration: ${HOME}/.config/zi/"
   echo
   echo -e "${YELLOW}Next Steps:${NC}"
   echo "1. Restart your shell or run: source ~/.zshrc"
   echo "2. Test the installation: zpmod source-study"
-  echo "3. View configuration: cat ~/.config/zpmod/config.zsh"
+  echo "3. View configuration: cat ~/.config/zi/zpmod-config.zsh"
   echo
   if [[ ${ZI_INTEGRATION} == true ]]; then
     echo -e "${BLUE}Zi Integration:${NC}"
@@ -505,7 +505,7 @@ show_completion_message() {
   fi
   echo -e "${PURPLE}Documentation:${NC}"
   echo "- GitHub: ${REPO_URL}"
-  echo "- Configuration: ~/.config/zpmod/config.zsh"
+  echo "- Configuration: ~/.config/zi/zpmod-config.zsh"
   echo "- Logs: ~/.cache/zpmod/debug.log (if debug enabled)"
   echo
   echo -e "${CYAN}Enjoy faster Zsh with zpmod! 🚀${NC}"

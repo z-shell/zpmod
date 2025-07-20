@@ -151,6 +151,15 @@ docs/
 - Run `Scripts/clean.sh` to remove all temporary files and build artifacts
 - The `.gitignore` file lists patterns for temporary files that should not be committed
 
+### Documentation File Placement
+
+**CRITICAL**: All documentation must follow the Divio documentation system structure:
+
+- **✅ CORRECT**: Place documentation in `docs/` subdirectories (`tutorials/`, `how-to/`, `reference/`, `explanation/`)
+- **❌ FORBIDDEN**: Never create documentation files in the workspace root (e.g., `SECURITY-FIXES.md`, `CHANGES.md`)
+- **Exception**: Only `README.md` and `CONTRIBUTING.md` are allowed in the root for GitHub visibility
+- **Always**: Update `docs/index.md` to link new documentation and maintain proper navigation
+
 ## Critical Details
 
 1. **File Descriptor Handling**: The module carefully manages file descriptors to prevent leaks. Always check FD validity before operations.

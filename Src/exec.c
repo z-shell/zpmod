@@ -2211,16 +2211,21 @@ clobber_open(struct redir *f)
 {
     struct stat buf;
     int fd, oerrno;
+    mode_t current_umask;
     char *ufname = unmeta(f->name);
+
+    /* Get current umask without changing it */
+    current_umask = umask(0);
+    umask(current_umask);
 
     /* If clobbering, just open. */
     if (isset(CLOBBER) || IS_CLOBBER_REDIR(f->type))
 	return open(ufname,
-		O_WRONLY | O_CREAT | O_TRUNC | O_NOCTTY, 0644);
+		O_WRONLY | O_CREAT | O_TRUNC | O_NOCTTY, 0666 & ~current_umask);
 
     /* If not clobbering, attempt to create file exclusively. */
     if ((fd = open(ufname,
-		   O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0644)) >= 0)
+		   O_WRONLY | O_CREAT | O_EXCL | O_NOCTTY, 0666 & ~current_umask)) >= 0)
 	return fd;
 
     /* If that fails, we are still allowed to open non-regular files. *
@@ -3738,9 +3743,12 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 		    fil = -1;
 		else if (fn->type == REDIR_READ)
 		    fil = open(unmeta(fn->name), O_RDONLY | O_NOCTTY);
-		else
+		else {
+		    mode_t current_umask = umask(0);
+		    umask(current_umask);
 		    fil = open(unmeta(fn->name),
-			       O_RDWR | O_CREAT | O_NOCTTY, 0644);
+			       O_RDWR | O_CREAT | O_NOCTTY, 0666 & ~current_umask);
+		}
 		if (fil == -1) {
 		    closemnodes(mfds);
 		    fixfds(save);
@@ -3873,12 +3881,15 @@ execcmd_exec(Estate state, Execcmd_params eparams,
 	    default:
 		if (!checkclobberparam(fn))
 		    fil = -1;
-		else if (IS_APPEND_REDIR(fn->type))
+		else if (IS_APPEND_REDIR(fn->type)) {
+		    mode_t current_umask = umask(0);
+		    umask(current_umask);
 		    fil = open(unmeta(fn->name),
 			       ((unset(CLOBBER) && unset(APPENDCREATE)) &&
 				!IS_CLOBBER_REDIR(fn->type)) ?
 			       O_WRONLY | O_APPEND | O_NOCTTY :
-			       O_WRONLY | O_APPEND | O_CREAT | O_NOCTTY, 0644);
+			       O_WRONLY | O_APPEND | O_CREAT | O_NOCTTY, 0666 & ~current_umask);
+		}
 		else
 		    fil = clobber_open(fn);
 		if(fil != -1 && IS_ERROR_REDIR(fn->type))

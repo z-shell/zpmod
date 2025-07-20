@@ -76,3 +76,26 @@ The module maintains an internal database of sourced files with the following in
 - Last access time
 
 This data is used by the `source-study` command to generate performance reports.
+
+## Configuration Helpers
+
+The zpmod project includes optional helper functions that provide user-friendly interfaces to zpmod functionality. These are available in `Config/zpmod-config.zsh`.
+
+### Performance Analysis Functions
+
+- **`zpmod-stats`** - Display formatted performance statistics
+- **`zpmod-detailed`** - Show detailed performance reports with full paths
+- **`zpmod-benchmark`** - Benchmark shell startup time over multiple runs
+- **`zpmod-slow-files`** - Identify files taking >10ms to load
+
+### Diagnostic Functions
+
+- **`zpmod-status`** - Comprehensive installation and status check
+- **`zpmod-setup`** - Display available functions and usage guidance
+
+### Configuration Variables
+
+- **`ZPMOD_DEBUG`** - Enable debug output (0=disabled, 1=enabled)
+- **`ZPMOD_MODULE_EXT`** - Platform-specific module extension (auto-detected)
+
+For detailed usage information, see: [Use Configuration Helpers](../how-to/use-configuration-helpers.md)

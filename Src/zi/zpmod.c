@@ -45,6 +45,10 @@ static ZpPathCache zp_path_cache = NULL;
 #define ZP_CACHE_SIZE 1024      /* Size of path cache hash table */
 #define ZP_CACHE_LIFETIME 30    /* Cache entry lifetime in seconds */
 
+/* Buffer size constants to prevent magic numbers */
+#define ZP_TMP_BUFFER_SIZE 20   /* Size of temporary string buffers */
+#define ZP_TMP_BUFFER_LAST (ZP_TMP_BUFFER_SIZE - 1)  /* Last valid index */
+
 /* Global compilation configuration */
 static ZpCompileConfig zp_compile_config = NULL;
 
@@ -266,6 +270,10 @@ struct zp_option_name
 	int enum_val;
 };
 
+/* Array bounds constants for safe iteration */
+#define ZP_OPTIONS_MAIN_END_MARKER "/*ALIASES_START*/"
+#define ZP_OPTIONS_ARRAY_TERMINATOR NULL
+
 static struct zp_option_name zp_options[] = {
     {"aliases", ALIASESOPT__},
     {"aliasfuncdef", ALIASFUNCDEF__},
@@ -447,6 +455,8 @@ static struct zp_option_name zp_options[] = {
     {"xtrace", XTRACE__},
     {"zle", USEZLE__},
     {"dvorak", DVORAK__},
+    /* MARKER: End of main options, aliases follow below */
+    {ZP_OPTIONS_MAIN_END_MARKER, 0},
     /* Below follow *aliases*, i.e. not-main, alternate option names */
     /* There are 10 uncommented entries */
     /* {"braceexpand",         -IGNOREBRACES__}, */
@@ -522,12 +532,34 @@ struct fdhead
  * Compatibility functions (i.e. support for multiple Zsh versions)
  */
 
+/* STATIC FUNCTION: zp_get_main_options_count {{{ */
+/**/
+static int zp_get_main_options_count()
+{
+	int count = 0;
+	const struct zp_option_name *option = zp_options;
+
+	/* Count main options until we hit the marker or NULL terminator */
+	while (option->name != ZP_OPTIONS_ARRAY_TERMINATOR) {
+		if (strcmp(option->name, ZP_OPTIONS_MAIN_END_MARKER) == 0) {
+			break;
+		}
+		count++;
+		option++;
+	}
+
+	return count;
+}
+/* }}} */
+
 /* STATIC FUNCTION: zp_setup_options_table {{{ */
 /**/
 static void zp_setup_options_table()
 {
 	int i, optno;
-	for (i = 0; i < sizeof(zp_options) / sizeof(struct zp_option_name) - 10 - 1; ++i)
+	int main_options_count = zp_get_main_options_count();
+
+	for (i = 0; i < main_options_count; ++i)
 	{
 		optno = optlookup(zp_options[i].name);
 		zp_opt_for_zsh_version[zp_options[i].enum_val] = optno;
@@ -798,7 +830,7 @@ custom_source(char *s)
 
 	if (zp_node)
 	{
-		char zp_tmp[20], bkp;
+		char zp_tmp[ZP_TMP_BUFFER_SIZE], bkp;
 		char *dir_path, *file_name, *full_path, *slash;
 		int is_dot_slash;
 
@@ -841,7 +873,7 @@ custom_source(char *s)
 		zp_node->event.load_error = ret;
 
 		sprintf(zp_tmp, "%d", zp_node->event.id);
-		zp_tmp[19] = '\0';
+		zp_tmp[ZP_TMP_BUFFER_LAST] = '\0';
 
 		addhashnode(zp_source_events, ztrdup(zp_tmp), (void *)zp_node);
 	}
@@ -1751,7 +1783,7 @@ zp_append_report(const char *nam, const char *target, int target_len, const char
 /**/
 char *zp_build_source_report(int no_paths, int *rep_size)
 {
-	char *report, zp_tmp[20];
+	char *report, zp_tmp[ZP_TMP_BUFFER_SIZE];
 	int current_size, space_left, current_end, idx, printed;
 	SEventNode node;
 	FILE *null_fle;
@@ -1788,7 +1820,7 @@ char *zp_build_source_report(int no_paths, int *rep_size)
 	for (idx = 1; idx <= zp_sevent_count; ++idx)
 	{
 		sprintf(zp_tmp, "%d", idx);
-		zp_tmp[19] = '\0';
+		zp_tmp[ZP_TMP_BUFFER_LAST] = '\0';
 
 		if (!(node = (SEventNode)gethashnode2(zp_source_events, zp_tmp)))
 		{

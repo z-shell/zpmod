@@ -178,3 +178,16 @@ Src/zi/zpmod.syms
 
 Test/*.tmp
 /.project
+
+# Legacy files that should not be recreated
+.preconfig
+Util/preconfig
+*.cvsignore
+.distfiles
+
+# Legacy files (no longer needed)
+.cvsignore
+.distfiles
+*/.cvsignore
+*/.distfiles
+RECOMPILE_REQUEST

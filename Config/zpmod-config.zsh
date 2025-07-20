@@ -1,5 +1,5 @@
 # zpmod Configuration File
-# Place this in ~/.config/zpmod/config.zsh or source directly in .zshrc
+# Place this in ~/.config/zi/zpmod-config.zsh or source directly in .zshrc
 
 # ============================================================================
 # ZPMOD BASIC CONFIGURATION

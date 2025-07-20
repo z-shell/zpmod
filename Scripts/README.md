@@ -4,15 +4,21 @@ This directory contains various utility scripts for building, installing, and ma
 
 ## Available Scripts
 
-- **install.sh** - Main installation and build script for compiling the zpmod module
-  - Supports various command-line options (run with `--help` to see all options)
-  - Handles configuration, compilation, and installation
-  - This is the recommended script for most users
+### Installation Scripts
 
-- **advanced-install.sh** - Advanced installation script with additional options
-  - Provides multiple installation methods (binary, source, development)
-  - Includes more detailed control over the build process
-  - Useful for developers and advanced users
+- **install.sh** - Traditional build script for developers and build systems
+  - Source compilation using autoconf/make workflow
+  - Supports build customization (`--cflags`, `--target`, `--clean`)
+  - Git repository management and branch selection
+  - **Use when**: Building from source, development, CI/CD, custom configurations
+
+- **advanced-install.sh** - Comprehensive installation manager for end users
+  - **Multiple installation types**: binary downloads, source compilation, development setup
+  - **Zi plugin manager integration**: automatic configuration and shell setup
+  - **User-friendly**: platform detection, automatic dependencies, verification
+  - **Use when**: Quick setup, production use, Zi ecosystem integration
+
+### Utility Scripts
 
 - **clean.sh** - Cleans up build artifacts and temporary files
   - Removes object files, shared libraries, and other generated files
@@ -31,4 +37,25 @@ This directory contains various utility scripts for building, installing, and ma
 
 Most scripts support a `--help` or `-h` option to show usage information.
 
-For typical usage, see the main README.md file in the repository root.
+### Quick Start Guide
+
+**For most users (recommended):**
+
+```bash
+./Scripts/advanced-install.sh
+```
+
+**For developers or custom builds:**
+
+```bash
+./Scripts/install.sh --help  # See all options
+./Scripts/install.sh --target ~/.local --verbose
+```
+
+**For Zi plugin manager users:**
+
+```bash
+./Scripts/advanced-install.sh --zi --type source
+```
+
+For detailed usage, see the main README.md file in the repository root.

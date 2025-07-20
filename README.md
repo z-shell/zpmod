@@ -35,6 +35,7 @@ For comprehensive documentation, please visit our [documentation pages](docs/ind
   - [Configure Path Caching](docs/how-to/configure-path-caching.md)
   - [Optimize Compilation](docs/how-to/optimize-compilation.md)
   - [Configure Lazy Loading](docs/how-to/configure-lazy-loading.md)
+  - [Use Configuration Helpers](docs/how-to/use-configuration-helpers.md)
 - **[Technical Background](docs/explanation/)** - Understanding the architecture:
   - [Technical Improvements](docs/explanation/technical-improvements.md)
   - [Internal Architecture](docs/explanation/internal-architecture.md)

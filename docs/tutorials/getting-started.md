@@ -79,6 +79,29 @@ You can customize zpmod behavior with these environment variables:
 - `ZPMOD_SKIP_PATTERNS`: Patterns to skip during compilation (requires custom build)
 - `ZPMOD_DEBUG`: Enable detailed debug logging (if compiled with debug support)
 
+### Helper Functions (Optional)
+
+For enhanced functionality, consider setting up the zpmod configuration helpers:
+
+```bash
+# Download and set up configuration helpers
+mkdir -p ~/.config/zi
+curl -o ~/.config/zi/zpmod-config.zsh \
+  https://raw.githubusercontent.com/z-shell/zpmod/main/Config/zpmod-config.zsh
+
+# Add to your .zshrc after loading zpmod
+[[ -f "$HOME/.config/zi/zpmod-config.zsh" ]] && source "$HOME/.config/zi/zpmod-config.zsh"
+```
+
+This provides useful commands like:
+
+- `zpmod-stats` - Performance statistics
+- `zpmod-benchmark` - Shell startup benchmarking
+- `zpmod-status` - Installation verification
+- `zpmod-slow-files` - Identify performance bottlenecks
+
+For detailed information, see: [Use Configuration Helpers](../how-to/use-configuration-helpers.md)
+
 ## Usage
 
 ### Performance Analysis
