@@ -1,5 +1,5 @@
 ---
-name: 🧹 Code Quality
+name: 🚀 Trunk Code Quality
 
 on:
   pull_request:
@@ -12,160 +12,75 @@ permissions:
   pull-requests: write
 
 jobs:
-  lint-and-format:
-    name: Lint and Format Check
+  trunk-check:
+    name: 🔍 Comprehensive Quality Check
     runs-on: ubuntu-latest
 
     steps:
       - name: ⤵️ Check out code
         uses: actions/checkout@v4
 
-      - name: 🔍 Check shell scripts with ShellCheck
-        uses: ludeeus/action-shellcheck@master
+      - name: 🚀 Trunk Check
+        uses: trunk-io/trunk-action@v1
         with:
-          scandir: "./Scripts"
-          format: gcc
-          severity: warning
+          # Run all enabled linters
+          arguments: check --all --no-progress
 
-      - name: 📝 Check markdown files
-        uses: DavidAnson/markdownlint-action@v1
+      - name: 🛡️ Security and Maintenance Check
+        uses: trunk-io/trunk-action@v1
         with:
-          files: "**/*.md"
-          config: |
-            {
-              "MD013": { "line_length": 120 },
-              "MD033": false,
-              "MD041": false
-            }
+          # Run zpmod-specific maintenance and security checks
+          arguments: check --filter=zpmod-maintenance,gitleaks --all --no-progress
 
-      - name: 🎯 Check for TODO/FIXME comments
-        run: |
-          if grep -r "TODO\|FIXME\|XXX\|HACK" --include="*.c" --include="*.h" --include="*.sh" --include="*.zsh" Src/ Scripts/ || true; then
-            echo "⚠️  Found TODO/FIXME comments. Consider creating issues for these."
-          fi
+      - name: 🏗️ Quality Verification
+        uses: trunk-io/trunk-action@v1
+        with:
+          # Run comprehensive quality checks (replaces custom GitHub Actions logic)
+          arguments: check --filter=zpmod-quality --all --no-progress
 
-      - name: 🔧 Check build system consistency
-        run: |
-          # Check if all .c files have corresponding .pro files
-          cd Src
-          for c_file in *.c zi/*.c; do
-            if [[ -f "$c_file" ]]; then
-              pro_file="${c_file%.c}.pro"
-              if [[ ! -f "$pro_file" ]]; then
-                echo "❌ Missing prototype file: $pro_file for $c_file"
-                exit 1
-              fi
-            fi
-          done
-          echo "✅ Build system consistency check passed"
-
-  documentation-check:
-    name: Documentation Consistency
+  format-check:
+    name: 📝 Format Check
     runs-on: ubuntu-latest
 
     steps:
       - name: ⤵️ Check out code
         uses: actions/checkout@v4
 
-      - name: 📚 Check Divio documentation structure
-        run: |
-          # Check if all required Divio categories exist
-          required_dirs=("docs/tutorials" "docs/how-to" "docs/reference" "docs/explanation")
-          for dir in "${required_dirs[@]}"; do
-            if [[ ! -d "$dir" ]]; then
-              echo "❌ Missing required documentation directory: $dir"
-              exit 1
-            fi
-            if [[ ! -f "$dir/README.md" ]]; then
-              echo "❌ Missing README.md in: $dir"
-              exit 1
-            fi
-          done
-          echo "✅ Divio documentation structure is valid"
+      - name: 🎨 Check formatting
+        uses: trunk-io/trunk-action@v1
+        with:
+          arguments: fmt --check --all
 
-      - name: 🔗 Check documentation links
-        run: |
-          # Check for broken internal links in markdown files
-          cd docs
-          find . -name "*.md" -exec grep -l "\]\(" {} \; | while read -r file; do
-            echo "Checking links in: $file"
-            grep -o '\]([^)]*\.md[^)]*)' "$file" | sed 's/\](\([^)]*\))/\1/' | while read -r link; do
-              # Remove anchors
-              clean_link="${link%#*}"
-              if [[ "$clean_link" == /* ]]; then
-                # Absolute path from docs root
-                target_file="$(pwd)${clean_link}"
-              else
-                # Relative path
-                target_file="$(dirname "$file")/${clean_link}"
-              fi
-              if [[ ! -f "$target_file" ]]; then
-                echo "❌ Broken link in $file: $link -> $target_file"
-                exit 1
-              fi
-            done
-          done
-          echo "✅ Documentation links check passed"
-
-  version-consistency:
-    name: Version Consistency Check
+  performance:
+    name: ⚡ Performance Check
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: ⤵️ Check out code
         uses: actions/checkout@v4
 
-      - name: 🔢 Check version consistency
-        run: |
-          # Extract version from zpmod-version.mk
-          if [[ -f "Config/zpmod-version.mk" ]]; then
-            mk_version=$(grep "^ZPMOD_VERSION=" Config/zpmod-version.mk | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-            echo "Version in zpmod-version.mk: $mk_version"
+      - name: ⚡ Fast quality check (sample)
+        uses: trunk-io/trunk-action@v1
+        with:
+          # Use sampling for faster PR feedback
+          arguments: check --sample=10 --no-progress
 
-            # Check if C file has matching version
-            if [[ -f "Src/zi/zpmod.c" ]]; then
-              c_version=$(grep "#define ZPMOD_VERSION" Src/zi/zpmod.c | cut -d'"' -f2)
-              echo "Version in zpmod.c: $c_version"
-
-              if [[ "$mk_version" != "$c_version" ]]; then
-                echo "❌ Version mismatch between Config/zpmod-version.mk and Src/zi/zpmod.c"
-                echo "   zpmod-version.mk: $mk_version"
-                echo "   zpmod.c: $c_version"
-                echo "   Run ./Scripts/bump-version.sh to sync versions"
-                exit 1
-              fi
-            fi
-            echo "✅ Version consistency check passed"
-          else
-            echo "⚠️  Config/zpmod-version.mk not found"
-          fi
-
-  security-check:
-    name: Security Analysis
+  comprehensive:
+    name: 🎯 Full Comprehensive Check
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     steps:
       - name: ⤵️ Check out code
         uses: actions/checkout@v4
 
-      - name: 🛡️ Check for common security issues
+      - name: 🎯 Full maintenance workflow
         run: |
-          # Check for potentially unsafe C patterns
-          echo "Checking for potentially unsafe C patterns..."
+          # Run the full maintenance workflow for main/develop branches
+          ./Scripts/maintenance.sh comprehensive
 
-          # Check for unsafe string functions
-          if grep -r "strcpy\|strcat\|sprintf\|gets" --include="*.c" --include="*.h" Src/ || true; then
-            echo "⚠️  Found potentially unsafe string functions. Consider using safer alternatives."
-          fi
-
-          # Check for uninitialized pointers
-          if grep -r "malloc\|calloc" --include="*.c" Src/ | grep -v "NULL" || true; then
-            echo "ℹ️  Found memory allocations. Ensure proper error checking and cleanup."
-          fi
-
-          # Check for hardcoded paths
-          if grep -r '"/[^"]*"' --include="*.c" --include="*.h" Src/ | grep -v "include" || true; then
-            echo "ℹ️  Found hardcoded paths. Ensure they're appropriate."
-          fi
-
-          echo "✅ Security check completed"
+      - name: 📊 Trunk cache stats
+        run: |
+          # Show cache efficiency stats
+          trunk cache stats || echo "Cache stats not available"

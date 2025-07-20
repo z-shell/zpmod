@@ -1,0 +1,12 @@
+{
+  "legacy_github_actions": {
+    "workflow_name": "Code Quality",
+    "average_duration": 300,
+    "jobs": 8,
+    "typical_range": "3-5 minutes",
+    "resource_usage": "high",
+    "consistency": "variable"
+  },
+  "baseline_created": "2024-01-19",
+  "migration_date": "2024-01-19"
+}

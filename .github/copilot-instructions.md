@@ -33,8 +33,8 @@ applyTo: "**"
 After modifying code, always run trunk checks to ensure code quality:
 
 ```bash
-# Run all code quality checks (excludes network-dependent linters)
-trunk check -y --filter=-trufflehog,-semgrep
+# Run all code quality checks (network-dependent linters already disabled)
+trunk check -y
 
 # Run zpmod-specific maintenance checks
 trunk check --filter=zpmod-maintenance
@@ -142,8 +142,8 @@ trunk check --filter=zpmod-maintenance
 # Sample a subset of files for faster feedback
 trunk check --filter=zpmod-maintenance --sample=10
 
-# AI agent recommended workflow (excludes network-dependent linters)
-trunk check -y --filter=-trufflehog,-semgrep
+# AI agent recommended workflow (network-dependent linters already disabled)
+trunk check -y
 ```
 
 #### Custom Linter Features
@@ -449,8 +449,8 @@ trunk check --filter=zpmod-maintenance
 # Individual maintenance commands via trunk
 trunk check --filter=zpmod-maintenance  # Runs all: health-check, version-check, clean
 
-# AI agent recommended workflow (excludes network-dependent linters)
-trunk check -y --filter=-trufflehog,-semgrep
+# AI agent recommended workflow (network-dependent linters already disabled)
+trunk check -y
 ```
 
 ### Quality Standards

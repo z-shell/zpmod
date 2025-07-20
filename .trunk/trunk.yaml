@@ -20,8 +20,9 @@ lint:
     - shfmt@3.6.0
     - shellcheck@0.10.0
     - zpmod-maintenance
+    - zpmod-quality # New comprehensive quality checks
   definitions:
-    # Custom linter for zpmod workspace maintenance
+    # Comprehensive zpmod workspace maintenance
     - name: zpmod-maintenance
       files: [ALL]
       commands:
@@ -35,8 +36,42 @@ lint:
           output: pass_fail
           success_codes: [0, 1]
           read_output_from: stdout
+        - name: security-scan
+          run: ${workspace}/Scripts/maintenance.sh security-scan
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
         - name: clean
           run: ${workspace}/Scripts/maintenance.sh clean-deep
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+      batch: false
+
+    # New: Comprehensive quality checks (replaces GitHub Actions)
+    - name: zpmod-quality
+      files: [ALL]
+      commands:
+        - name: todo-check
+          run: ${workspace}/Scripts/quality-todo-check.sh
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+
+        - name: build-consistency
+          run: ${workspace}/Scripts/quality-build-check.sh
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+
+        - name: docs-structure
+          run: ${workspace}/Scripts/quality-docs-structure.sh
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+
+        - name: docs-links
+          run: ${workspace}/Scripts/quality-docs-links.sh
           output: pass_fail
           success_codes: [0, 1]
           read_output_from: stdout
