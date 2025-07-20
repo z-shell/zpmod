@@ -19,6 +19,28 @@ lint:
     - git-diff-check
     - shfmt@3.6.0
     - shellcheck@0.10.0
+    - zpmod-maintenance
+  definitions:
+    # Custom linter for zpmod workspace maintenance
+    - name: zpmod-maintenance
+      files: [ALL]
+      commands:
+        - name: health-check
+          run: ${workspace}/Scripts/maintenance.sh check-health
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+        - name: version-check
+          run: ${workspace}/Scripts/maintenance.sh check-versions
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+        - name: clean
+          run: ${workspace}/Scripts/maintenance.sh clean-deep
+          output: pass_fail
+          success_codes: [0, 1]
+          read_output_from: stdout
+      batch: false
   ignore:
     - linters: [ALL]
       paths:
@@ -29,6 +51,13 @@ lint:
         - "configure*"
         - "install-sh"
         - "mkinstalldirs"
+    # Don't run maintenance checks on specific paths
+    - linters: [zpmod-maintenance]
+      paths:
+        - ".trunk/*"
+        - ".git/*"
+        - "*.tmp"
+        - "*.backup"
 runtimes:
   enabled:
     - python@3.10.8

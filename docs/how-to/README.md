@@ -17,6 +17,7 @@ How-to guides are recipes that guide the reader through the steps required to so
 - **[configure-lazy-loading.md](configure-lazy-loading.md)** - Setup and configuration of lazy loading features
 - **[configure-path-caching.md](configure-path-caching.md)** - Path cache optimization strategies
 - **[use-configuration-helpers.md](use-configuration-helpers.md)** - Using zpmod helper functions for performance analysis and troubleshooting
+- **[branching-and-tagging-guidelines.md](branching-and-tagging-guidelines.md)** - Version management, release processes, and development workflow for maintainers and contributors
 
 ## Writing Guidelines
 

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussion
+    url: https://github.com/z-shell/zi/discussions
+    about: For general questions, ideas, and community discussions about zpmod and the Z-Shell ecosystem
+  - name: 📖 Documentation
+    url: https://github.com/z-shell/zpmod/blob/main/docs/index.md
+    about: Comprehensive documentation with tutorials, guides, and technical reference
+  - name: 🏠 Z-Shell Organization
+    url: https://github.com/z-shell
+    about: Explore other tools and plugins in the Z-Shell ecosystem

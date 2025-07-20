@@ -1,0 +1,81 @@
+name: 📚 Documentation Issue
+description: Report a problem with documentation or suggest improvements
+title: "[Docs]: "
+labels: ["documentation", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Whether it's a typo, missing information, or a suggestion for better organization, we appreciate your feedback.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - Error/Typo (incorrect information or spelling mistakes)
+        - Missing Information (gaps in existing documentation)
+        - Clarity Issue (confusing or unclear explanations)
+        - Organization (structure or navigation problems)
+        - New Documentation (requesting new guides or references)
+        - Outdated Information (content that needs updating)
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Which documentation page or section is affected?
+      placeholder: "docs/tutorials/getting-started.md, README.md, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue Description
+      description: Describe the documentation issue in detail.
+      placeholder: "The installation instructions are unclear because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation? What would be clearer or more helpful?
+      placeholder: "It would be clearer if..."
+
+  - type: dropdown
+    id: doc-category
+    attributes:
+      label: Divio Documentation Category
+      description: Which Divio documentation category does this relate to?
+      options:
+        - Tutorials (learning-oriented, step-by-step guides)
+        - How-to Guides (problem-oriented, practical solutions)
+        - Reference (information-oriented, technical specifications)
+        - Explanation (understanding-oriented, background concepts)
+        - Not sure/Multiple categories
+
+  - type: checkboxes
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who would benefit from this documentation improvement? (Check all that apply)
+      options:
+        - label: New users getting started
+        - label: Developers integrating zpmod
+        - label: Contributors to the project
+        - label: System administrators
+        - label: Plugin managers (like Zi)
+        - label: Advanced users optimizing performance
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the documentation issue or improvement suggestion.

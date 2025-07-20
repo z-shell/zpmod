@@ -20,6 +20,7 @@ Practical guides that show you how to solve specific problems. These assume some
 - **[Configure Lazy Loading](how-to/configure-lazy-loading.md)** - Setup and configuration of lazy loading features
 - **[Configure Path Caching](how-to/configure-path-caching.md)** - Path cache optimization strategies
 - **[Use Configuration Helpers](how-to/use-configuration-helpers.md)** - Helper functions for performance analysis and troubleshooting
+- **[Branching and Tagging Guidelines](how-to/branching-and-tagging-guidelines.md)** - Version management, release processes, and development workflow
 
 ### 📖 [Reference](reference/) - _Information-oriented_
 
@@ -34,6 +35,7 @@ Discussions that clarify and illuminate particular topics. They broaden understa
 - **[Internal Architecture](explanation/internal-architecture.md)** - Deep dive into zpmod's internal implementation
 - **[Technical Improvements](explanation/technical-improvements.md)** - Recent enhancements and development progress
 - **[Security Improvements](explanation/security-improvements.md)** - Comprehensive security enhancements and rationale
+- **[Versioning Architecture](explanation/versioning-architecture.md)** - Independent version management system
 - **[Documentation Workflow](explanation/documentation-workflow.md)** - How this documentation is maintained
 - **[GitHub Actions Strategy](explanation/github-actions-strategy.md)** - Organization-level CI/CD implementation and best practices
 

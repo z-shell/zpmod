@@ -26,6 +26,40 @@ applyTo: "**"
 - `docs/`: Comprehensive documentation
 - `Test/`: Test cases for the module
 
+## AI Agent Instructions
+
+### Code Quality Workflow for AI Agents
+
+After modifying code, always run trunk checks to ensure code quality:
+
+```bash
+# Run all code quality checks (excludes network-dependent linters)
+trunk check -y --filter=-trufflehog,-semgrep
+
+# Run zpmod-specific maintenance checks
+trunk check --filter=zpmod-maintenance
+
+# For faster feedback during development
+trunk check --filter=zpmod-maintenance --sample=10
+
+# Format code only
+trunk fmt
+```
+
+### AI Agent Development Workflow
+
+1. **Start**: `./Scripts/maintenance.sh check-health`
+2. **Develop**: Make changes, run `trunk check --filter=zpmod-maintenance --sample=10`
+3. **Validate**: `./Scripts/maintenance.sh lint-code`
+4. **Commit**: `./Scripts/maintenance.sh comprehensive`
+
+### AI Agent Error Handling
+
+- Review trunk output for actionable feedback
+- Use `VERBOSE=1` with maintenance commands for debugging
+- Check maintenance logs for detailed error information
+- Validate fixes by re-running checks
+
 ## Development Workflow
 
 ### Building the Module
@@ -51,8 +85,126 @@ make test
 ### Key Scripts
 
 - `Scripts/install.sh`: Main installation script
-- `Scripts/clean.sh`: Cleans build artifacts and temporary files
+- `Scripts/maintenance.sh`: Comprehensive workspace maintenance and cleaning
 - `Scripts/advanced-install.sh`: Advanced installation with additional options
+
+## Workspace Maintenance & Code Quality
+
+### Maintenance System
+
+The repository uses a centralized maintenance system through `Scripts/maintenance.sh` that provides comprehensive workspace management:
+
+#### Core Functions
+
+```bash
+# Health checks and version validation
+./Scripts/maintenance.sh check-health
+./Scripts/maintenance.sh check-versions
+
+# Code quality and security
+./Scripts/maintenance.sh lint-code
+./Scripts/maintenance.sh security-scan
+
+# Build artifact and temporary file cleanup
+./Scripts/maintenance.sh clean-deep
+
+# Configuration validation
+./Scripts/maintenance.sh validate-config
+
+# Complete maintenance workflow
+./Scripts/maintenance.sh comprehensive
+```
+
+#### Environment Variables
+
+- `VERBOSE=1`: Enable detailed output for cleaning operations and debugging
+
+### Trunk.io Integration
+
+The project integrates with [trunk.io](https://trunk.io) for advanced code quality management through a custom linter system.
+
+#### Configuration
+
+- **File**: `.trunk/trunk.yaml` - Main trunk configuration
+- **Actions**: `.trunk/actions/zpmod-maintenance/` - Custom Python actions for maintenance integration
+- **Custom Linter**: `zpmod-maintenance` - Organization-specific quality checks
+- **AI Agent Instructions**: See "AI Agent Instructions" section above for GitHub Copilot and other AI coding assistants
+
+#### Available Commands
+
+```bash
+# Run all quality checks
+trunk check
+
+# Run specific maintenance checks
+trunk check --filter=zpmod-maintenance
+
+# Sample a subset of files for faster feedback
+trunk check --filter=zpmod-maintenance --sample=10
+
+# AI agent recommended workflow (excludes network-dependent linters)
+trunk check -y --filter=-trufflehog,-semgrep
+```
+
+#### Custom Linter Features
+
+The `zpmod-maintenance` linter provides three specialized commands:
+
+1. **health-check**: Version consistency and workspace validation
+2. **version-check**: Comprehensive version string verification across files
+3. **clean**: Deep workspace cleaning with detailed progress tracking
+
+#### Integration Benefits
+
+- **Consistency**: Standardized quality checks across the entire Z-Shell organization
+- **Automation**: Seamless CI/CD integration with quality gates
+- **Extensibility**: Custom actions framework for organization-specific requirements
+- **Performance**: Efficient file sampling and targeted checking
+- **Developer Experience**: Clear feedback with actionable error reporting
+
+### Future Improvements
+
+The trunk implementation has significant potential for organization-wide enhancement:
+
+- **Cross-Repository Standards**: Shared linter configurations across Z-Shell projects
+- **Advanced Caching**: Workspace-aware dependency caching for faster builds
+- **Smart Filtering**: Context-aware file selection based on project structure
+- **Custom Actions Library**: Reusable maintenance actions for common Z-Shell patterns
+- **Performance Metrics**: Build and maintenance time tracking across projects
+
+#### Organization-Wide Implementation Roadmap
+
+##### Phase 1: Template Standardization
+
+- Create `.trunk/` template configurations for all Z-Shell repositories
+- Develop shared custom linters for common Z-Shell patterns (zsh modules, documentation, shell scripts)
+- Implement organization-level trunk configuration inheritance
+
+##### Phase 2: Enhanced Automation
+
+- Build cross-repository quality metrics dashboard
+- Implement automated dependency checking across Z-Shell ecosystem
+- Create shared CI/CD templates with trunk integration
+
+##### Phase 3: Advanced Features
+
+- Develop intelligent file change detection for faster trunk runs
+- Implement workspace-aware caching for multi-repository development
+- Create custom trunk plugins for Zsh-specific analysis (performance profiling, module compatibility)
+
+##### Phase 4: Developer Experience
+
+- Build VS Code/IDE extensions for seamless trunk integration
+- Implement real-time quality feedback during development
+- Create automated contribution workflow with trunk quality gates
+
+##### Implementation Benefits for Z-Shell Organization
+
+- **Consistency**: Uniform code quality standards across all 50+ repositories
+- **Efficiency**: Reduced CI/CD time through intelligent caching and filtering
+- **Quality**: Automated detection of organization-specific issues and patterns
+- **Scalability**: Template-based approach for easy addition of new repositories
+- **Collaboration**: Shared quality tools reduce learning curve for contributors
 
 ## Code Architecture
 
@@ -148,7 +300,7 @@ docs/
 ### Temporary Files
 
 - Build process creates temporary `.mdh.tmp` files that are automatically cleaned
-- Run `Scripts/clean.sh` to remove all temporary files and build artifacts
+- Run `Scripts/maintenance.sh clean-deep` to remove all temporary files and build artifacts
 - The `.gitignore` file lists patterns for temporary files that should not be committed
 
 ### Documentation File Placement
@@ -270,6 +422,43 @@ if (fd < 0) {
 5. **Pull Requests**: Submit changes via pull requests. Include a description of the changes and any relevant issue numbers.
 6. **GitHub Actions**: Before adding custom workflow steps, check [z-shell/.github/actions/](https://github.com/z-shell/.github/actions/) for existing organization-level actions that provide the same functionality.
 7. **Consistency of Organization**: Ensure consistent organization and structure across [all repositories](https://github.com/orgs/z-shell/repositories).
+8. **Workspace Maintenance**: Use the integrated maintenance system for all cleaning and quality checks:
+
+### Pre-Contribution Workflow
+
+```bash
+# Before starting development
+./Scripts/maintenance.sh check-health
+
+# During development
+./Scripts/maintenance.sh lint-code
+
+# Before committing
+./Scripts/maintenance.sh comprehensive
+```
+
+### Trunk Integration Workflow
+
+```bash
+# Quick quality check
+trunk check --filter=zpmod-maintenance --sample=10
+
+# Full repository scan
+trunk check --filter=zpmod-maintenance
+
+# Individual maintenance commands via trunk
+trunk check --filter=zpmod-maintenance  # Runs all: health-check, version-check, clean
+
+# AI agent recommended workflow (excludes network-dependent linters)
+trunk check -y --filter=-trufflehog,-semgrep
+```
+
+### Quality Standards
+
+- **Always run** `./Scripts/maintenance.sh comprehensive` before submitting PRs
+- **Use trunk integration** for consistent code quality across the organization
+- **Clean workspace** with `VERBOSE=1 ./Scripts/maintenance.sh clean-deep` when troubleshooting
+- **Validate versions** with `./Scripts/maintenance.sh check-versions` after version updates
 
 ## Best Practices
 

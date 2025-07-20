@@ -35,6 +35,13 @@
 #include "compileconfig.h"
 #include "lazyload.h"
 
+/* zpmod Version Information */
+#define ZPMOD_VERSION "1.0.0-dev"
+#define ZPMOD_VERSION_MAJOR 1
+#define ZPMOD_VERSION_MINOR 0
+#define ZPMOD_VERSION_PATCH 0
+#define ZPMOD_VERSION_PRERELEASE "dev"
+
 /* Source/bin_dot related data structures {{{ */
 static HandlerFunc originalDot = NULL, originalSource = NULL;
 static HashTable zp_source_events = NULL;
@@ -1641,6 +1648,17 @@ bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 			return 1;
 		}
 	}
+	else if (0 == strcmp(subcmd, "version"))
+	{
+		fprintf(stdout, "zpmod version %s\n", ZPMOD_VERSION);
+		fprintf(stdout, "  Major: %d\n", ZPMOD_VERSION_MAJOR);
+		fprintf(stdout, "  Minor: %d\n", ZPMOD_VERSION_MINOR);
+		fprintf(stdout, "  Patch: %d\n", ZPMOD_VERSION_PATCH);
+		if (ZPMOD_VERSION_PRERELEASE && strlen(ZPMOD_VERSION_PRERELEASE) > 0) {
+			fprintf(stdout, "  Pre-release: %s\n", ZPMOD_VERSION_PRERELEASE);
+		}
+		fflush(stdout);
+	}
 	else
 	{
 		zwarnnam(nam, "%d: Unknown zpmod-module command: `%s', see `-h'", __LINE__, subcmd);
@@ -1659,6 +1677,7 @@ void zpmod_usage()
 			"       zpmod clear-path-cache\n"
 			"       zpmod compile-config [action] [arguments]\n"
 			"       zpmod lazy-load [action] [arguments]\n"
+			"       zpmod version\n"
 			"\n"
 			"[33mCommand <report-append>:[0m\n"
 			"\n"
@@ -1709,7 +1728,12 @@ void zpmod_usage()
 			"  unload               - Unload all loaded functions to free memory\n"
 			"\n"
 			"Lazy loading improves performance by only loading rarely used functionality when\n"
-			"it's actually needed, reducing memory usage and startup time.\n");
+			"it's actually needed, reducing memory usage and startup time.\n"
+			"\n"
+			"[33mCommand <version>:[0m\n"
+			"\n"
+			"Displays the current version of the zpmod module, including version components\n"
+			"and build information.\n");
 	fflush(stdout);
 }
 /* }}} */

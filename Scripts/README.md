@@ -1,61 +1,108 @@
 # Scripts Directory
 
-This directory contains various utility scripts for building, installing, and maintaining the zpmod project.
+This directory contains utility scripts for building, installing, and maintaining the zpmod module.
 
-## Available Scripts
+## Installation Scripts
 
-### Installation Scripts
+### `install.sh` - **End-User Installation**
 
-- **install.sh** - Traditional build script for developers and build systems
-  - Source compilation using autoconf/make workflow
-  - Supports build customization (`--cflags`, `--target`, `--clean`)
-  - Git repository management and branch selection
-  - **Use when**: Building from source, development, CI/CD, custom configurations
-
-- **advanced-install.sh** - Comprehensive installation manager for end users
-  - **Multiple installation types**: binary downloads, source compilation, development setup
-  - **Zi plugin manager integration**: automatic configuration and shell setup
-  - **User-friendly**: platform detection, automatic dependencies, verification
-  - **Use when**: Quick setup, production use, Zi ecosystem integration
-
-### Utility Scripts
-
-- **clean.sh** - Cleans up build artifacts and temporary files
-  - Removes object files, shared libraries, and other generated files
-  - Use with `--verbose` to see all commands being executed
-
-- **copy_from_zsh_src.zsh** - Updates source files from a Zsh source tree
-  - Used for syncing with newer versions of Zsh
-  - Primarily for development and maintenance
-
-- **update-readme.sh** - Maintains the root README.md based on docs content
-  - Automatically extracts key information from documentation files
-  - Options: `--check-only` to verify without making changes, `--verbose` for detailed output
-  - Used by the GitHub Actions workflow to keep docs in sync
-
-## Usage
-
-Most scripts support a `--help` or `-h` option to show usage information.
-
-### Quick Start Guide
-
-**For most users (recommended):**
+**Target Audience**: End users, plugin managers, automated installations
 
 ```bash
-./Scripts/advanced-install.sh
+# Basic installation
+./Scripts/install.sh
+
+# Advanced options
+./Scripts/install.sh --target=/custom/path --verbose --no-git
 ```
 
-**For developers or custom builds:**
+**Features:**
+
+- Simple, reliable installation process
+- Automated dependency detection
+- Integration with plugin managers
+- Minimal configuration required
+- Production-ready defaults
+
+### `advanced-install.sh` - **Developer Installation**
+
+**Target Audience**: Contributors, developers, power users
 
 ```bash
-./Scripts/install.sh --help  # See all options
-./Scripts/install.sh --target ~/.local --verbose
+# Development installation with all features
+./Scripts/advanced-install.sh --dev-mode --enable-debugging
 ```
 
-**For Zi plugin manager users:**
+**Features:**
+
+- Development environment setup
+- Advanced configuration options
+- Debugging capabilities
+- Custom build configurations
+- Integration with development tools
+
+## Version Management
+
+### `bump-version.sh` - **Automated Version Management**
+
+Manages zpmod's independent versioning system (separate from Zsh).
 
 ```bash
-./Scripts/advanced-install.sh --zi --type source
+# Increment version types
+./Scripts/bump-version.sh patch   # 1.0.0 → 1.0.1
+./Scripts/bump-version.sh minor   # 1.0.0 → 1.1.0
+./Scripts/bump-version.sh major   # 1.0.0 → 2.0.0
+
+# Set specific version
+./Scripts/bump-version.sh version 2.1.3-rc1
+
+# Preview changes (dry run)
+./Scripts/bump-version.sh --dry-run patch
 ```
 
-For detailed usage, see the main README.md file in the repository root.
+**Automatically updates:**
+
+- `Config/zpmod-version.mk` - All version components
+- `Src/zi/zpmod.c` - C version constants
+- `CHANGELOG.md` - Release notes section
+
+## Maintenance Scripts
+
+### `maintenance.sh` - **Workspace Health & Quality**
+
+Comprehensive workspace maintenance utilities.
+
+```bash
+# Check overall workspace health
+./Scripts/maintenance.sh check-health
+
+# Run code quality checks
+./Scripts/maintenance.sh lint-code
+
+# Clean build artifacts
+./Scripts/maintenance.sh clean-build
+
+# Verify version consistency
+./Scripts/maintenance.sh check-versions
+
+# Basic security scanning
+./Scripts/maintenance.sh security-scan
+```
+
+### Cleaning Operations
+
+Cleaning functionality is integrated into the maintenance script:
+
+```bash
+# Deep clean of build artifacts and temporary files
+./Scripts/maintenance.sh clean-deep
+
+# Or as part of comprehensive maintenance
+./Scripts/maintenance.sh comprehensive
+```
+
+## Development Utilities
+
+### `copy_from_zsh_src.zsh` - **Zsh Source Integration**
+
+Copies and adapts source files from Zsh codebase when updating zpmod's base functionality.

@@ -25,6 +25,17 @@ For detailed installation instructions, please refer to:
 - [Manual Installation](docs/tutorials/getting-started.md#manual-installation) - Step-by-step guide
 - [Pre-built Binaries](docs/tutorials/getting-started.md#pre-built-binaries) - Quick download options
 
+## 🔍 Version Information
+
+To check the zpmod version:
+
+```zsh
+# After loading the module
+zpmod version
+```
+
+**Note**: zpmod has independent versioning separate from Zsh. The module version is managed in `Config/zpmod-version.mk`.
+
 ## 📚 Documentation
 
 For comprehensive documentation, please visit our [documentation pages](docs/index.md):
