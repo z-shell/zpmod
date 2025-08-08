@@ -14,6 +14,8 @@ COMPILED_AT
 .*.sw?
 \#*
 
+/build-cmake/
+
 /META-FAQ
 /config.cache
 /config.h
