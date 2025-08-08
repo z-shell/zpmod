@@ -1,7 +1,0 @@
-name=zi/zpmod
-link=dynamic
-load=no
-
-autofeatures=""
-
-objects="zpmod.o"
