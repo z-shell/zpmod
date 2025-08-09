@@ -12,8 +12,8 @@ CLEAN_BUILD=0
 QUIET_MODE=0
 VERBOSE_MODE=0
 SKIP_GIT=0
-FORCE_REBUILD=0
 BUILD_ONLY=0
+#FORCE_REBUILD=0
 CUSTOM_CFLAGS="-g -Wall -Wextra -O3"
 BRANCH=""
 ZSH_EXEC=""
@@ -123,7 +123,7 @@ while [ $# -gt 0 ]; do
     shift
     ;;
   --force | -f)
-    FORCE_REBUILD=1
+    #FORCE_REBUILD=1
     shift
     ;;
   --build-only)
@@ -300,7 +300,12 @@ else
 
     # Locate built module artifact
     ARTIFACT=""
-    for f in "${OUT_LIB}/zpmod."{so,bundle,dylib,dll}; do
+    # Use a portable loop over explicit candidates (avoid non-POSIX brace expansion)
+    for f in \
+      "${OUT_LIB}/zpmod.so" \
+      "${OUT_LIB}/zpmod.bundle" \
+      "${OUT_LIB}/zpmod.dylib" \
+      "${OUT_LIB}/zpmod.dll"; do
       [ -e "${f}" ] && ARTIFACT="${f}" && break
     done
 
