@@ -53,7 +53,7 @@ zpmod source-study -l # show full paths
 
 You will see a list like:
 
-```
+```text
   2 ms    ~/.zshrc.d/env.zsh
   5 ms    ~/.zsh/plugins/someplugin/init.zsh
  12 ms    ~/.zsh/plugins/another/init.zsh

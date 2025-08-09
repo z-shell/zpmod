@@ -11,7 +11,7 @@ zpmod source-study -l      # full absolute paths
 
 Interpretation:
 
-```
+```text
   3 ms    ~/.zsh/plugins/foo/init.zsh
  12 ms    ~/.zsh/plugins/bar/bar.plugin.zsh
 ```

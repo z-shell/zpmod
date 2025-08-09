@@ -13,7 +13,7 @@ Errors follow standard zsh source semantics.
 
 Primary entrypoint with subcommands:
 
-```
+```zsh
 zpmod [ -h | -V ]
 zpmod report-append <plugin-ID> <body>
 zpmod source-study [ -l ]
@@ -40,7 +40,7 @@ Bash-like record reader into indexed arrays.
 
 Synopsis:
 
-```
+```zsh
 readarray [-d delim] [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] array
 ```
 
