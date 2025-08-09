@@ -4,31 +4,40 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.7.0
+      ref: v1.7.1
       uri: https://github.com/trunk-io/plugins
 lint:
   disabled:
-    - yamllint
     - checkov
     - trufflehog
   enabled:
-    - gitleaks@8.26.0
-    - prettier@3.5.3
+    - clang-tidy@16.0.3
+    - clang-format@16.0.3
+    - gitleaks@8.28.0
+    - prettier@3.6.2
     - actionlint@1.7.7
     - markdownlint@0.45.0
+    - yamllint@1.37.1
     - git-diff-check
     - shfmt@3.6.0
     - shellcheck@0.10.0
   ignore:
+    # Exclude vendor and build outputs across all linters
     - linters: [ALL]
       paths:
-        - "Src/*"
-        - "Test/*"
-        - "Config/*"
-        - "config*"
-        - "configure*"
-        - "install-sh"
-        - "mkinstalldirs"
+        - "vendor/**"
+        - "build/**"
+        - "build-cmake/**"
+        - "**/CMakeFiles/**"
+        - "**/generated/**"
+        - "**/out/**"
+        - "**/stage/**"
+        - ".trunk/out/**"
+    # Avoid running shellcheck & shfmt on zsh/ztst files (not supported and risky)
+    - linters: [shellcheck, shfmt]
+      paths:
+        - "**/*.zsh"
+        - "**/*.ztst"
 runtimes:
   enabled:
     - python@3.10.8
