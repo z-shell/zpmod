@@ -176,8 +176,5 @@ Test/*.tmp
 /**/out/
 /**/stage/
 
-# Doxygen output (generated under build tree)
-/docs/
-
 # Trunk output
 /.trunk/out/

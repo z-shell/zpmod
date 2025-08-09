@@ -1,0 +1,17 @@
+# Doxygen configuration for zpmod (template)
+
+PROJECT_NAME           = "@PROJECT_NAME@"
+OUTPUT_DIRECTORY       = "@CMAKE_BINARY_DIR@/docs"
+GENERATE_LATEX         = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = YES
+INPUT                  = @CMAKE_SOURCE_DIR@/src @CMAKE_SOURCE_DIR@/docs
+FILE_PATTERNS          = *.c *.h *.mdh *.pro
+RECURSIVE              = NO
+EXTRACT_ALL            = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+JAVADOC_AUTOBRIEF      = YES
+WARN_NO_PARAMDOC       = YES
+GENERATE_TREEVIEW      = YES
+FULL_PATH_NAMES        = NO
+MARKDOWN_SUPPORT       = YES
