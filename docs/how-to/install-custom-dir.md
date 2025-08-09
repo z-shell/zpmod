@@ -9,7 +9,7 @@ Use the installer with `--target` (CMake-driven under the hood):
 Then add to `~/.zshrc`:
 
 ```zsh
-module_path+=(/opt/zpmod/Src)
+module_path+=(/opt/zpmod)
 zmodload zpmod
 ```
 

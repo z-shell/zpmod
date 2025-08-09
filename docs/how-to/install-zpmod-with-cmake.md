@@ -1,6 +1,6 @@
 # Install zpmod with the CMake helper
 
-This script helps you build and install the `zpmod` module and place `zpmod.so` where Zsh can load it.
+This script helps you build and install the `zpmod` module and place the module artifact (e.g., `zpmod.so`) where Zsh can load it.
 
 Common install flags:
 

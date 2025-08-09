@@ -11,8 +11,8 @@ Welcome to the zpmod documentation. This site follows the Divio documentation st
 
 ```zsh
 # Add to top of ~/.zshrc
-module_path+=("${HOME}/.zi/zmodules/zpmod/Src")
-zmodload zi/zpmod
+module_path+=("${HOME}/.zi/zmodules/zpmod")
+zmodload zpmod
 
 # After shell start, profile sourced scripts
 zpmod source-study
