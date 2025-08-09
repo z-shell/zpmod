@@ -1081,21 +1081,7 @@ static int custom_zwcstat(char *filename, struct stat *buf) {
 }
 /*  */
 
-// NOLINTEND(readability-identifier-length, bugprone-assignment-in-if-condition,
-// bugprone-narrowing-conversions,
-// bugprone-implicit-widening-of-multiplication-result,
-// bugprone-signed-char-misuse, clang-analyzer-core.NullDereference)
-
-/* NOLINTEND(readability-identifier-length, bugprone-assignment-in-if-condition,
- * bugprone-narrowing-conversions,
- * bugprone-implicit-widening-of-multiplication-result,
- * bugprone-signed-char-misuse, clang-analyzer-core.NullDereference)
- */
-
-// NOLINTEND(readability-identifier-length, bugprone-assignment-in-if-condition,
-// bugprone-narrowing-conversions,
-// bugprone-implicit-widening-of-multiplication-result,
-// bugprone-signed-char-misuse, clang-analyzer-core.NullDereference)
+/*  */
 /* STATIC FUNCTION: custom_load_dump_file */
 /* Load a dump file (i.e. map it). */
 static void custom_load_dump_file(char *dump, struct stat *sbuf, int other,
@@ -1229,7 +1215,7 @@ rec:
     /* Found the name. If the file is already mapped, return the eprog,
      * otherwise map it and just go up. */
     if (test_only) {
-      /* This is all we need.  Just return dummy. */
+      /* This is all we need. Just return dummy. */
       return &dummy_eprog;
     }
 
@@ -2223,3 +2209,8 @@ int finish_(UNUSED(Module m)) {
   return 0;
 }
 /*  */
+
+// NOLINTEND(readability-identifier-length,
+// bugprone-assignment-in-if-condition, bugprone-narrowing-conversions,
+// bugprone-implicit-widening-of-multiplication-result,
+// bugprone-signed-char-misuse, clang-analyzer-core.NullDereference)
