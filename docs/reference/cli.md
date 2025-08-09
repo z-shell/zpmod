@@ -11,7 +11,7 @@ Subcommands:
 
 ## report-append
 
-```
+```zsh
 zpmod report-append <plugin-ID> <body>
 ```
 
@@ -19,7 +19,7 @@ Appends `<body>` to `ZI_REPORTS[plugin-ID]`. Non-zero status if plugin ID missin
 
 ## source-study
 
-```
+```zsh
 zpmod source-study [ -l ]
 ```
 
