@@ -43,8 +43,8 @@ Options:
   --prefix <DIR>             Install prefix for 'cmake --install'
   --stage-prefix <DIR>       Staging prefix for local install (default: build-cmake/stage)
   --moddir <REL-PATH>        Install subdir for module (relative to prefix). Default: lib/zsh/site-modules
-  --install-zi               Install zpmod.so to Zi modules dir (${ZI[ZMODULES_DIR]}/zpmod[/Src])
-  --install-user             Install zpmod.so to user site-modules (default: ~/.local/lib/zsh/site-modules)
+  --install-zi               Install zpmod.$ext to Zi modules dir (${ZI[ZMODULES_DIR]}/zpmod[/Src])
+  --install-user             Install zpmod.$ext to user site-modules (default: ~/.local/lib/zsh/site-modules)
   --install-system           Install system-wide (uses --prefix or defaults to /usr/local)
   --package                  Build a binary package with CPack (default TGZ)
   --cpack-generators <LIST>  Comma-separated CPack generators (e.g., TGZ;TXZ;DEB;RPM)
@@ -221,7 +221,7 @@ _ok "CMake configured"
 # ---- build ----
 _msg "Building (jobs: $JOBS)"
 cmake --build "$BUILD_DIR" -j "$JOBS" ${VERBOSE:+-v} || _die "Build failed"
-_ok "Build complete: $BUILD_DIR/zpmod.so"
+_ok "Build complete: $BUILD_DIR/out/lib/zpmod.*"
 
 # ---- docs (optional) ----
 if $DO_DOCS; then
@@ -269,22 +269,24 @@ fi
 # ---- post-build installs (Zi / user / system) ----
 # Determine staged artifact to copy
 STAGE_MODDIR=${MOD_SUBDIR:-lib/zsh/site-modules}
-STAGED_SO="$STAGE_PREFIX/$STAGE_MODDIR/zpmod.so"
-if [[ ! -f $STAGED_SO ]]; then
-  # Fallback: try known build output layout
-  if [[ -f "$BUILD_DIR/out/lib/zpmod.so" ]]; then
-    STAGED_SO="$BUILD_DIR/out/lib/zpmod.so"
-  else
-    _warn "Could not locate staged module at $STAGED_SO"
-  fi
+STAGED_SO=""
+for ext in so bundle dylib dll; do
+  test -f "$STAGE_PREFIX/$STAGE_MODDIR/zpmod.$ext" && STAGED_SO="$STAGE_PREFIX/$STAGE_MODDIR/zpmod.$ext" && break
+done
+if [[ -z $STAGED_SO ]]; then
+  for ext in so bundle dylib dll; do
+    test -f "$BUILD_DIR/out/lib/zpmod.$ext" && STAGED_SO="$BUILD_DIR/out/lib/zpmod.$ext" && break
+  done
 fi
+[[ -n $STAGED_SO ]] || _warn "Could not locate staged module in $STAGE_PREFIX/$STAGE_MODDIR or $BUILD_DIR/out/lib"
 
 function _copy_so() {
   local src=$1 dst_dir=$2 label=$3
   [[ -f $src ]] || { _die "Source artifact not found: $src"; }
   mkdir -p -- "$dst_dir" || _die "Failed to create $dst_dir"
-  cp -f -- "$src" "$dst_dir/zpmod.so" || _die "Failed to copy to $dst_dir"
-  _ok "Installed ($label): $dst_dir/zpmod.so"
+  local base="${src:t}"  # keep original filename (preserve extension)
+  cp -f -- "$src" "$dst_dir/$base" || _die "Failed to copy to $dst_dir"
+  _ok "Installed ($label): $dst_dir/$base"
 }
 
 if $INSTALL_ZI; then
@@ -298,7 +300,7 @@ if $INSTALL_ZI; then
   else
     zi_modules_root="$HOME/.zi/zmodules"
   fi
-  zi_dest="$zi_modules_root/zpmod/Src"
+  zi_dest="$zi_modules_root/zpmod"
   _copy_so "$STAGED_SO" "$zi_dest" "Zi"
   print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod"
 fi

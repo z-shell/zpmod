@@ -298,9 +298,8 @@ else
       fi
     fi
 
-    # Locate built module artifact
+    # Locate built module artifact (check common suffixes)
     ARTIFACT=""
-    # Use a portable loop over explicit candidates (avoid non-POSIX brace expansion)
     for f in \
       "${OUT_LIB}/zpmod.so" \
       "${OUT_LIB}/zpmod.bundle" \
@@ -317,7 +316,9 @@ else
 
     # Prepare install location: ${INSTALL_DIR}/Src
     mkdir -p "${INSTALL_DIR}/Src"
-    cp -vf "${ARTIFACT}" "${INSTALL_DIR}/Src/zpmod.so" >/dev/null 2>&1 || cp -vf "${ARTIFACT}" "${INSTALL_DIR}/Src/" || true
+    # Preserve original filename/extension when copying
+    base_name=$(basename -- "${ARTIFACT}")
+    cp -vf "${ARTIFACT}" "${INSTALL_DIR}/Src/${base_name}" >/dev/null 2>&1 || cp -vf "${ARTIFACT}" "${INSTALL_DIR}/Src/" || true
 
     # Skip installation messaging if requested
     if [ "${NO_INSTALL}" -eq 1 ]; then

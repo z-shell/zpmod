@@ -30,8 +30,8 @@ cd zpmod
 Place the lines output by the installer at the very top of `~/.zshrc` (before plugin managers) so zpmod can intercept all early `source` / `.` calls:
 
 ```zsh
-module_path+=("${HOME}/.zi/zmodules/zpmod/Src")
-zmodload zi/zpmod
+module_path+=("${HOME}/.zi/zmodules/zpmod")
+zmodload zpmod
 ```
 
 ## 3. Start a New Shell

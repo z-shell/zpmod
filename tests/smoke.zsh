@@ -11,7 +11,7 @@ module_path=("$ZPMOD_STAGE_MODULE_DIR" $module_path)
 print -r -- "module_path: $module_path"
 
 # Quick sanity: module file should exist in staged dir
-if [[ ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.so" && ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.dll" && ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.dylib" ]]; then
+if [[ ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.so" && ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.bundle" && ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.dylib" && ! -e "$ZPMOD_STAGE_MODULE_DIR/zpmod.dll" ]]; then
   print -ru2 -- "zpmod shared object not found in $ZPMOD_STAGE_MODULE_DIR"
   ls -al "$ZPMOD_STAGE_MODULE_DIR" 2>/dev/null || true
   exit 1

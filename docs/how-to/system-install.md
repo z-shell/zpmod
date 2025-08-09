@@ -9,7 +9,7 @@ sudo ./scripts/install.sh --prefix /usr/local
 The module path then becomes (verify actual output):
 
 ```zsh
-module_path+=(/usr/local/share/zsh/zpmod/Src)
+module_path+=(/usr/local/share/zsh/zpmod)
 zmodload zpmod
 ```
 

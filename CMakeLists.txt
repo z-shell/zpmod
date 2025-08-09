@@ -125,6 +125,13 @@ set_target_properties(zpmod PROPERTIES
   OUTPUT_NAME "zpmod"
 )
 
+# macOS: allow unresolved symbols to be bound at load time by the host shell
+# and keep the conventional .so suffix for zsh modules.
+if(APPLE)
+  target_link_options(zpmod PRIVATE "-Wl,-undefined,dynamic_lookup")
+  set_target_properties(zpmod PROPERTIES SUFFIX ".so")
+endif()
+
 # Where to install the zsh module within the install prefix.
 # Default to the common third-party location: lib/zsh/site-modules
 set(ZPMOD_ZSH_MODDIR "${CMAKE_INSTALL_LIBDIR}/zsh/site-modules" CACHE PATH "Install dir (relative to prefix) for the zpmod shared object")
