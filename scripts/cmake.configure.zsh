@@ -43,6 +43,9 @@ Options:
   --prefix <DIR>             Install prefix for 'cmake --install'
   --stage-prefix <DIR>       Staging prefix for local install (default: build-cmake/stage)
   --moddir <REL-PATH>        Install subdir for module (relative to prefix). Default: lib/zsh/site-modules
+  --install-zi               Install zpmod.so to Zi modules dir (${ZI[ZMODULES_DIR]}/zpmod[/Src])
+  --install-user             Install zpmod.so to user site-modules (default: ~/.local/lib/zsh/site-modules)
+  --install-system           Install system-wide (uses --prefix or defaults to /usr/local)
   --package                  Build a binary package with CPack (default TGZ)
   --cpack-generators <LIST>  Comma-separated CPack generators (e.g., TGZ;TXZ;DEB;RPM)
   --docs                     Build API docs via the CMake 'docs' target (Doxygen)
@@ -78,6 +81,10 @@ CPACK_GENERATORS=
 DO_DOCS=false
 RUN_TEST=false
 VERBOSE=false
+# install modes
+INSTALL_ZI=false
+INSTALL_USER=false
+INSTALL_SYSTEM=false
 
 # ---- arg parsing ----
 args=()
@@ -95,6 +102,9 @@ while (( $# > 0 )); do
     --prefix)          shift; PREFIX=${1:-} ;;
   --stage-prefix)    shift; STAGE_PREFIX=${1:-} ;;
   --moddir)          shift; MOD_SUBDIR=${1:-} ;;
+  --install-zi)      INSTALL_ZI=true ;;
+  --install-user)    INSTALL_USER=true ;;
+  --install-system)  INSTALL_SYSTEM=true ;;
   --package)         DO_PACKAGE=true ;;
   --cpack-generators)shift; CPACK_GENERATORS=${1:-} ;;
   --docs)            DO_DOCS=true ;;
@@ -254,6 +264,65 @@ if [[ -n ${PREFIX:-} ]]; then
   _msg "Installing to $PREFIX"
   cmake --install "$BUILD_DIR" --prefix "$PREFIX" || _die "Install failed"
   _ok "Installed"
+fi
+
+# ---- post-build installs (Zi / user / system) ----
+# Determine staged artifact to copy
+STAGE_MODDIR=${MOD_SUBDIR:-lib/zsh/site-modules}
+STAGED_SO="$STAGE_PREFIX/$STAGE_MODDIR/zpmod.so"
+if [[ ! -f $STAGED_SO ]]; then
+  # Fallback: try known build output layout
+  if [[ -f "$BUILD_DIR/out/lib/zpmod.so" ]]; then
+    STAGED_SO="$BUILD_DIR/out/lib/zpmod.so"
+  else
+    _warn "Could not locate staged module at $STAGED_SO"
+  fi
+fi
+
+function _copy_so() {
+  local src=$1 dst_dir=$2 label=$3
+  [[ -f $src ]] || { _die "Source artifact not found: $src"; }
+  mkdir -p -- "$dst_dir" || _die "Failed to create $dst_dir"
+  cp -f -- "$src" "$dst_dir/zpmod.so" || _die "Failed to copy to $dst_dir"
+  _ok "Installed ($label): $dst_dir/zpmod.so"
+}
+
+if $INSTALL_ZI; then
+  _msg "Installing for Zi (ZI[ZMODULES_DIR])"
+  # Resolve Zi modules root
+  local zi_modules_root=
+  if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[ZMODULES_DIR]:-} ]]; then
+    zi_modules_root=${ZI[ZMODULES_DIR]}
+  elif [[ -n ${ZI_HOME:-} ]]; then
+    zi_modules_root="$ZI_HOME/zmodules"
+  elif [[ -n ${XDG_DATA_HOME:-} && -d ${XDG_DATA_HOME} ]]; then
+    zi_modules_root="$XDG_DATA_HOME/zi/zmodules"
+  else
+    zi_modules_root="$HOME/.zi/zmodules"
+  fi
+  local zi_dest="$zi_modules_root/zpmod/Src"
+  _copy_so "$STAGED_SO" "$zi_dest" "Zi"
+  print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod" 
+fi
+
+if $INSTALL_USER; then
+  _msg "Installing for current user (site-modules)"
+  # Common user-local path for loadable modules; user must add to module_path
+  local user_moddir="$HOME/.local/lib/zsh/site-modules"
+  _copy_so "$STAGED_SO" "$user_moddir" "user"
+  print -r -- "Add to .zshrc: module_path=( '$user_moddir' $module_path ); zmodload -i zpmod"
+fi
+
+if $INSTALL_SYSTEM; then
+  local sys_prefix="${PREFIX:-/usr/local}"
+  _msg "Installing system-wide (prefix=$sys_prefix)"
+  if cmake --install "$BUILD_DIR" --prefix "$sys_prefix"; then
+    _ok "System install complete"
+    local sys_moddir="$sys_prefix/${MOD_SUBDIR:-lib/zsh/site-modules}"
+    print -r -- "If not on MODULE_PATH, add: module_path=( '$sys_moddir' $module_path )"
+  else
+    _warn "System install failed (permission denied?). Try: sudo cmake --install '$BUILD_DIR' --prefix '$sys_prefix'"
+  fi
 fi
 
 # ---- runtime smoke test (optional) ----
