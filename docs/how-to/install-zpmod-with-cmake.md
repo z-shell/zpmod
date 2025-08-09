@@ -23,21 +23,15 @@ scripts/cmake.configure.zsh --install-system --prefix /usr/local
 
 After installation, add the destination directory to `module_path` and load the module once per shell session:
 
-- Zi install (recommended if you use Zi):
-
 ```zsh
 module_path+=( "${ZI[ZMODULES_DIR]}/zpmod" )
 zmodload -i zpmod
 ```
 
-- User-level install:
-
 ```zsh
 module_path=( "$HOME/.local/lib/zsh/site-modules" $module_path )
 zmodload -i zpmod
 ```
-
-- System-wide install (default prefix shown):
 
 ```zsh
 module_path=( "/usr/local/lib/zsh/site-modules" $module_path )
@@ -45,6 +39,30 @@ zmodload -i zpmod
 ```
 
 Tip: the script prints a ready-to-copy hint after installing; you can paste that into your `~/.zshrc`.
+
+## Build performance options
+
+You can control two optional performance toggles at configure time:
+
+- Link-Time Optimization (IPO/LTO): enabled by default if supported
+- Native CPU tuning: opt-in, not portable across machines
+
+Examples:
+
+```zsh
+# Enable (default) or disable LTO explicitly
+cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DZPMOD_ENABLE_LTO=ON
+cmake --build build-cmake -j
+
+# Enable native tuning (non-portable)
+cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DZPMOD_ENABLE_NATIVE=ON
+cmake --build build-cmake -j
+```
+
+Notes:
+
+- LTO may increase link time but can improve runtime performance.
+- `-march=native` generates code optimized for your CPU and may not run on older/different machines.
 
 ## Notes
 
