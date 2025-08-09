@@ -1,0 +1,33 @@
+{
+  "cmake.buildDirectory": "${workspaceFolder}/build-cmake",
+  "cmake.configureOnOpen": true,
+  "cmake.generator": "Unix Makefiles",
+  "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
+
+  // Let C/C++ extension pick up includes/defines from CMake Tools; fallback to compile_commands
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/compile_commands.json",
+
+  // Prefer clangd if installed
+  "clangd.arguments": [
+    "--compile-commands-dir",
+    "${workspaceFolder}",
+    "--header-insertion=never",
+    "--background-index"
+  ],
+
+  // Associate zsh files and set a formatter
+  "files.associations": {
+    "*.zsh": "shellscript",
+    "*.ztst": "shellscript"
+  },
+
+  // Keep Trunk from running on build artifacts in the Problems panel too
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/build-cmake/**": true,
+    "**/CMakeFiles/**": true,
+    "**/out/**": true,
+    "**/stage/**": true
+  }
+}

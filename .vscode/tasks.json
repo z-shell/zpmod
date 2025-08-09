@@ -1,0 +1,36 @@
+{
+  "$schema": "vscode://schemas/tasks",
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: configure",
+      "type": "shell",
+      "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build-cmake -DCMAKE_BUILD_TYPE=Release",
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2",
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: stage",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake --target stage",
+      "problemMatcher": []
+    },
+    {
+      "label": "CTest: all",
+      "type": "shell",
+      "command": "ctest --test-dir ${workspaceFolder}/build-cmake --output-on-failure -j 2",
+      "problemMatcher": []
+    },
+    {
+      "label": "CTest: smoke",
+      "type": "shell",
+      "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure",
+      "problemMatcher": []
+    }
+  ]
+}
