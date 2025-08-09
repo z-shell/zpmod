@@ -45,34 +45,45 @@ static const char *zp_icon(const char *s);
 /* Determine if we should emit icons/emojis: TTY + UTF-8 locale + optional env
  * override. */
 static int zp_icons_enabled(void) {
+  static int cached = -1; /* -1 = unknown, 0/1 = computed */
+  if (cached != -1)
+    return cached;
+
   const char *env = getsparam("ZPMOD_ICONS");
   if (env) {
     if (!strcmp(env, "0") || !strcmp(env, "false") || !strcmp(env, "off")) {
-      return 0;
+      cached = 0;
+      return cached;
     }
     if (!strcmp(env, "1") || !strcmp(env, "true") || !strcmp(env, "on")) {
-      return 1;
+      cached = 1;
+      return cached;
     }
   }
   if (!isatty(STDOUT_FILENO)) {
-    return 0;
+    cached = 0;
+    return cached;
   }
   /* Check locale looks like UTF-8 */
   setlocale(LC_ALL, "");
 #ifdef ZPMOD_HAVE_LANGINFO
   const char *cs = nl_langinfo(CODESET);
   if (cs && (strstr(cs, "UTF-8") || strstr(cs, "utf8") || strstr(cs, "UTF8"))) {
-    return 1;
+    cached = 1;
+    return cached;
   }
 #else
   /* Fallback: check LC_ALL/LANG env vars */
   const char *lc = getenv("LC_ALL");
   if (!lc)
     lc = getenv("LANG");
-  if (lc && (strstr(lc, "UTF-8") || strstr(lc, "utf8") || strstr(lc, "UTF8")))
-    return 1;
+  if (lc && (strstr(lc, "UTF-8") || strstr(lc, "utf8") || strstr(lc, "UTF8"))) {
+    cached = 1;
+    return cached;
+  }
 #endif
-  return 0;
+  cached = 0;
+  return cached;
 }
 
 /* Return icon string if enabled, else empty string. */

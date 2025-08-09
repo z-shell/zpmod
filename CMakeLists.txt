@@ -7,6 +7,10 @@ include(GNUInstallDirs)
 # Export compile_commands.json for clang-tidy/clangd and copy to source dir
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optional performance toggles
+option(ZPMOD_ENABLE_LTO "Enable link-time optimization (IPO) for Release builds" ON)
+option(ZPMOD_ENABLE_NATIVE "Enable -march=native tuning (non-portable)" OFF)
+
 # Centralized output directories for artifacts produced by the build
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out/lib)
@@ -130,6 +134,24 @@ set_target_properties(zpmod PROPERTIES
 if(APPLE)
   target_link_options(zpmod PRIVATE "-Wl,-undefined,dynamic_lookup")
   set_target_properties(zpmod PROPERTIES SUFFIX ".so")
+endif()
+
+# Enable IPO/LTO if supported and requested
+if(ZPMOD_ENABLE_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT ipo_ok OUTPUT ipo_msg)
+  if(ipo_ok)
+    set_property(TARGET zpmod PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+  else()
+    message(STATUS "IPO/LTO not supported: ${ipo_msg}")
+  endif()
+endif()
+
+# Enable -march=native for GCC/Clang if requested (may reduce portability)
+if(ZPMOD_ENABLE_NATIVE)
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    target_compile_options(zpmod PRIVATE -march=native)
+  endif()
 endif()
 
 # Where to install the zsh module within the install prefix.
