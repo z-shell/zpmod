@@ -1,0 +1,7 @@
+# Keep only CTest-based zpmod tests here
+*.ztst
+Makefile.in
+README
+runtests.zsh
+ztst.zsh
+comptest

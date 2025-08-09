@@ -1,0 +1,8 @@
+vendor/
+build/
+build-cmake/
+**/CMakeFiles/
+**/generated/
+**/out/
+**/stage/
+.trunk/out/

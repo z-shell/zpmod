@@ -2,6 +2,7 @@ Makefile
 tags
 TAGS
 COMPILED_AT
+compile_commands.json
 *.o
 *.o.c
 *.orig
@@ -167,3 +168,16 @@ Src/zi/zpmod.syms
 
 Test/*.tmp
 /.project
+
+# Local build folders
+/build/
+/**/CMakeFiles/
+/**/generated/
+/**/out/
+/**/stage/
+
+# Doxygen output (generated under build tree)
+/docs/
+
+# Trunk output
+/.trunk/out/

@@ -5,3 +5,12 @@ rules:
   key-duplicates: {}
   octal-values:
     forbid-implicit-octal: true
+  document-start: disable
+  line-length:
+    max: 120
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  truthy: disable

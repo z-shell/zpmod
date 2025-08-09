@@ -1,0 +1,57 @@
+/**
+ * \file src/zpmod.mdh
+ * \brief Module declaration header (mdh) for zpmod.
+ *
+ * Declares boot/cleanup/features/enables entry points and includes necessary
+ * zsh headers. Supports both vendored in-tree builds and out-of-tree builds.
+ */
+_Pragma("GCC diagnostic push")
+#ifndef have_zpmod_module
+#define have_zpmod_module
+
+/* Prefer the vendored zsh-generated header which pulls in
+ * config.h, system headers, core prototypes, and *.epro files. */
+#if defined(__has_include)
+# if __has_include("zsh.mdh")
+#  include "zsh.mdh"
+#  define ZSH_MDH_INCLUDED 1
+# endif
+#endif
+
+/* Fallback: minimal includes for out-of-tree builds without zsh.mdh */
+#ifndef ZSH_MDH_INCLUDED
+# ifdef HAVE_CONFIG_H
+#  include "config.h"
+# else
+	/* Provide minimal config when building out-of-tree */
+#  include "zpmod_config.h"
+#  define HAVE_CONFIG_H 1
+#  define ZSH_OOT_MODULE 1
+# endif
+# include "zsh_system.h"
+# include "zsh.h"
+# include "signals.h"
+# include "prototypes.h"
+# include "hashtable.h"
+# include "ztype.h"
+#endif /* !ZSH_MDH_INCLUDED */
+
+/* Ensure mod_export is defined for module symbols */
+#ifndef mod_export
+# define mod_export
+#endif
+
+/* Map boot/cleanup/etc. to our module-specific names as zsh expects */
+#ifndef IMPORTING_MODULE_zpmod
+# ifndef MODULE
+#  define boot_ boot_zpmod
+#  define cleanup_ cleanup_zpmod
+#  define features_ features_zpmod
+#  define enables_ enables_zpmod
+#  define setup_ setup_zpmod
+#  define finish_ finish_zpmod
+# endif /* !MODULE */
+#endif /* !IMPORTING_MODULE_zpmod */
+
+#endif /* !have_zpmod_module */
+_Pragma("GCC diagnostic pop")
