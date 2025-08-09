@@ -290,35 +290,33 @@ function _copy_so() {
 if $INSTALL_ZI; then
   _msg "Installing for Zi (ZI[ZMODULES_DIR])"
   # Resolve Zi modules root
-  local zi_modules_root=
+  zi_modules_root=
   if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[ZMODULES_DIR]:-} ]]; then
     zi_modules_root=${ZI[ZMODULES_DIR]}
-  elif [[ -n ${ZI_HOME:-} ]]; then
-    zi_modules_root="$ZI_HOME/zmodules"
   elif [[ -n ${XDG_DATA_HOME:-} && -d ${XDG_DATA_HOME} ]]; then
     zi_modules_root="$XDG_DATA_HOME/zi/zmodules"
   else
     zi_modules_root="$HOME/.zi/zmodules"
   fi
-  local zi_dest="$zi_modules_root/zpmod/Src"
+  zi_dest="$zi_modules_root/zpmod/Src"
   _copy_so "$STAGED_SO" "$zi_dest" "Zi"
-  print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod" 
+  print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod"
 fi
 
 if $INSTALL_USER; then
   _msg "Installing for current user (site-modules)"
   # Common user-local path for loadable modules; user must add to module_path
-  local user_moddir="$HOME/.local/lib/zsh/site-modules"
+  user_moddir="$HOME/.local/lib/zsh/site-modules"
   _copy_so "$STAGED_SO" "$user_moddir" "user"
   print -r -- "Add to .zshrc: module_path=( '$user_moddir' $module_path ); zmodload -i zpmod"
 fi
 
 if $INSTALL_SYSTEM; then
-  local sys_prefix="${PREFIX:-/usr/local}"
+  sys_prefix="${PREFIX:-/usr/local}"
   _msg "Installing system-wide (prefix=$sys_prefix)"
   if cmake --install "$BUILD_DIR" --prefix "$sys_prefix"; then
     _ok "System install complete"
-    local sys_moddir="$sys_prefix/${MOD_SUBDIR:-lib/zsh/site-modules}"
+    sys_moddir="$sys_prefix/${MOD_SUBDIR:-lib/zsh/site-modules}"
     print -r -- "If not on MODULE_PATH, add: module_path=( '$sys_moddir' $module_path )"
   else
     _warn "System install failed (permission denied?). Try: sudo cmake --install '$BUILD_DIR' --prefix '$sys_prefix'"
