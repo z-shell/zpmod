@@ -287,6 +287,16 @@ function _copy_so() {
   local base="${src:t}"  # keep original filename (preserve extension)
   cp -f -- "$src" "$dst_dir/$base" || _die "Failed to copy to $dst_dir"
   _ok "Installed ($label): $dst_dir/$base"
+  _print_artifact_hint "$dst_dir/$base"
+}
+
+# Print standardized lines with resolved artifact path and module dir
+function _print_artifact_hint() {
+  local full=$1
+  local dir="${full:h}"
+  print -r -- "RESOLVED_ARTIFACT=$full"
+  print -r -- "RESOLVED_MODULE_DIR=$dir"
+  print -r -- "HINT: module_path+=( '$dir' ); zmodload -i zpmod"
 }
 
 if $INSTALL_ZI; then
