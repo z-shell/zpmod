@@ -1,0 +1,18 @@
+{
+  "$schema": "vscode://schemas/launch",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug zsh with zpmod (LD_PRELOAD style)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "/usr/bin/zsh",
+      "args": ["-f"],
+      "env": {
+        "ZPMOD_STAGE_MODULE_DIR": "${workspaceFolder}/build-cmake/stage/lib/zsh/site-modules"
+      },
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "CMake: stage"
+    }
+  ]
+}
