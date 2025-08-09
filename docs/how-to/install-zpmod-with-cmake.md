@@ -55,3 +55,18 @@ Tip: the script prints a ready-to-copy hint after installing; you can paste that
 zmodload -L | grep zpmod || print -r -- "zpmod not loaded"
 print -rl -- $module_path
 ```
+
+## Platform notes
+
+- Linux/BSD:
+  - Modules typically use the `.so` suffix and live under a site path like `lib/zsh/site-modules`.
+  - Some distros use multi-arch dirs (e.g., `lib64`). If your module path differs, add that directory to `module_path`.
+
+- macOS:
+  - Loadable modules may appear as `.so`, `.bundle`, or `.dylib`. This project prefers `.so` for consistency with `zmodload`.
+  - If your build produced a different suffix, just add the containing directory to `module_path`; `zmodload -i zpmod` will still work.
+
+- Windows (Cygwin/MSYS/WSL):
+  - Artifacts may use `.dll`. Add the directory that contains `zpmod.dll` to `module_path` and run `zmodload -i zpmod`.
+
+The helper script attempts to auto-detect the built artifact across these suffixes when copying/installing.
