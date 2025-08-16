@@ -313,6 +313,24 @@ if $INSTALL_ZI; then
   zi_dest="$zi_modules_root/zpmod"
   _copy_so "$STAGED_SO" "$zi_dest" "Zi"
   print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod"
+
+  # Optionally symlink completion into Zi's completions directory
+  if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[COMPLETIONS_DIR]:-} ]]; then
+    compdir=${ZI[COMPLETIONS_DIR]}
+    src_comp="$REPO_ROOT/src/_zpmod"
+    if [[ -f $src_comp ]]; then
+      mkdir -p -- "$compdir" || _warn "Cannot create completions dir: $compdir"
+      if [[ -e "$compdir/_zpmod" && ! -L "$compdir/_zpmod" ]]; then
+        _warn "Completion exists and is not a symlink: $compdir/_zpmod (skipping)"
+      else
+        ln -sfn -- "$src_comp" "$compdir/_zpmod" && _ok "Linked completion: $compdir/_zpmod" || _warn "Failed to link completion to $compdir"
+      fi
+    else
+      _warn "Completion source not found: $src_comp"
+    fi
+  else
+    _warn "ZI[COMPLETIONS_DIR] not set; skipping completion link"
+  fi
 fi
 
 if $INSTALL_USER; then
