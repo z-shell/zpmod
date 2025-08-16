@@ -13,9 +13,6 @@
  * This file is part of the zpmod zsh module.
  * It participates in Doxygen documentation generation.
  */
-*Define common feature macros expected by zsh headers to avoid #error paths.*
-    This is not exhaustive;
-adjust as needed per target system.*/
 
 #ifndef ZPMOD_CONFIG_H
 #define ZPMOD_CONFIG_H

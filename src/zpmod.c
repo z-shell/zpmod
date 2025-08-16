@@ -18,9 +18,21 @@
 #include "zpmod_version.h"
 
 /* Optional terminal/locale detection for emoji support */
+#include <dirent.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <locale.h>
 #include <stddef.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
+#if defined(__has_include)
+#if __has_include(<sys/mman.h>)
+#include <sys/mman.h>
+#define ZPMOD_HAVE_MMAP 1
+#endif
+#endif
 #if defined(__has_include)
 #if __has_include(<langinfo.h>)
 #include <langinfo.h>
@@ -89,6 +101,352 @@ static int zp_icons_enabled(void) {
 /* Return icon string if enabled, else empty string. */
 static const char *zp_icon(const char *s) {
   return zp_icons_enabled() ? s : "";
+}
+
+/* =============================
+ * Fast filesystem helpers
+ * ============================= */
+
+/* Shared helpers for fast FS builtins */
+static int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
+                            char *fields);
+static int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
+                           int only_dirs, int only_files);
+static int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
+                            int split, int delim);
+
+/* zppathstat: batch stat/lstat on an input array of paths.
+ * Usage: zppathstat [-L] [-f fields] out_array in_array
+ * Fields default: type,size,mode,mtime. Output format per element:
+ *   path=...,type=f|d|l|?,size=...,mode=octal,mtime=epoch
+ * On error for an item, includes errno=NUM and type=?
+ */
+static int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
+                          UNUSED(int func)) {
+  int follow = OPT_ISSET(ops, 'L');
+  char *fields = NULL;
+  if (OPT_ISSET(ops, 'f'))
+    fields = OPT_ARG(ops, 'f');
+  if (!argv || !argv[0] || !argv[1]) {
+    zwarnnam(nam, "usage: %s [-L] [-f fields] out_array in_array", nam);
+    return 1;
+  }
+  return zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
+}
+
+/* zpdirlist: list entries in dir (no recursion).
+ * Usage: zpdirlist [-a] [-d] [-f] out_array dir
+ * -a include dotfiles
+ * -d only directories
+ * -f only regular files
+ */
+static int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
+                         UNUSED(int func)) {
+  int inc_all = OPT_ISSET(ops, 'a');
+  int only_dirs = OPT_ISSET(ops, 'd');
+  int only_files = OPT_ISSET(ops, 'f');
+  if (!argv || !argv[0] || !argv[1]) {
+    zwarnnam(nam, "usage: %s [-a] [-d] [-f] out_array dir", nam);
+    return 1;
+  }
+  return zp_dirlist_core(nam, argv[0], argv[1], inc_all, only_dirs, only_files);
+}
+
+/* zpreadfile: read entire file into scalar or array split by delim */
+static int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
+                          UNUSED(int func)) {
+  int use_mmap = OPT_ISSET(ops, 'm');
+  int delim = '\n';
+  int split = 0;
+  if (OPT_ISSET(ops, '0')) {
+    split = 1;
+    delim = '\0';
+  }
+  if (OPT_ISSET(ops, 'd')) {
+    char *a = OPT_ARG(ops, 'd');
+    if (a && *a) {
+      split = 1;
+      if (a[0] == '\\') {
+        switch (a[1]) {
+        case 'n':
+          delim = '\n';
+          break;
+        case 't':
+          delim = '\t';
+          break;
+        case '0':
+          delim = '\0';
+          break;
+        case 'r':
+          delim = '\r';
+          break;
+        default:
+          delim = (unsigned char)a[1];
+          break;
+        }
+      } else {
+        delim = (unsigned char)a[0];
+      }
+    }
+  }
+  if (!argv || !argv[0] || !argv[1]) {
+    zwarnnam(nam, "usage: %s [-m] [-d delim|-0] out file", nam);
+    return 1;
+  }
+  return zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);
+}
+
+/* ===== Shared helper implementations ===== */
+static int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
+                            char *fields) {
+  char **inarr = getaparam(inname);
+  if (!inarr) {
+    zwarnnam(nam, "%s: input must be an indexed array", inname);
+    return 1;
+  }
+  const int want_type = (!fields || strstr(fields, "type"));
+  const int want_size = (!fields || strstr(fields, "size"));
+  const int want_mode = (!fields || strstr(fields, "mode"));
+  const int want_mtime = (!fields || strstr(fields, "mtime"));
+  const int want_uid = (!fields || strstr(fields, "uid"));
+  const int want_gid = (!fields || strstr(fields, "gid"));
+  const int want_ino = (!fields || strstr(fields, "ino"));
+  const int want_nlink = (!fields || strstr(fields, "nlink"));
+
+  unsetparam(outname);
+  char **out = (char **)zalloc(sizeof(char *));
+  out[0] = NULL;
+  setaparam(outname, out);
+
+  struct stat st;
+  int idx = 1;
+  for (int i = 0; inarr[i]; ++i) {
+    /* Input from zsh is metafied; create an unmetafied copy for syscalls */
+    int p_len = 0;
+    char *p_in = zp_unmetafy_zalloc(inarr[i], &p_len);
+    if (!p_in) {
+      zwarnnam(nam, "oom");
+      return 1;
+    }
+
+    int rc = follow ? stat(p_in, &st) : lstat(p_in, &st);
+    char buf[512];
+    int off = 0;
+    if (rc == 0) {
+      off += snprintf(buf + off, (int)sizeof(buf) - off, "path=%s", p_in);
+      if (want_type) {
+        char t = '?';
+        if (S_ISREG(st.st_mode))
+          t = 'f';
+        else if (S_ISDIR(st.st_mode))
+          t = 'd';
+        else if (S_ISLNK(st.st_mode))
+          t = 'l';
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",type=%c", t);
+      }
+      if (want_size)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",size=%ld",
+                        (long)st.st_size);
+      if (want_mode)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",mode=%o",
+                        (unsigned)(st.st_mode & 07777));
+      if (want_mtime)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",mtime=%ld",
+                        (long)st.st_mtime);
+      if (want_uid)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",uid=%ld",
+                        (long)st.st_uid);
+      if (want_gid)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",gid=%ld",
+                        (long)st.st_gid);
+      if (want_ino)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",ino=%ld",
+                        (long)st.st_ino);
+      if (want_nlink)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",nlink=%ld",
+                        (long)st.st_nlink);
+    } else {
+      off += snprintf(buf + off, (int)sizeof(buf) - off, "path=%s", p_in);
+      if (want_type)
+        off += snprintf(buf + off, (int)sizeof(buf) - off, ",type=%c", '?');
+      off += snprintf(buf + off, (int)sizeof(buf) - off, ",errno=%d", errno);
+    }
+    buf[sizeof(buf) - 1] = '\0';
+    /* Re-metafy before storing into a shell parameter. Use the actual
+     * string length to avoid reading past the buffer if we truncated. */
+    int used = (int)strlen(buf);
+    char *outstr = metafy(buf, used, META_DUP);
+    char indexed[256];
+    snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
+    setsparam(indexed, outstr);
+    zfree(p_in, p_len + 1);
+  }
+  return 0;
+}
+
+static int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
+                           int only_dirs, int only_files) {
+  /* Unmetafy dir for syscalls */
+  int dlen = 0;
+  char *udir = zp_unmetafy_zalloc(dir, &dlen);
+  if (!udir) {
+    zwarnnam(nam, "oom");
+    return 1;
+  }
+  DIR *dp = opendir(udir);
+  if (!dp) {
+    zwarnnam(nam, "%s: %e", dir, errno);
+    return 1;
+  }
+  unsetparam(outname);
+  char **out = (char **)zalloc(sizeof(char *));
+  out[0] = NULL;
+  setaparam(outname, out);
+  struct dirent *de;
+  struct stat st;
+  int idx = 1;
+  while ((de = readdir(dp)) != NULL) {
+    const char *name = de->d_name;
+    if (!inc_all && name[0] == '.')
+      continue;
+    if (only_dirs || only_files) {
+      char full[PATH_MAX];
+      int n = snprintf(full, sizeof(full), "%s/%s", udir, name);
+      if (n <= 0 || (size_t)n >= sizeof(full))
+        continue;
+      if (lstat(full, &st) != 0)
+        continue;
+      if (only_dirs && !S_ISDIR(st.st_mode))
+        continue;
+      if (only_files && !S_ISREG(st.st_mode))
+        continue;
+    }
+    char indexed[256];
+    snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
+    setsparam(indexed, metafy((char *)name, (int)strlen(name), META_DUP));
+  }
+  closedir(dp);
+  zfree(udir, dlen + 1);
+  return 0;
+}
+
+static int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
+                            int split, int delim) {
+  int plen = 0;
+  char *upath = zp_unmetafy_zalloc(path, &plen);
+  if (!upath) {
+    zwarnnam(nam, "oom");
+    return 1;
+  }
+  int fd = open(upath, O_RDONLY);
+  if (fd < 0) {
+    zwarnnam(nam, "%s: %e", path, errno);
+    return 1;
+  }
+  struct stat st;
+  if (fstat(fd, &st) != 0) {
+    int e = errno;
+    close(fd);
+    zwarnnam(nam, "%s: %e", path, e);
+    return 1;
+  }
+  size_t sz = (size_t)st.st_size;
+  char *buf = NULL;
+  size_t cap = 0;
+#ifdef ZPMOD_HAVE_MMAP
+  if (use_mmap && sz > 0) {
+    void *m = mmap(NULL, sz, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (m != MAP_FAILED) {
+      buf = (char *)m;
+      cap = sz;
+    }
+  }
+#endif
+  if (!buf) {
+    cap = sz ? sz + 1 : 4096;
+    buf = (char *)zalloc(cap);
+    if (!buf) {
+      int e = errno;
+      close(fd);
+      zwarnnam(nam, "oom: %e", e);
+      return 1;
+    }
+    size_t off = 0;
+    ssize_t rd;
+    while ((rd = read(fd, buf + off, cap - off)) > 0) {
+      off += (size_t)rd;
+      if (off == cap) {
+        size_t ncap = cap * 2;
+        char *nb = (char *)zrealloc(buf, ncap);
+        if (!nb) {
+          int e = errno;
+          zfree(buf, cap);
+          close(fd);
+          zwarnnam(nam, "oom: %e", e);
+          return 1;
+        }
+        buf = nb;
+        cap = ncap;
+      }
+    }
+    if (rd < 0) {
+      int e = errno;
+      zfree(buf, cap);
+      close(fd);
+      zwarnnam(nam, "%s: %e", path, e);
+      return 1;
+    }
+    sz = off;
+  }
+  close(fd);
+  zfree(upath, plen + 1);
+
+  if (!split) {
+    unsetparam(outname);
+    setsparam(outname, metafy(buf, (int)sz, META_DUP));
+#ifdef ZPMOD_HAVE_MMAP
+    if (use_mmap && cap == sz)
+      munmap(buf, sz);
+    else
+      zfree(buf, cap);
+#else
+    zfree(buf, cap);
+#endif
+    return 0;
+  }
+
+  unsetparam(outname);
+  char **out = (char **)zalloc(sizeof(char *));
+  out[0] = NULL;
+  setaparam(outname, out);
+  int idx = 1;
+  size_t start = 0;
+  for (size_t i = 0; i < sz; ++i) {
+    if ((unsigned char)buf[i] == (unsigned char)delim) {
+      int len = (int)(i - start);
+      char *rec = metafy(buf + start, len, META_DUP);
+      char indexed[256];
+      snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
+      setsparam(indexed, rec);
+      start = i + 1;
+    }
+  }
+  if (start < sz) {
+    int len = (int)(sz - start);
+    char *rec = metafy(buf + start, len, META_DUP);
+    char indexed[256];
+    snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
+    setsparam(indexed, rec);
+  }
+#ifdef ZPMOD_HAVE_MMAP
+  if (use_mmap && cap == sz)
+    munmap(buf, sz);
+  else
+    zfree(buf, cap);
+#else
+  zfree(buf, cap);
+#endif
+  return 0;
 }
 
 /* Source/bin_dot related data structures */
@@ -1769,6 +2127,145 @@ static int bin_zpmod(char *nam, char **argv, UNUSED(Options ops),
     } else if (report) {
       zsfree(report);
     }
+  } else if (0 == strcmp(subcmd, "dirlist")) {
+    int inc_all = 0, only_dirs = 0, only_files = 0;
+    /* parse clustered flags -a, -d, -f until non-option */
+    while (*argv && argv[0][0] == '-' && argv[0][1]) {
+      if (strcmp(argv[0], "--") == 0) {
+        argv++;
+        break;
+      }
+      const char *o = argv[0] + 1;
+      int stop = 0;
+      while (*o && !stop) {
+        switch (*o++) {
+        case 'a':
+          inc_all = 1;
+          break;
+        case 'd':
+          only_dirs = 1;
+          break;
+        case 'f':
+          only_files = 1;
+          break;
+        default:
+          stop = 1;
+          break;
+        }
+      }
+      if (stop)
+        break;
+      else
+        argv++;
+    }
+    if (!argv[0] || !argv[1]) {
+      zwarnnam(nam,
+               "dirlist: usage: zpmod dirlist [-a] [-d] [-f] out_array dir");
+      return 1;
+    }
+    ret =
+        zp_dirlist_core(nam, argv[0], argv[1], inc_all, only_dirs, only_files);
+  } else if (0 == strcmp(subcmd, "pathstat")) {
+    int follow = 0;
+    char *fields = NULL;
+    while (*argv && argv[0][0] == '-' && argv[0][1]) {
+      if (strcmp(argv[0], "--") == 0) {
+        argv++;
+        break;
+      }
+      if (strcmp(argv[0], "-L") == 0) {
+        follow = 1;
+        argv++;
+        continue;
+      }
+      if (argv[0][1] == 'f') {
+        if (argv[0][2] != '\0') {
+          fields = argv[0] + 2;
+          argv++;
+        } else {
+          argv++;
+          if (!*argv) {
+            zwarnnam(nam, "pathstat: -f requires fields");
+            return 1;
+          }
+          fields = *argv++;
+        }
+        continue;
+      }
+      break;
+    }
+    if (!argv[0] || !argv[1]) {
+      zwarnnam(nam, "pathstat: usage: zpmod pathstat [-L] [-f fields] "
+                    "out_array in_array");
+      return 1;
+    }
+    ret = zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
+  } else if (0 == strcmp(subcmd, "readfile")) {
+    int use_mmap = 0, split = 0;
+    int delim = '\n';
+    while (*argv && argv[0][0] == '-' && argv[0][1]) {
+      if (strcmp(argv[0], "--") == 0) {
+        argv++;
+        break;
+      }
+      if (strcmp(argv[0], "-m") == 0) {
+        use_mmap = 1;
+        argv++;
+        continue;
+      }
+      if (strcmp(argv[0], "-0") == 0) {
+        split = 1;
+        delim = '\0';
+        argv++;
+        continue;
+      }
+      if (argv[0][1] == 'd') {
+        char *a = NULL;
+        if (argv[0][2] != '\0') {
+          a = argv[0] + 2;
+          argv++;
+        } else {
+          argv++;
+          if (!*argv) {
+            zwarnnam(nam, "readfile: -d requires delimiter");
+            return 1;
+          }
+          a = *argv++;
+        }
+        if (a && *a) {
+          split = 1;
+          if (a[0] == '\\') {
+            switch (a[1]) {
+            case 'n':
+              delim = '\n';
+              break;
+            case 't':
+              delim = '\t';
+              break;
+            case '0':
+              delim = '\0';
+              break;
+            case 'r':
+              delim = '\r';
+              break;
+            default:
+              delim = (unsigned char)a[1];
+              break;
+            }
+          } else {
+            delim = (unsigned char)a[0];
+          }
+        }
+        continue;
+      }
+      break;
+    }
+    if (!argv[0] || !argv[1]) {
+      zwarnnam(nam,
+               "readfile: usage: zpmod readfile [-m] [-d delim|-0] var file");
+      return 1;
+    }
+    ret = zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);
   } else {
     zwarnnam(nam, "unknown subcommand: %s. See -h.", subcmd);
   }
@@ -1779,20 +2276,28 @@ static int bin_zpmod(char *nam, char **argv, UNUSED(Options ops),
 /* zpmod_usage */
 /** Print usage information for the zpmod builtin. */
 void zpmod_usage() {
-  fprintf(stdout,
-          "%sUsage:%s\n"
-          "  zpmod [--help|-h] [--version|-V]\n"
-          "  zpmod report-append <plugin-id> <text>\n"
-          "  zpmod source-study [-l]\n\n"
-          "%sSubcommands:%s\n"
-          "  %sreport-append%s   Append <text> to $ZI_REPORTS[<plugin-id>].\n"
-          "  %ssource-study%s    Show sourced files with durations (ms).\n\n"
-          "%sOptions:%s\n"
-          "  -h, --help      Show this help and exit.\n"
-          "  -V, --version   Show version information.\n"
-          "  -l              With source-study: show full paths.\n",
-          zp_icon("📘 "), "", zp_icon("🧰 "), "", zp_icon("📝 "), "",
-          zp_icon("⏱️ "), "", zp_icon("⚙️ "), "");
+  fprintf(
+      stdout,
+      "%sUsage:%s\n"
+      "  zpmod [--help|-h] [--version|-V]\n"
+      "  zpmod report-append <plugin-id> <text>\n"
+      "  zpmod source-study [-l]\n"
+      "  zpmod dirlist [-a] [-d|-f] out_array dir\n"
+      "  zpmod pathstat [-L] [-f fields] out_array in_array\n"
+      "  zpmod readfile [-m] [-d delim|-0] var file\n\n"
+      "%sSubcommands:%s\n"
+      "  %sreport-append%s   Append <text> to $ZI_REPORTS[<plugin-id>].\n"
+      "  %ssource-study%s    Show sourced files with durations (ms).\n"
+      "  %sdirlist%s         List entries in directory into array.\n"
+      "  %spathstat%s        Batch stat for input array into output array.\n"
+      "  %sreadfile%s        Read file into scalar or split into array.\n\n"
+      "%sOptions:%s\n"
+      "  -h, --help      Show this help and exit.\n"
+      "  -V, --version   Show version information.\n"
+      "  -l              With source-study: show full paths.\n",
+      zp_icon("📘 "), "", zp_icon("🧰 "), "", zp_icon("📝 "), "", zp_icon("⏱️ "),
+      "", zp_icon("📁 "), "", zp_icon("📊 "), "", zp_icon("📄 "), "",
+      zp_icon("⚙️ "), "");
   fflush(stdout);
 }
 /*  */
@@ -2132,6 +2637,9 @@ char *zp_unmetafy_zalloc(const char *to_copy, int *new_len) {
 static struct builtin bintab[] = {
     BUILTIN("custom_dot", 0, bin_custom_dot, 1, -1, 0, NULL, NULL),
     BUILTIN("readarray", 0, bin_readarray, 1, 1, 0, "d:n:O:s:tu:C:c:h", NULL),
+    BUILTIN("zppathstat", 0, bin_zppathstat, 2, 2, 0, "Lf:", NULL),
+    BUILTIN("zpdirlist", 0, bin_zpdirlist, 2, 2, 0, "adf", NULL),
+    BUILTIN("zpreadfile", 0, bin_zpreadfile, 2, 2, 0, "md:0", NULL),
     BUILTIN("zpmod", 0, bin_zpmod, 0, -1, 0, "hV", NULL),
 };
 /*  */
