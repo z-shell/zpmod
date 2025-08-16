@@ -17,22 +17,32 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install dependencies
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y doxygen graphviz
 
+      - name: Show tool versions
+        run: |
+          cmake --version
+          doxygen --version
+          dot -V || true
+
       - name: Configure (CMake)
-        run: cmake -S . -B build-docs
+        run: cmake -S . -B build-docs -DCMAKE_VERBOSE_MAKEFILE=ON
 
       - name: Build docs
         run: |
           set -euxo pipefail
-          cmake --build build-docs --target docs
+          cmake --build build-docs --target docs -- -v
           echo "==== Docs tree ===="
           ls -lR build-docs/docs || true
 

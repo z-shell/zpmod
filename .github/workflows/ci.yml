@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -186,7 +189,7 @@ jobs:
           name: ctest-logs-asan
           path: build-sanitize/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
 
   clang-tidy:
     name: Clang-Tidy (${{ matrix.os }})
