@@ -90,11 +90,8 @@ jobs:
           mkdir -p "$STAGE_MODDIR"
           if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
             FOUND_MOD="$(
-              find build-cmake -maxdepth 8 -type f \
-                \( -name 'zpmod.so' -o -name 'libzpmod.so' -o \
-                   -name 'zpmod.dylib' -o -name 'libzpmod.dylib' -o \
-                   -name 'zpmod.bundle' -o -name 'libzpmod.bundle' -o \
-                   -name 'zpmod' -o -name 'libzpmod' \) 2>/dev/null | head -n 1 || true
+              find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
+                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
             )"
             if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
               # Normalize name to zpmod.so in stage to match zmodload expectations
@@ -119,11 +116,8 @@ jobs:
           if [ ! -d "$MODDIR" ] || { [ ! -f "$MODDIR/zpmod.so" ] && [ ! -f "$MODDIR/zpmod.dylib" ]; }; then
             echo "Staged module missing; searching build tree for a candidate..."
             FOUND_MOD="$(
-              find build-cmake -maxdepth 8 -type f \
-                \( -name 'zpmod.so' -o -name 'libzpmod.so' -o \
-                   -name 'zpmod.dylib' -o -name 'libzpmod.dylib' -o \
-                   -name 'zpmod.bundle' -o -name 'libzpmod.bundle' -o \
-                   -name 'zpmod' -o -name 'libzpmod' \) 2>/dev/null | head -n 1 || true
+              find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
+                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
             )"
             if [ -n "$FOUND_MOD" ]; then
               echo "Found candidate module: $FOUND_MOD"
@@ -132,7 +126,7 @@ jobs:
               echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
             else
               echo "No module found in build tree. Diagnostics:"
-              find build-cmake -maxdepth 8 -type f -name 'zpmod*' -print || true
+              find build-cmake -maxdepth 8 -type f -print | grep -E 'zpmod' || true
               exit 1
             fi
           fi
