@@ -66,11 +66,16 @@ jobs:
           cmake --version
           zsh --version
           ccache --version || true
-          echo "CMAKE_GENERATOR=$(cmake -S . -B build-cmake -LA 2>/dev/null >/dev/null || true; \
-            awk -F= '/^CMAKE_GENERATOR:/{print $2}' build-cmake/CMakeCache.txt 2>/dev/null || true)"
+          GEN_VAL="$(awk -F= '/^CMAKE_GENERATOR:/{print $2}' build-cmake/CMakeCache.txt 2>/dev/null || true)"
+          if [ -n "$GEN_VAL" ]; then
+            echo "CMAKE_GENERATOR cache: $GEN_VAL"
+          else
+            echo "CMAKE_GENERATOR cache: unknown (not configured yet)"
+          fi
 
       - name: Configure (Release)
         run: |
+          rm -rf build-cmake
           cmake -G Ninja -S . -B build-cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_VERBOSE_MAKEFILE=ON \
