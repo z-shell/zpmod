@@ -138,7 +138,8 @@ jobs:
           ./Util/preconfig || true
           ./configure --prefix="$PREFIX" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
           make -j2
-          make install
+          # Install only the binary; skip docs/manpages to avoid yodl dependency
+          make install.bin
           "$PREFIX/bin/zsh" --version
       - name: Configure zpmod (sanitized)
         env:
