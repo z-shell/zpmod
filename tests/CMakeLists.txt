@@ -72,4 +72,41 @@ add_test(NAME zpmod_options
 set_tests_properties(zpmod_options PROPERTIES
   ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
 
+# New fast FS helpers and reader tests
+add_test(NAME zpmod_zpdirlist
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpdirlist.zsh)
+set_tests_properties(zpmod_zpdirlist PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zppathstat
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat.zsh)
+set_tests_properties(zpmod_zppathstat PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zpreadfile
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile.zsh)
+set_tests_properties(zpmod_zpreadfile PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_subcommands
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpmod_subcommands.zsh)
+set_tests_properties(zpmod_subcommands PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zppathstat_fields
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_fields.zsh)
+set_tests_properties(zpmod_zppathstat_fields PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zppathstat_follow
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_follow.zsh)
+set_tests_properties(zpmod_zppathstat_follow PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zpdirlist_filters
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpdirlist_filters.zsh)
+set_tests_properties(zpmod_zpdirlist_filters PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+
 # Note: legacy upstream zsh *.ztst tests present in this folder are ignored by CTest.
