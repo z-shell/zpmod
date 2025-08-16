@@ -75,7 +75,7 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build
-        run: cmake --build build-cmake --config Release -- -v
+        run: cmake --build build-cmake --target zpmod --config Release -- -v
 
       - name: Stage
         run: |
