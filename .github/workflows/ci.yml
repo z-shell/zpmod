@@ -136,6 +136,7 @@ jobs:
         run: |
           cmake -S . -B build-sanitize \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_C_FLAGS="${CFLAGS}" \
             -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" \
             -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
@@ -148,9 +149,22 @@ jobs:
           set -euo pipefail
           export ASAN_OPTIONS=detect_leaks=0:strict_string_checks=1:abort_on_error=1:log_path=asan
           export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-          LIBASAN="$(gcc -print-file-name=libasan.so || true)"
-          if [ -n "$LIBASAN" ] && [ -f "$LIBASAN" ]; then
-            export LD_PRELOAD="$LIBASAN"
+          # Resolve the actual libasan shared object; libasan.so can be a linker script on Ubuntu
+          LIBASAN_DIR="$(dirname "$(gcc -print-file-name=libasan.so || echo /usr/lib)" 2>/dev/null)"
+          LIBASAN_REAL=""
+          if ls "$LIBASAN_DIR"/libasan.so.* >/dev/null 2>&1; then
+            LIBASAN_REAL="$(ls -1 "$LIBASAN_DIR"/libasan.so.* 2>/dev/null | sort -V | tail -n1)"
+          fi
+          if [ -z "$LIBASAN_REAL" ]; then
+            # Fallback to ldconfig database
+            if command -v ldconfig >/dev/null 2>&1; then
+              LIBASAN_REAL="$(ldconfig -p | grep -E 'libasan\.so(\.[0-9]+)?\b' | awk '{print $NF}' | head -n1 || true)"
+            fi
+          fi
+          if [ -n "${LIBASAN_REAL}" ] && [ -f "${LIBASAN_REAL}" ]; then
+            export LD_PRELOAD="${LIBASAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
+          else
+            echo "Warning: could not resolve libasan shared object; proceeding without LD_PRELOAD" >&2
           fi
           ctest --test-dir build-sanitize --output-on-failure -j 2
       - name: Print CTest log (ASan/UBSan)
