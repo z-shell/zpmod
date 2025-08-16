@@ -25,6 +25,16 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build-cmake
+            vendor/zsh
+          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'docs/**', 'cmake/**') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
       - name: Install dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -47,3 +57,35 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build-cmake --output-on-failure -j 2
+
+      - name: Upload module artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zpmod-${{ runner.os }}-module
+          path: |
+            build-cmake/out/lib/zpmod.*
+            build-cmake/stage/lib/zsh/site-modules/zpmod.*
+
+  asan-ubsan:
+    name: ASan/UBSan (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+      - name: Configure (ASan/UBSan)
+        env:
+          CFLAGS: "-O1 -fno-omit-frame-pointer -fsanitize=address,undefined"
+          LDFLAGS: "-fsanitize=address,undefined"
+        run: cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
+      - name: Build (ASan/UBSan)
+        run: cmake --build build-sanitize -j 2
+      - name: Stage (ASan/UBSan)
+        run: cmake --build build-sanitize --target stage
+      - name: Run tests (ASan/UBSan)
+        run: ctest --test-dir build-sanitize --output-on-failure -j 2

@@ -229,8 +229,17 @@ endif()
 
 # Documentation (Doxygen)
 find_package(Doxygen QUIET)
+find_package(Graphviz QUIET)
 if(DOXYGEN_FOUND)
   set(DOXYFILE_OUT "${CMAKE_BINARY_DIR}/Doxyfile")
+  # Provide HAVE_DOT substitution for Doxygen
+  if(Graphviz_FOUND OR DOXYGEN_DOT_EXECUTABLE)
+    set(HAVE_DOT YES)
+  else()
+    set(HAVE_DOT NO)
+  endif()
+  # Pass version into Doxygen as well
+  set(ZPMOD_VERSION "${ZPMOD_VERSION}")
   configure_file("${CMAKE_SOURCE_DIR}/docs/Doxyfile.in" "${DOXYFILE_OUT}" @ONLY)
   add_custom_target(docs
     COMMAND ${DOXYGEN_EXECUTABLE} "${DOXYFILE_OUT}"
@@ -240,3 +249,8 @@ if(DOXYGEN_FOUND)
 else()
   message(STATUS "Doxygen not found: 'docs' target will be unavailable")
 endif()
+
+# Install zsh completion to site-functions
+install(FILES ${CMAKE_SOURCE_DIR}/src/_zpmod
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions
+        OPTIONAL)

@@ -108,5 +108,21 @@ add_test(NAME zpmod_zpdirlist_filters
 set_tests_properties(zpmod_zpdirlist_filters PROPERTIES
   ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
 
+# Additional error/edge tests
+add_test(NAME zpmod_zpreadfile_errors
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_errors.zsh)
+set_tests_properties(zpmod_zpreadfile_errors PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zpreadfile_crlf
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_crlf.zsh)
+set_tests_properties(zpmod_zpreadfile_crlf PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zppathstat_errno_fields
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_errno_fields.zsh)
+set_tests_properties(zpmod_zppathstat_errno_fields PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
 
 # Note: legacy upstream zsh *.ztst tests present in this folder are ignored by CTest.
