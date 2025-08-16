@@ -91,36 +91,32 @@ jobs:
           STAGE_MODDIR="build-cmake/stage/lib/zsh/site-modules"
           mkdir -p "$STAGE_MODDIR"
           if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
+            # Try to find a produced module in the build tree
             FOUND_MOD="$(
               find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
-                grep -E \
-                  '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
+                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
             )"
-            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
-              # Normalize name to zpmod.so in stage to match zmodload expectations
-              STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
-              cp -f "$FOUND_MOD" "$STAGE_TARGET"
-              echo "Copied module from $FOUND_MOD to $STAGE_TARGET" || true
-              # Print file type for diagnostics
-              (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
-            else
-              # Derive output from CMake link.txt if available (supports multi-config layouts)
+            # If not found, derive from CMake link.txt
+            if [ -z "$FOUND_MOD" ]; then
               LINK_TXT="$(
                 [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
                   echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
                 find build-cmake/CMakeFiles -type f \
-                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
-                  head -n 1 || true
+                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
                 if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
-                  STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
-                  cp -f "$OUT_PATH" "$STAGE_TARGET"
-                  echo "Copied module from $OUT_PATH to $STAGE_TARGET (via link.txt)" || true
-                  (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
+                  FOUND_MOD="$OUT_PATH"
                 fi
               fi
+            fi
+            # If we have a candidate, copy it into stage as zpmod.so
+            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
+              STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
+              cp -f "$FOUND_MOD" "$STAGE_TARGET"
+              echo "Copied module from $FOUND_MOD to $STAGE_TARGET" || true
+              (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
             fi
           fi
           echo "==== Staged tree ===="
@@ -140,28 +136,25 @@ jobs:
               find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
                 grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
             )"
-            if [ -n "$FOUND_MOD" ]; then
-              echo "Found candidate module: $FOUND_MOD"
-              mkdir -p "$MODDIR"
-              cp -f "$FOUND_MOD" "$MODDIR/zpmod.so" || true
-              echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
-            else
-              # Try deriving from CMake link.txt
+            if [ -z "$FOUND_MOD" ]; then
               LINK_TXT="$(
                 [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
                   echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
                 find build-cmake/CMakeFiles -type f \
-                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
-                  head -n 1 || true
+                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
                 if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
-                  mkdir -p "$MODDIR"
-                  cp -f "$OUT_PATH" "$MODDIR/zpmod.so" || true
-                  echo "Backfilled staged dir with $OUT_PATH (via link.txt) as zpmod.so"
+                  FOUND_MOD="$OUT_PATH"
                 fi
               fi
+            fi
+            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
+              echo "Found candidate module: $FOUND_MOD"
+              mkdir -p "$MODDIR"
+              cp -f "$FOUND_MOD" "$MODDIR/zpmod.so" || true
+              echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
             else
               echo "No module found in build tree. Diagnostics:"
               find build-cmake -maxdepth 8 -type f -print | grep -E 'zpmod' || true
