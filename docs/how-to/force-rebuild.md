@@ -2,18 +2,18 @@
 
 To force a rebuild without cleaning:
 
-```sh
-./scripts/install.sh --force
+```zsh
+scripts/cmake.configure.zsh --reconfigure
 ```
 
 To perform a full clean (remove configuration artifacts) and rebuild:
 
-```sh
-./scripts/install.sh --clean
+```zsh
+scripts/cmake.configure.zsh --clean
 ```
 
 For verbose compiler output:
 
-```sh
-./scripts/install.sh --verbose
+```zsh
+scripts/cmake.configure.zsh --verbose
 ```

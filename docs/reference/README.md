@@ -5,4 +5,4 @@ Authoritative, detail-first sections:
 - [Builtins](builtins.md)
 - [Environment Variables](environment.md)
 - [CLI / Subcommands](cli.md)
-- [Installation Script Options](install-script.md)
+- [CMake Build & Install Helper](install-cmake-helper.md)

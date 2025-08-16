@@ -53,7 +53,7 @@ Batch file metadata lookup.
 Synopsis:
 
 ```zsh
-zppathstat [-L] [-f fields] path...
+zppathstat [-L] [-f fields] out_array in_array
 ```
 
 Options:

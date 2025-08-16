@@ -9,20 +9,18 @@ Estimated time: 5 minutes
 
 ## 1. Install
 
-Recommended: use the provided install script to fetch and build the module into your Zi modules tree (Zi not required):
+Use the CMake helper to build and install. For Zi users (Zi not required for loading):
 
-```sh
-sh <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/main/scripts/install.sh)
-```
-
-The script prints the lines to add to your `~/.zshrc`.
-
-Manual clone/build (advanced users):
-
-```sh
+```zsh
 git clone https://github.com/z-shell/zpmod.git
 cd zpmod
-./scripts/install.sh --build-only --no-git # reuse existing clone
+scripts/cmake.configure.zsh --install-zi
+```
+
+Alternatively, install for your user:
+
+```zsh
+scripts/cmake.configure.zsh --install-user
 ```
 
 ## 2. Load Early
@@ -31,7 +29,7 @@ Place the lines output by the installer at the very top of `~/.zshrc` (before pl
 
 ```zsh
 module_path+=("${HOME}/.zi/zmodules/zpmod")
-zmodload zpmod
+zmodload -i zpmod
 ```
 
 ## 3. Start a New Shell

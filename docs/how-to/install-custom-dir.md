@@ -1,16 +1,21 @@
 # Install to a Custom Directory
 
-Use the installer with `--target` (CMake-driven under the hood):
+Use the CMake helper with a custom prefix or install subdir:
 
-```sh
-./scripts/install.sh --target /opt/zpmod
+```zsh
+# Install under a custom prefix
+scripts/cmake.configure.zsh --install-system --prefix /opt
+
+# Or stage locally, then copy the artifact where you want
+scripts/cmake.configure.zsh
+cp build-cmake/stage/lib/zsh/site-modules/zpmod.so /opt/zpmod/
 ```
 
 Then add to `~/.zshrc`:
 
 ```zsh
 module_path+=(/opt/zpmod)
-zmodload zpmod
+zmodload -i zpmod
 ```
 
 If you later update, rerun with the same `--target` path.
