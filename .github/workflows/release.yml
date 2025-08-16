@@ -85,6 +85,16 @@ jobs:
           if [ ! -d build-cmake/stage/lib ] || [ ! -e build-cmake/stage/lib/zsh/site-modules/zpmod.so ]; then
             cmake --install build-cmake --prefix build-cmake/stage || true
           fi
+          # If the module still isn't in the staged directory, copy the built artifact as a final fallback
+          STAGE_MODDIR="build-cmake/stage/lib/zsh/site-modules"
+          mkdir -p "$STAGE_MODDIR"
+          if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
+            FOUND_MOD="$(find build-cmake -maxdepth 6 -type f -name 'zpmod.*' | head -n 1 || true)"
+            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
+              cp -f "$FOUND_MOD" "$STAGE_MODDIR/"
+              echo "Copied module from $FOUND_MOD to $STAGE_MODDIR" || true
+            fi
+          fi
           echo "==== Staged tree ===="
           ls -lR build-cmake/stage || true
           echo "==== Built libs ===="
