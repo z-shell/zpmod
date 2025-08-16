@@ -52,14 +52,14 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache
+          brew install ccache ninja
           echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
       - name: Install dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh ccache
+          sudo apt-get install -y zsh ccache ninja-build
 
       - name: Show tool versions
         run: |
@@ -71,21 +71,21 @@ jobs:
 
       - name: Configure (Release)
         run: |
-          cmake -S . -B build-cmake \
+          cmake -G Ninja -S . -B build-cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build
-        run: cmake --build build-cmake --target zpmod --config Release -- -v
+        run: cmake --build build-cmake --target zpmod -- -v
 
       - name: Stage
         run: |
           set -euxo pipefail
-          cmake --build build-cmake --target stage --config Release -- -v || true
+          cmake --build build-cmake --target stage -- -v || true
           # Fallback to direct install if stage target did not run cleanly
           if [ ! -d build-cmake/stage/lib ] || [ ! -e build-cmake/stage/lib/zsh/site-modules/zpmod.so ]; then
-            cmake --install build-cmake --prefix build-cmake/stage --config Release || true
+            cmake --install build-cmake --prefix build-cmake/stage || true
           fi
           # If the module still isn't in the staged directory, copy the built artifact as a final fallback
           STAGE_MODDIR="build-cmake/stage/lib/zsh/site-modules"
@@ -187,7 +187,7 @@ jobs:
 
       - name: Package with CPack
         run: |
-          cmake --build build-cmake --target package --config Release || true
+          cmake --build build-cmake --target package || true
 
       - name: Generate SHA256 checksums
         run: |
