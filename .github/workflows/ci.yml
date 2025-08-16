@@ -31,8 +31,8 @@ jobs:
           path: |
             ~/.cache/ccache
             vendor/zsh
-          key: ${{ runner.os }}-ccache-${{
-            hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'cmake/**', 'vendor/zsh/**') }}
+          key: |
+            ${{ runner.os }}-ccache-${{hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'cmake/**', 'vendor/zsh/**') }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
