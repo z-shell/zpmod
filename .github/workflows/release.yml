@@ -89,10 +89,20 @@ jobs:
           STAGE_MODDIR="build-cmake/stage/lib/zsh/site-modules"
           mkdir -p "$STAGE_MODDIR"
           if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
-            FOUND_MOD="$(find build-cmake -maxdepth 6 -type f -name 'zpmod.*' | head -n 1 || true)"
+            FOUND_MOD="$(
+              find build-cmake -maxdepth 8 -type f \
+                \( -name 'zpmod.so' -o -name 'libzpmod.so' -o \
+                   -name 'zpmod.dylib' -o -name 'libzpmod.dylib' -o \
+                   -name 'zpmod.bundle' -o -name 'libzpmod.bundle' -o \
+                   -name 'zpmod' -o -name 'libzpmod' \) 2>/dev/null | head -n 1 || true
+            )"
             if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
-              cp -f "$FOUND_MOD" "$STAGE_MODDIR/"
-              echo "Copied module from $FOUND_MOD to $STAGE_MODDIR" || true
+              # Normalize name to zpmod.so in stage to match zmodload expectations
+              STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
+              cp -f "$FOUND_MOD" "$STAGE_TARGET"
+              echo "Copied module from $FOUND_MOD to $STAGE_TARGET" || true
+              # Print file type for diagnostics
+              (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
             fi
           fi
           echo "==== Staged tree ===="
@@ -104,20 +114,32 @@ jobs:
         run: |
           set -euxo pipefail
           MODDIR="$PWD/build-cmake/stage/lib/zsh/site-modules"
-          echo "MODDIR=$MODDIR"
-          # Show what's staged and ensure module exists
-          if ! ls -la "$MODDIR"; then
-            echo "Module directory missing. Searching for built module..."
-            find build-cmake -maxdepth 5 -type f -name 'zpmod.*' -print || true
-            exit 1
+          echo "Preferred MODDIR=$MODDIR"
+          # Ensure staged dir exists and has a module; if not, search elsewhere and backfill
+          if [ ! -d "$MODDIR" ] || { [ ! -f "$MODDIR/zpmod.so" ] && [ ! -f "$MODDIR/zpmod.dylib" ]; }; then
+            echo "Staged module missing; searching build tree for a candidate..."
+            FOUND_MOD="$(
+              find build-cmake -maxdepth 8 -type f \
+                \( -name 'zpmod.so' -o -name 'libzpmod.so' -o \
+                   -name 'zpmod.dylib' -o -name 'libzpmod.dylib' -o \
+                   -name 'zpmod.bundle' -o -name 'libzpmod.bundle' -o \
+                   -name 'zpmod' -o -name 'libzpmod' \) 2>/dev/null | head -n 1 || true
+            )"
+            if [ -n "$FOUND_MOD" ]; then
+              echo "Found candidate module: $FOUND_MOD"
+              mkdir -p "$MODDIR"
+              cp -f "$FOUND_MOD" "$MODDIR/zpmod.so" || true
+              echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
+            else
+              echo "No module found in build tree. Diagnostics:"
+              find build-cmake -maxdepth 8 -type f -name 'zpmod*' -print || true
+              exit 1
+            fi
           fi
-          if [ ! -f "$MODDIR/zpmod.so" ] && [ ! -f "$MODDIR/zpmod.dylib" ]; then
-            echo "zpmod.* not found in $MODDIR"
-            find build-cmake -maxdepth 5 -type f -name 'zpmod.*' -print || true
-            exit 1
-          fi
+          # Show what's staged now
+          ls -la "$MODDIR" || true
           export MODDIR
-          # Load module from the staged directory explicitly
+          # Load module from the available directory explicitly
           zsh -fc 'print -r -- "zsh: $ZSH_VERSION"; \
                    print -r -- "Before module_path:"; print -lr -- $module_path; \
                    zmodload -d "${MODDIR}"; \
