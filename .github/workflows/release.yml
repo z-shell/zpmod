@@ -106,8 +106,14 @@ jobs:
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
-                if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
-                  FOUND_MOD="$OUT_PATH"
+                if [ -n "$OUT_PATH" ]; then
+                  case "$OUT_PATH" in
+                    /*) OUT_ABS="$OUT_PATH" ;;
+                    *) OUT_ABS="build-cmake/$OUT_PATH" ;;
+                  esac
+                  if [ -f "$OUT_ABS" ]; then
+                    FOUND_MOD="$OUT_ABS"
+                  fi
                 fi
               fi
             fi
@@ -145,8 +151,14 @@ jobs:
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
-                if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
-                  FOUND_MOD="$OUT_PATH"
+                if [ -n "$OUT_PATH" ]; then
+                  case "$OUT_PATH" in
+                    /*) OUT_ABS="$OUT_PATH" ;;
+                    *) OUT_ABS="build-cmake/$OUT_PATH" ;;
+                  esac
+                  if [ -f "$OUT_ABS" ]; then
+                    FOUND_MOD="$OUT_ABS"
+                  fi
                 fi
               fi
             fi
