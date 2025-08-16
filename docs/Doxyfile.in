@@ -1,17 +1,39 @@
 # Doxygen configuration for zpmod (template)
 
 PROJECT_NAME           = "@PROJECT_NAME@"
+PROJECT_NUMBER         = "@ZPMOD_VERSION@"
 OUTPUT_DIRECTORY       = "@CMAKE_BINARY_DIR@/docs"
 GENERATE_LATEX         = NO
 QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = YES
 INPUT                  = @CMAKE_SOURCE_DIR@/src @CMAKE_SOURCE_DIR@/docs
-FILE_PATTERNS          = *.c *.h *.mdh *.pro
-RECURSIVE              = NO
+FILE_PATTERNS          = *.c *.h *.mdh *.pro *.md
+EXTENSION_MAPPING      = mdh=C pro=C
+RECURSIVE              = YES
 EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
 OPTIMIZE_OUTPUT_FOR_C  = YES
 JAVADOC_AUTOBRIEF      = YES
 WARN_NO_PARAMDOC       = YES
 GENERATE_TREEVIEW      = YES
-FULL_PATH_NAMES        = NO
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = @CMAKE_SOURCE_DIR@
 MARKDOWN_SUPPORT       = YES
+USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/docs/index.md
+
+# Source browsing and relationships
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Graphviz (optional but useful)
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+DOT_GRAPH_MAX_NODES    = 50
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+DOT_TRANSPARENT        = YES
+DOT_MULTI_TARGETS      = YES
+DOT_CLEANUP            = YES
