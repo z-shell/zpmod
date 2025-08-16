@@ -93,9 +93,28 @@ jobs:
       - name: Smoke load module
         run: |
           set -euxo pipefail
-          zsh -fc 'module_path=("$PWD/build-cmake/stage/lib/zsh/site-modules" $module_path); \
-          zmodload -i zpmod; \
-          whence -w zpmod'
+          MODDIR="$PWD/build-cmake/stage/lib/zsh/site-modules"
+          echo "MODDIR=$MODDIR"
+          # Show what's staged and ensure module exists
+          if ! ls -la "$MODDIR"; then
+            echo "Module directory missing. Searching for built module..."
+            find build-cmake -maxdepth 5 -type f -name 'zpmod.*' -print || true
+            exit 1
+          fi
+          if [ ! -f "$MODDIR/zpmod.so" ] && [ ! -f "$MODDIR/zpmod.dylib" ]; then
+            echo "zpmod.* not found in $MODDIR"
+            find build-cmake -maxdepth 5 -type f -name 'zpmod.*' -print || true
+            exit 1
+          fi
+          export MODDIR
+          # Load module from the staged directory explicitly
+          zsh -fc 'print -r -- "zsh: $ZSH_VERSION"; \
+                   print -r -- "Before module_path:"; print -lr -- $module_path; \
+                   zmodload -d "${MODDIR}"; \
+                   print -r -- "After module_path:"; print -lr -- $module_path; \
+                   zmodload -i zpmod; \
+                   zmodload -L zpmod || true; \
+                   whence -w zpmod || true'
 
       - name: Package with CPack
         run: |
