@@ -147,7 +147,10 @@ jobs:
       - name: Run tests (ASan/UBSan)
         run: |
           set -euo pipefail
-          export ASAN_OPTIONS=detect_leaks=0:strict_string_checks=1:abort_on_error=1:log_path=asan
+          # Relax link order check to accommodate runner preload quirks
+          export ASAN_OPTIONS=detect_leaks=0:strict_string_checks=1: \
+            abort_on_error=1:verify_asan_link_order=0: \
+            log_path=asan
           export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
           # Resolve the actual libasan shared object; libasan.so can be a linker script on Ubuntu
           LIBASAN_DIR="$(dirname "$(gcc -print-file-name=libasan.so || echo /usr/lib)" 2>/dev/null)"
@@ -163,9 +166,15 @@ jobs:
           fi
           if [ -n "${LIBASAN_REAL}" ] && [ -f "${LIBASAN_REAL}" ]; then
             export LD_PRELOAD="${LIBASAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
+            export LD_LIBRARY_PATH="$(dirname "${LIBASAN_REAL}")${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
           else
             echo "Warning: could not resolve libasan shared object; proceeding without LD_PRELOAD" >&2
           fi
+          echo "Using zsh: $(command -v zsh)"
+          echo "LD_PRELOAD=${LD_PRELOAD:-}"
+          if [ -n "${LIBASAN_REAL:-}" ] && [ -f "${LIBASAN_REAL}" ]; then ls -l "${LIBASAN_REAL}" || true; fi
+          ldd "$(command -v zsh)" || true
+          zsh -fc 'print -r -- "zsh version: $ZSH_VERSION"' || true
           ctest --test-dir build-sanitize --output-on-failure -j 2
       - name: Print CTest log (ASan/UBSan)
         if: failure()
