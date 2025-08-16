@@ -139,11 +139,16 @@ jobs:
             -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_C_FLAGS="${CFLAGS}" \
             -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" \
-            -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
+            -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}" \
+            -DCMAKE_MODULE_LINKER_FLAGS="${LDFLAGS}"
       - name: Build (ASan/UBSan)
         run: cmake --build build-sanitize -j 2
       - name: Stage (ASan/UBSan)
-        run: cmake --build build-sanitize --target stage
+        run: |
+          set -euxo pipefail
+          cmake --build build-sanitize --target stage -- -v || true
+          echo "==== Sanitizer staged tree ===="
+          ls -lR build-sanitize/stage || true
       - name: Run tests (ASan/UBSan)
         run: |
           set -euo pipefail
@@ -164,15 +169,31 @@ jobs:
               LIBASAN_REAL="$(ldconfig -p | grep -E 'libasan\.so(\.[0-9]+)?\b' | awk '{print $NF}' | head -n1 || true)"
             fi
           fi
+          # Resolve libubsan similarly
+          LIBUBSAN_DIR="$(dirname "$(gcc -print-file-name=libubsan.so || echo /usr/lib)" 2>/dev/null)"
+          LIBUBSAN_REAL=""
+          if ls "$LIBUBSAN_DIR"/libubsan.so.* >/dev/null 2>&1; then
+            LIBUBSAN_REAL="$(ls -1 "$LIBUBSAN_DIR"/libubsan.so.* 2>/dev/null | sort -V | tail -n1)"
+          fi
+          if [ -z "$LIBUBSAN_REAL" ] && command -v ldconfig >/dev/null 2>&1; then
+            LIBUBSAN_REAL="$(ldconfig -p | grep -E 'libubsan\.so(\.[0-9]+)?\b' | awk '{print $NF}' | head -n1 || true)"
+          fi
           if [ -n "${LIBASAN_REAL}" ] && [ -f "${LIBASAN_REAL}" ]; then
             export LD_PRELOAD="${LIBASAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
             export LD_LIBRARY_PATH="$(dirname "${LIBASAN_REAL}")${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
           else
             echo "Warning: could not resolve libasan shared object; proceeding without LD_PRELOAD" >&2
           fi
+          if [ -n "${LIBUBSAN_REAL}" ] && [ -f "${LIBUBSAN_REAL}" ]; then
+            export LD_PRELOAD="${LIBUBSAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
+            export LD_LIBRARY_PATH="$(dirname "${LIBUBSAN_REAL}")${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+          else
+            echo "Warning: could not resolve libubsan shared object; proceeding without LD_PRELOAD" >&2
+          fi
           echo "Using zsh: $(command -v zsh)"
           echo "LD_PRELOAD=${LD_PRELOAD:-}"
           if [ -n "${LIBASAN_REAL:-}" ] && [ -f "${LIBASAN_REAL}" ]; then ls -l "${LIBASAN_REAL}" || true; fi
+          if [ -n "${LIBUBSAN_REAL:-}" ] && [ -f "${LIBUBSAN_REAL}" ]; then ls -l "${LIBUBSAN_REAL}" || true; fi
           ldd "$(command -v zsh)" || true
           zsh -fc 'print -r -- "zsh version: $ZSH_VERSION"' || true
           ctest --test-dir build-sanitize --output-on-failure -j 2
