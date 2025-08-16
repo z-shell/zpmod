@@ -52,7 +52,7 @@ Batch file metadata lookup.
 
 Synopsis:
 
-```
+```zsh
 zppathstat [-L] [-f fields] path...
 ```
 
@@ -81,7 +81,7 @@ Fast directory listing.
 
 Synopsis:
 
-```
+```zsh
 zpdirlist [-a] [-d|-f] array dir
 ```
 
@@ -99,7 +99,7 @@ Fast file reader into scalar or array.
 
 Synopsis:
 
-```
+```zsh
 zpreadfile [-m] [-d delim|-0] var file
 ```
 
