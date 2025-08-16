@@ -30,7 +30,11 @@ jobs:
         run: cmake -S . -B build-docs
 
       - name: Build docs
-        run: cmake --build build-docs --target docs
+        run: |
+          set -euxo pipefail
+          cmake --build build-docs --target docs
+          echo "==== Docs tree ===="
+          ls -lR build-docs/docs || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
