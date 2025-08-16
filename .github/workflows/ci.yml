@@ -46,7 +46,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install ccache
+          brew install ccache zsh
           echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
       - name: Show tool versions
@@ -70,6 +70,14 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir build-cmake --output-on-failure -j 2
+
+      - name: Print CTest log (on failure)
+        if: failure()
+        run: |
+          echo "==== CTest LastTest.log (tail) ===="
+          if test -f build-cmake/Testing/Temporary/LastTest.log; then
+            tail -n +1 build-cmake/Testing/Temporary/LastTest.log
+          fi
 
       - name: Upload CTest log (on failure)
         if: failure()
@@ -109,6 +117,8 @@ jobs:
         env:
           CFLAGS: "-O1 -fno-omit-frame-pointer -fsanitize=address,undefined"
           LDFLAGS: "-fsanitize=address,undefined"
+          ASAN_OPTIONS: detect_leaks=0:strict_string_checks=1:abort_on_error=1:log_path=asan
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: |
           cmake -S . -B build-sanitize \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -120,7 +130,32 @@ jobs:
       - name: Stage (ASan/UBSan)
         run: cmake --build build-sanitize --target stage
       - name: Run tests (ASan/UBSan)
-        run: ctest --test-dir build-sanitize --output-on-failure -j 2
+        run: |
+          set -euo pipefail
+          export ASAN_OPTIONS=detect_leaks=0:strict_string_checks=1:abort_on_error=1:log_path=asan
+          export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+          LIBASAN="$(gcc -print-file-name=libasan.so || true)"
+          if [ -n "$LIBASAN" ] && [ -f "$LIBASAN" ]; then
+            export LD_PRELOAD="$LIBASAN"
+          fi
+          ctest --test-dir build-sanitize --output-on-failure -j 2
+      - name: Print CTest log (ASan/UBSan)
+        if: failure()
+        run: |
+          echo "==== ASan/UBSan CTest LastTest.log (tail) ===="
+          if test -f build-sanitize/Testing/Temporary/LastTest.log; then
+            tail -n +1 build-sanitize/Testing/Temporary/LastTest.log
+          fi
+      - name: Upload CTest log (ASan/UBSan)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-logs-asan
+          path: |
+            build-sanitize/Testing/Temporary/LastTest.log
+            build-sanitize/asan.*.log*
+          if-no-files-found: ignore
+          retention-days: 14
 
   clang-tidy:
     name: Clang-Tidy (${{ matrix.os }})
@@ -145,7 +180,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew update
-          brew install llvm
+          brew install llvm zsh
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
       - name: Show versions
         run: |
