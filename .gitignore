@@ -16,7 +16,7 @@ compile_commands.json
 \#*
 
 /build-cmake/
-
+/build-sanitize/
 /META-FAQ
 /config.cache
 /config.h
