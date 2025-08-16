@@ -93,7 +93,8 @@ jobs:
           if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
             FOUND_MOD="$(
               find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
-                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
+                grep -E \
+                  '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
             )"
             if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
               # Normalize name to zpmod.so in stage to match zmodload expectations
@@ -105,8 +106,11 @@ jobs:
             else
               # Derive output from CMake link.txt if available (supports multi-config layouts)
               LINK_TXT="$(
-                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
-                find build-cmake/CMakeFiles -type f -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
+                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
+                  echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
+                find build-cmake/CMakeFiles -type f \
+                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
+                  head -n 1 || true
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
@@ -144,9 +148,11 @@ jobs:
             else
               # Try deriving from CMake link.txt
               LINK_TXT="$(
-                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
-                find build-cmake/CMakeFiles -type f -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
-                head -n 1 || true
+                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
+                  echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
+                find build-cmake/CMakeFiles -type f \
+                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
+                  head -n 1 || true
               )"
               if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
                 OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
