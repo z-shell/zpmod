@@ -116,7 +116,7 @@ jobs:
           retention-days: 14
 
   asan-ubsan:
-    name: ASan/UBSan (Linux)
+    name: ASan/UBSan (Linux; sanitized zsh)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -126,94 +126,48 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh
-      - name: Configure (ASan/UBSan)
+          sudo apt-get install -y build-essential autoconf automake libtool pkg-config
+      - name: Build sanitized zsh (vendor)
         env:
-          CFLAGS: "-O1 -fno-omit-frame-pointer -fsanitize=address,undefined"
+          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined"
           LDFLAGS: "-fsanitize=address,undefined"
-          ASAN_OPTIONS: detect_leaks=0:strict_string_checks=1:abort_on_error=1:log_path=asan
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          PREFIX: "${{ github.workspace }}/.zsh-asan"
+        run: |
+          set -euxo pipefail
+          cd vendor/zsh
+          ./Util/preconfig || true
+          ./configure --prefix="$PREFIX" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+          make -j2
+          make install
+          "$PREFIX/bin/zsh" --version
+      - name: Configure zpmod (sanitized)
+        env:
+          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined"
+          LDFLAGS: "-fsanitize=address,undefined"
         run: |
           cmake -S . -B build-sanitize \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DCMAKE_VERBOSE_MAKEFILE=ON \
-            -DCMAKE_C_FLAGS="${CFLAGS}" \
-            -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" \
-            -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}" \
-            -DCMAKE_MODULE_LINKER_FLAGS="${LDFLAGS}"
-      - name: Build (ASan/UBSan)
-        run: cmake --build build-sanitize -j 2
-      - name: Stage (ASan/UBSan)
+            -DCMAKE_C_FLAGS="$CFLAGS" \
+            -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS" \
+            -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS" \
+            -DZSH_EXECUTABLE="${{ github.workspace }}/.zsh-asan/bin/zsh"
+      - name: Build + Stage
         run: |
-          set -euxo pipefail
-          cmake --build build-sanitize --target stage -- -v || true
-          echo "==== Sanitizer staged tree ===="
-          ls -lR build-sanitize/stage || true
-      - name: Run tests (ASan/UBSan)
-        run: |
-          set -euo pipefail
-          # Relax link order check to accommodate runner preload quirks
-          export ASAN_OPTIONS=detect_leaks=0:strict_string_checks=1: \
-            abort_on_error=1:verify_asan_link_order=0: \
-            log_path=asan
-          export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-          # Resolve the actual libasan shared object; libasan.so can be a linker script on Ubuntu
-          LIBASAN_DIR="$(dirname "$(gcc -print-file-name=libasan.so || echo /usr/lib)" 2>/dev/null)"
-          LIBASAN_REAL=""
-          if ls "$LIBASAN_DIR"/libasan.so.* >/dev/null 2>&1; then
-            LIBASAN_REAL="$(ls -1 "$LIBASAN_DIR"/libasan.so.* 2>/dev/null | sort -V | tail -n1)"
-          fi
-          if [ -z "$LIBASAN_REAL" ]; then
-            # Fallback to ldconfig database
-            if command -v ldconfig >/dev/null 2>&1; then
-              LIBASAN_REAL="$(ldconfig -p | grep -E 'libasan\.so(\.[0-9]+)?\b' | awk '{print $NF}' | head -n1 || true)"
-            fi
-          fi
-          # Resolve libubsan similarly
-          LIBUBSAN_DIR="$(dirname "$(gcc -print-file-name=libubsan.so || echo /usr/lib)" 2>/dev/null)"
-          LIBUBSAN_REAL=""
-          if ls "$LIBUBSAN_DIR"/libubsan.so.* >/dev/null 2>&1; then
-            LIBUBSAN_REAL="$(ls -1 "$LIBUBSAN_DIR"/libubsan.so.* 2>/dev/null | sort -V | tail -n1)"
-          fi
-          if [ -z "$LIBUBSAN_REAL" ] && command -v ldconfig >/dev/null 2>&1; then
-            LIBUBSAN_REAL="$(ldconfig -p | grep -E 'libubsan\.so(\.[0-9]+)?\b' | awk '{print $NF}' | head -n1 || true)"
-          fi
-          if [ -n "${LIBASAN_REAL}" ] && [ -f "${LIBASAN_REAL}" ]; then
-            export LD_PRELOAD="${LIBASAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
-            export LD_LIBRARY_PATH="$(dirname "${LIBASAN_REAL}")${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-          else
-            echo "Warning: could not resolve libasan shared object; proceeding without LD_PRELOAD" >&2
-          fi
-          if [ -n "${LIBUBSAN_REAL}" ] && [ -f "${LIBUBSAN_REAL}" ]; then
-            export LD_PRELOAD="${LIBUBSAN_REAL}${LD_PRELOAD:+:$LD_PRELOAD}"
-            export LD_LIBRARY_PATH="$(dirname "${LIBUBSAN_REAL}")${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-          else
-            echo "Warning: could not resolve libubsan shared object; proceeding without LD_PRELOAD" >&2
-          fi
-          echo "Using zsh: $(command -v zsh)"
-          echo "LD_PRELOAD=${LD_PRELOAD:-}"
-          if [ -n "${LIBASAN_REAL:-}" ] && [ -f "${LIBASAN_REAL}" ]; then ls -l "${LIBASAN_REAL}" || true; fi
-          if [ -n "${LIBUBSAN_REAL:-}" ] && [ -f "${LIBUBSAN_REAL}" ]; then ls -l "${LIBUBSAN_REAL}" || true; fi
-          ldd "$(command -v zsh)" || true
-          zsh -fc 'print -r -- "zsh version: $ZSH_VERSION"' || true
-          ctest --test-dir build-sanitize --output-on-failure -j 2
-      - name: Print CTest log (ASan/UBSan)
-        if: failure()
-        run: |
-          echo "==== ASan/UBSan CTest LastTest.log (tail) ===="
-          if test -f build-sanitize/Testing/Temporary/LastTest.log; then
-            tail -n +1 build-sanitize/Testing/Temporary/LastTest.log
-          fi
-      - name: Upload CTest log (ASan/UBSan)
+          cmake --build build-sanitize -j 2
+          cmake --build build-sanitize --target stage
+      - name: Run tests
+        env:
+          ASAN_OPTIONS: "detect_leaks=0:strict_string_checks=1:abort_on_error=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+        run: ctest --test-dir build-sanitize --output-on-failure -j 2
+      - name: Upload CTest log (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: ctest-logs-asan
-          path: |
-            build-sanitize/Testing/Temporary/LastTest.log
-            build-sanitize/asan.*.log*
+          path: build-sanitize/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
 
   clang-tidy:
     name: Clang-Tidy (${{ matrix.os }})
