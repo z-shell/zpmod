@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
+      - name: Show tool versions
+        run: |
+          cmake --version
+          zsh --version
+
+      - name: Configure (Release)
+        run: cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-cmake -j 3
+
+      - name: Stage
+        run: cmake --build build-cmake --target stage
+
+      - name: Run tests
+        run: ctest --test-dir build-cmake --output-on-failure -j 2
