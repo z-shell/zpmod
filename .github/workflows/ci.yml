@@ -156,11 +156,30 @@ jobs:
         run: |
           cmake --build build-sanitize -j 2
           cmake --build build-sanitize --target stage
+          echo "==== Staged module dir ===="
+          ls -l build-sanitize/stage/lib/zsh/site-modules || true
+          echo "==== Staged completion ===="
+          ls -l build-sanitize/stage/share/zsh/site-functions || true
+      - name: Sanity load module with sanitized zsh
+        run: |
+          set -euxo pipefail
+          MODDIR="${{ github.workspace }}/build-sanitize/stage/lib/zsh/site-modules"
+          ZSH_BIN="${{ github.workspace }}/.zsh-asan/bin/zsh"
+          test -x "$ZSH_BIN"
+          test -e "$MODDIR/zpmod.so"
+          "$ZSH_BIN" -fc 'module_path=("'"$MODDIR"'" $module_path); zmodload -i zpmod; whence -w zpmod'
       - name: Run tests
         env:
           ASAN_OPTIONS: "detect_leaks=0:strict_string_checks=1:abort_on_error=1"
           UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
         run: ctest --test-dir build-sanitize --output-on-failure -j 2
+      - name: Print CTest log (on failure)
+        if: failure()
+        run: |
+          echo "==== CTest LastTest.log (tail) ===="
+          if test -f build-sanitize/Testing/Temporary/LastTest.log; then
+            tail -n +1 build-sanitize/Testing/Temporary/LastTest.log
+          fi
       - name: Upload CTest log (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
