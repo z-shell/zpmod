@@ -48,3 +48,11 @@ zpmod readfile [-m] [-d delim|-0] var file
 ```
 
 Read file into scalar `var` or split into array using delimiter.
+
+Notes:
+
+- If `var` is a scalar, the entire contents are stored.
+- If `var` is an array, records are split on the delimiter provided with `-d <delim>` or `-0` (NUL).
+- Escapes accepted with `-d`: `\n`, `\r`, `\t`, `\0`.
+- When splitting on `\r`, a `\r\n` sequence (CRLF) is treated as a single separator.
+- Trailing delimiters do not produce a trailing empty element (e.g., `a\nb\n` with `-d "\n"` yields `("a" "b")`).

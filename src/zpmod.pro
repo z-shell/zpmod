@@ -1,10 +1,10 @@
 /**
  * \file src/zpmod.pro
- * \brief Prototype stub for zpmod module when building out-of-tree.
- *
- * In the full zsh build, this file is generated; here we provide a minimal
- * set of prototypes for the module to enable out-of-tree builds and Doxygen
- * documentation linking.
+ * \brief Prototype stub for zpmod when building out-of-tree.
+ * \details
+ * In the in-tree zsh build, this is auto-generated (.pro/.epro). This static
+ * stub provides enough prototypes for out-of-tree compilation and keeps
+ * Doxygen cross-references intact.
  */
 /* Minimal .pro stub; in zsh build this would be generated from .syms */
 #ifndef ZPMOD_PRO

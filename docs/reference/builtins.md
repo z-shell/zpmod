@@ -110,3 +110,8 @@ Behavior:
 - `-m` may use `mmap` when available
 
 Delimiter escapes accepted with `-d`: `\n`, `\r`, `\t`, `\0`.
+
+Notes:
+
+- When splitting on `\r`, a `\r\n` sequence is treated as a single record separator (CRLF).
+- Trailing delimiters do not produce a trailing empty element (e.g., `a\nb\n` with `-d "\n"` yields `("a" "b")`).

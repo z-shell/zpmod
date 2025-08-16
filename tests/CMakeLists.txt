@@ -108,6 +108,12 @@ add_test(NAME zpmod_zpdirlist_filters
 set_tests_properties(zpmod_zpdirlist_filters PROPERTIES
   ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
 
+# macOS suffix/loader invariant
+add_test(NAME zpmod_macos_suffix
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/macos_suffix.zsh)
+set_tests_properties(zpmod_macos_suffix PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}"
+  SKIP_REGULAR_EXPRESSION "^$")
 # Additional error/edge tests
 add_test(NAME zpmod_zpreadfile_errors
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_errors.zsh)
@@ -119,10 +125,24 @@ add_test(NAME zpmod_zpreadfile_crlf
 set_tests_properties(zpmod_zpreadfile_crlf PROPERTIES
   ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
 
+add_test(NAME zpmod_zpreadfile_trailing_delim
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_trailing_delim.zsh)
+set_tests_properties(zpmod_zpreadfile_trailing_delim PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zpreadfile_mixed_line_endings
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_mixed_line_endings.zsh)
+set_tests_properties(zpmod_zpreadfile_mixed_line_endings PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+add_test(NAME zpmod_zpreadfile_empty
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_empty.zsh)
+set_tests_properties(zpmod_zpreadfile_empty PROPERTIES
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
 add_test(NAME zpmod_zppathstat_errno_fields
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_errno_fields.zsh)
 set_tests_properties(zpmod_zppathstat_errno_fields PROPERTIES
   ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
-
 
 # Note: legacy upstream zsh *.ztst tests present in this folder are ignored by CTest.

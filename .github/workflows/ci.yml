@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,38 +25,62 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Cache build
+      - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: |
-            build-cmake
+            ~/.cache/ccache
             vendor/zsh
-          key: ${{ runner.os }}-build-${{ hashFiles('CMakeLists.txt', 'src/**', 'docs/**', 'cmake/**') }}
+          key: ${{ runner.os }}-ccache-${{
+            hashFiles('CMakeLists.txt', 'src/**', 'tests/**', 'cmake/**', 'vendor/zsh/**') }}
           restore-keys: |
-            ${{ runner.os }}-build-
+            ${{ runner.os }}-ccache-
 
       - name: Install dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh
+          sudo apt-get install -y zsh ccache
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install ccache
+          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
       - name: Show tool versions
         run: |
           cmake --version
+          ccache --version || true
           zsh --version
 
       - name: Configure (Release)
-        run: cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build
-        run: cmake --build build-cmake -j 3
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: cmake --build build-cmake
 
       - name: Stage
         run: cmake --build build-cmake --target stage
 
       - name: Run tests
         run: ctest --test-dir build-cmake --output-on-failure -j 2
+
+      - name: Upload CTest log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-logs-${{ runner.os }}
+          path: |
+            build-cmake/Testing/Temporary/LastTest.log
+            build-cmake/Testing/**/Test.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload module artifact
         uses: actions/upload-artifact@v4
@@ -65,6 +89,9 @@ jobs:
           path: |
             build-cmake/out/lib/zpmod.*
             build-cmake/stage/lib/zsh/site-modules/zpmod.*
+            build-cmake/compile_commands.json
+            build-cmake/stage/share/zsh/site-functions/_zpmod
+          retention-days: 14
 
   asan-ubsan:
     name: ASan/UBSan (Linux)
@@ -82,10 +109,65 @@ jobs:
         env:
           CFLAGS: "-O1 -fno-omit-frame-pointer -fsanitize=address,undefined"
           LDFLAGS: "-fsanitize=address,undefined"
-        run: cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
+        run: |
+          cmake -S . -B build-sanitize \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_FLAGS="${CFLAGS}" \
+            -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" \
+            -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
       - name: Build (ASan/UBSan)
         run: cmake --build build-sanitize -j 2
       - name: Stage (ASan/UBSan)
         run: cmake --build build-sanitize --target stage
       - name: Run tests (ASan/UBSan)
         run: ctest --test-dir build-sanitize --output-on-failure -j 2
+
+  clang-tidy:
+    name: Clang-Tidy (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Install clang-tidy (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy zsh
+      - name: Install clang-tidy (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - name: Show versions
+        run: |
+          cmake --version
+          clang-tidy --version || true
+      - name: Configure (generate compile_commands)
+        run: cmake -S . -B build-tidy -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Run clang-tidy on src
+        run: |
+          set -e
+          files=""
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && -n "${GITHUB_BASE_REF}" ]]; then
+            git fetch origin "${GITHUB_BASE_REF}:${GITHUB_BASE_REF}" || true
+            files=$(git diff --name-only --diff-filter=ACMRT \
+              "origin/${GITHUB_BASE_REF}...HEAD" | \
+              grep -E '\\.(c|h)$' || true)
+          fi
+          if [[ -z "$files" ]]; then
+            files=$(git ls-files 'src/**/*.c' 'src/**/*.h' 'src/*.c' 'src/*.h' || true)
+          fi
+          if [[ -z "$files" ]]; then
+            echo "No source files found for clang-tidy"
+            exit 0
+          fi
+          echo "$files" | xargs -n 1 -P 2 clang-tidy -p build-tidy --quiet || true

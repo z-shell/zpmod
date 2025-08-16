@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package and upload artifacts
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install ccache
+          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh ccache
+
+      - name: Show tool versions
+        run: |
+          cmake --version
+          zsh --version
+          ccache --version || true
+
+      - name: Configure (Release)
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 3
+        run: cmake --build build-cmake
+
+      - name: Stage
+        run: cmake --build build-cmake --target stage
+
+      - name: Smoke load module
+        run: >-
+          zsh -f -c 'module_path=("$PWD/build-cmake/stage/lib/zsh/site-modules" $module_path);
+          zmodload -i zpmod && print -r -- "zpmod load OK"'
+
+      - name: Package with CPack
+        run: |
+          cmake --build build-cmake --target package || true
+
+      - name: Generate SHA256 checksums
+        run: |
+          set -euo pipefail
+          cd build-cmake
+          : > SHA256SUMS
+          list="$(ls out/lib/zpmod.* 2>/dev/null || true) $(ls *.tar.* *.tgz 2>/dev/null || true)"
+          for f in $list; do
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum "$f" >> SHA256SUMS
+            else
+              shasum -a 256 "$f" >> SHA256SUMS
+            fi
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zpmod-${{ runner.os }}-artifacts
+          path: |
+            build-cmake/out/lib/zpmod.*
+            build-cmake/stage/**
+            build-cmake/*.tar.*
+            build-cmake/*.tgz
+            build-cmake/SHA256SUMS
+          retention-days: 14
+
+  github-release:
+    name: Create GitHub Release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

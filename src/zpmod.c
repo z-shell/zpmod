@@ -121,6 +121,14 @@ static int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
  *   path=...,type=f|d|l|?,size=...,mode=octal,mtime=epoch
  * On error for an item, includes errno=NUM and type=?
  */
+/**
+ * \brief Builtin: zppathstat — batch stat/lstat over an input array.
+ * \param nam   The builtin name for diagnostics.
+ * \param argv  Arguments: out_array, in_array.
+ * \param ops   Options parsed by zsh (supports -L and -f fields).
+ * \param func  Builtin dispatch code (unused).
+ * \return 0 on success; non-zero on usage or runtime errors.
+ */
 static int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
                           UNUSED(int func)) {
   int follow = OPT_ISSET(ops, 'L');
@@ -140,6 +148,14 @@ static int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
  * -d only directories
  * -f only regular files
  */
+/**
+ * \brief Builtin: zpdirlist — list directory entries without recursion.
+ * \param nam   The builtin name for diagnostics.
+ * \param argv  Arguments: out_array, dir.
+ * \param ops   Options: -a (include dotfiles), -d (dirs only), -f (files only).
+ * \param func  Builtin dispatch code (unused).
+ * \return 0 on success; non-zero on usage or runtime errors.
+ */
 static int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
                          UNUSED(int func)) {
   int inc_all = OPT_ISSET(ops, 'a');
@@ -153,6 +169,14 @@ static int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
 }
 
 /* zpreadfile: read entire file into scalar or array split by delim */
+/**
+ * \brief Builtin: zpreadfile — fast file reader into scalar or array.
+ * \param nam   The builtin name for diagnostics.
+ * \param argv  Arguments: out_var, file.
+ * \param ops   Options: -m (mmap when available), -d <delim> or -0 (NUL
+ * splitting). \param func  Builtin dispatch code (unused). \return 0 on
+ * success; non-zero on usage or runtime errors.
+ */
 static int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
                           UNUSED(int func)) {
   int use_mmap = OPT_ISSET(ops, 'm');
@@ -187,6 +211,10 @@ static int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
       } else {
         delim = (unsigned char)a[0];
       }
+    } else {
+      /* -d present but argument is empty or unusable: default to newline */
+      split = 1;
+      delim = '\n';
     }
   }
   if (!argv || !argv[0] || !argv[1]) {
@@ -197,6 +225,15 @@ static int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
 }
 
 /* ===== Shared helper implementations ===== */
+/**
+ * \brief Core implementation for zppathstat and zpmod pathstat subcommand.
+ * \param nam     Builtin/subcommand name for diagnostics.
+ * \param outname Name of output array parameter to populate.
+ * \param inname  Name of input array parameter containing paths.
+ * \param follow  When non-zero, use stat() instead of lstat() for symlinks.
+ * \param fields  Optional comma-separated subset of fields to emit (NULL =
+ * all). \return 0 on success; non-zero on errors (and prints diagnostics).
+ */
 static int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
                             char *fields) {
   char **inarr = getaparam(inname);
@@ -284,6 +321,16 @@ static int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
   return 0;
 }
 
+/**
+ * \brief Core implementation for zpdirlist and zpmod dirlist subcommand.
+ * \param nam        Builtin/subcommand name for diagnostics.
+ * \param outname    Name of output array parameter to populate.
+ * \param dir        Directory path (metafied) to scan.
+ * \param inc_all    Include dotfiles when true.
+ * \param only_dirs  Filter to directories only when true.
+ * \param only_files Filter to regular files only when true.
+ * \return 0 on success; non-zero on errors.
+ */
 static int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
                            int only_dirs, int only_files) {
   /* Unmetafy dir for syscalls */
@@ -330,6 +377,16 @@ static int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
   return 0;
 }
 
+/**
+ * \brief Core implementation for zpreadfile and zpmod readfile subcommand.
+ * \param nam      Builtin/subcommand name for diagnostics.
+ * \param outname  Name of target parameter (scalar or array).
+ * \param path     File path (metafied) to read.
+ * \param use_mmap Use mmap when available to map the file into memory.
+ * \param split    When non-zero, split content by delimiter into an array.
+ * \param delim    Delimiter character when split is enabled.
+ * \return 0 on success; non-zero on errors (and prints diagnostics).
+ */
 static int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
                             int split, int delim) {
   int plen = 0;
@@ -428,7 +485,14 @@ static int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
       char indexed[256];
       snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
       setsparam(indexed, rec);
-      start = i + 1;
+      if ((unsigned char)delim == (unsigned char)'\r' && (i + 1) < sz &&
+          (unsigned char)buf[i + 1] == (unsigned char)'\n') {
+        /* Treat CRLF as a single separator when splitting on CR */
+        start = i + 2;
+        ++i; /* skip the LF */
+      } else {
+        start = i + 1;
+      }
     }
   }
   if (start < sz) {

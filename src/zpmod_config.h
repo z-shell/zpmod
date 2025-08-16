@@ -1,17 +1,10 @@
-/* Minimal configuration header for out-of-tree builds without autoconf.
 /**
  * \file src/zpmod_config.h
- * \brief zpmod module source file.
- *
- * This file is part of the zpmod zsh module.
- * It participates in Doxygen documentation generation.
- */
-/**
- * \file src/zpmod_config.h
- * \brief zpmod module source file.
- *
- * This file is part of the zpmod zsh module.
- * It participates in Doxygen documentation generation.
+ * \brief Minimal configuration header for out-of-tree builds without autoconf.
+ * \details
+ * When building the module outside the full zsh tree, this header provides a
+ * conservative set of feature macros typically produced by configure. It also
+ * exists to make Doxygen indexing complete when the real config.h is absent.
  */
 
 #ifndef ZPMOD_CONFIG_H

@@ -7,22 +7,23 @@ moddir=${ZPMOD_STAGE_MODULE_DIR:-}
 module_path=($moddir $module_path)
 zmodload -i zpmod
 
+# LF case: a\nb\n -> two elements a, b
 local f d
 : ${TMPDIR:=/tmp}
-d=${TMPDIR%/}/zpmod_rf_crlf.$RANDOM
+d=${TMPDIR%/}/zpmod_rf_trail.$RANDOM
 mkdir -p $d
 f=$d/x
-# Write CRLF lines (real CR and LF bytes)
-print -n -- $'a\r\nb\r\n' > $f
-
+print -n -- $'a\nb\n' > $f
 local -a A
-zpreadfile -d '\n' A $f   # split by LF
+zpreadfile -d '\n' A $f
 (( ${#A} == 2 ))
-[[ ${A[1]} == $'a\r' ]]
-[[ ${A[2]} == $'b\r' ]]
+[[ ${A[1]} == 'a' ]]
+[[ ${A[2]} == 'b' ]]
 
+# CR case: a\rb\r -> two elements a, b
+print -n -- $'a\rb\r' > $f
 local -a B
-zpreadfile -d '\r' B $f   # split by CR
+zpreadfile -d '\r' B $f
 (( ${#B} == 2 ))
 [[ ${B[1]} == 'a' ]]
 [[ ${B[2]} == 'b' ]]

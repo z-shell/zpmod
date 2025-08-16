@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(zpmod C)
 
+# Enforce a portable C standard across toolchains
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 # Adopt standard install dir variables and centralize build output directories
 include(GNUInstallDirs)
 
