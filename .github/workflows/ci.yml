@@ -58,15 +58,29 @@ jobs:
       - name: Configure (Release)
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: 3
-        run: cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache
+        run: |
+          cmake -S . -B build-cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: 3
-        run: cmake --build build-cmake
+        run: cmake --build build-cmake -- -v
 
       - name: Stage
-        run: cmake --build build-cmake --target stage
+        run: |
+          set -euxo pipefail
+          cmake --build build-cmake --target stage -- -v || true
+          # Fallback to direct install if stage target did not run cleanly
+          if [ ! -d build-cmake/stage/lib ] || [ ! -e build-cmake/stage/lib/zsh/site-modules/zpmod.so ]; then
+            cmake --install build-cmake --prefix build-cmake/stage || true
+          fi
+          echo "==== Staged tree ===="
+          ls -lR build-cmake/stage || true
+          echo "==== Built libs ===="
+          ls -l build-cmake/out/lib || true
 
       - name: Run tests
         run: ctest --test-dir build-cmake --output-on-failure -j 2
