@@ -66,6 +66,8 @@ jobs:
           cmake --version
           zsh --version
           ccache --version || true
+          echo "CMAKE_GENERATOR=$(cmake -S . -B build-cmake -LA 2>/dev/null >/dev/null || true; \
+            awk -F= '/^CMAKE_GENERATOR:/{print $2}' build-cmake/CMakeCache.txt 2>/dev/null || true)"
 
       - name: Configure (Release)
         run: |
@@ -100,6 +102,21 @@ jobs:
               echo "Copied module from $FOUND_MOD to $STAGE_TARGET" || true
               # Print file type for diagnostics
               (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
+            else
+              # Derive output from CMake link.txt if available (supports multi-config layouts)
+              LINK_TXT="$(
+                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
+                find build-cmake/CMakeFiles -type f -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
+              )"
+              if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
+                OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
+                if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
+                  STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
+                  cp -f "$OUT_PATH" "$STAGE_TARGET"
+                  echo "Copied module from $OUT_PATH to $STAGE_TARGET (via link.txt)" || true
+                  (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
+                fi
+              fi
             fi
           fi
           echo "==== Staged tree ===="
@@ -124,6 +141,21 @@ jobs:
               mkdir -p "$MODDIR"
               cp -f "$FOUND_MOD" "$MODDIR/zpmod.so" || true
               echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
+            else
+              # Try deriving from CMake link.txt
+              LINK_TXT="$(
+                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
+                find build-cmake/CMakeFiles -type f -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | \
+                head -n 1 || true
+              )"
+              if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
+                OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
+                if [ -n "$OUT_PATH" ] && [ -f "$OUT_PATH" ]; then
+                  mkdir -p "$MODDIR"
+                  cp -f "$OUT_PATH" "$MODDIR/zpmod.so" || true
+                  echo "Backfilled staged dir with $OUT_PATH (via link.txt) as zpmod.so"
+                fi
+              fi
             else
               echo "No module found in build tree. Diagnostics:"
               find build-cmake -maxdepth 8 -type f -print | grep -E 'zpmod' || true
