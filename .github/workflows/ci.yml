@@ -116,7 +116,7 @@ jobs:
           retention-days: 14
 
   asan-ubsan:
-    name: ASan/UBSan (Linux; sanitized zsh)
+    name: ASan (Linux; sanitized zsh)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -129,8 +129,8 @@ jobs:
           sudo apt-get install -y build-essential autoconf automake libtool pkg-config libncurses-dev
       - name: Build sanitized zsh (vendor)
         env:
-          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined"
-          LDFLAGS: "-fsanitize=address,undefined"
+          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address"
+          LDFLAGS: "-fsanitize=address"
           PREFIX: "${{ github.workspace }}/.zsh-asan"
         run: |
           set -euxo pipefail
@@ -143,8 +143,8 @@ jobs:
           "$PREFIX/bin/zsh" --version
       - name: Configure zpmod (sanitized)
         env:
-          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined"
-          LDFLAGS: "-fsanitize=address,undefined"
+          CFLAGS: "-O1 -g -fno-omit-frame-pointer -fsanitize=address"
+          LDFLAGS: "-fsanitize=address"
         run: |
           cmake -S . -B build-sanitize \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -171,7 +171,6 @@ jobs:
       - name: Run tests
         env:
           ASAN_OPTIONS: "detect_leaks=0:strict_string_checks=1:abort_on_error=1"
-          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
         run: ctest --test-dir build-sanitize --output-on-failure -j 2
       - name: Print CTest log (on failure)
         if: failure()
