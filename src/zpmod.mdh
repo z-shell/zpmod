@@ -9,9 +9,10 @@ _Pragma("GCC diagnostic push")
 #ifndef have_zpmod_module
 #define have_zpmod_module
 
-/* Prefer the vendored zsh-generated header which pulls in
- * config.h, system headers, core prototypes, and *.epro files. */
-#if defined(__has_include)
+/* Prefer a curated fallback over vendored zsh.mdh to avoid prototypes.h
+ * conflicts on some platforms. You can opt-in to using zsh.mdh by defining
+ * ZPMOD_USE_ZSH_MDH. */
+#if defined(ZPMOD_USE_ZSH_MDH) && defined(__has_include)
 # if __has_include("zsh.mdh")
 #  include "zsh.mdh"
 #  define ZSH_MDH_INCLUDED 1
@@ -31,43 +32,116 @@ _Pragma("GCC diagnostic push")
 # include "zsh_system.h"
 # include "zsh.h"
 # include "signals.h"
+# if defined(__has_include)
+#  if __has_include("sigcount.h")
+#   include "sigcount.h"
+#  endif
+# endif
 # include "hashtable.h"
 # include "ztype.h"
+
+/* Ensure import macros are defined so epro prototypes compile. */
+# ifndef mod_import_variable
+#  define mod_import_variable
+# endif
+# ifndef mod_import_function
+#  define mod_import_function
+# endif
 /* Pull in vendored zsh prototype headers if available to declare
  * core APIs (zalloc/zfree, params, utils, module, etc.). */
 # if defined(__has_include)
-#  if __has_include("mem.epro")
-#   include "mem.epro"
+#  if __has_include("builtin.epro")
+#   include "builtin.epro"
 #  endif
-#  if __has_include("params.epro")
-#   include "params.epro"
+#  if __has_include("compat.epro")
+#   include "compat.epro"
 #  endif
-#  if __has_include("utils.epro")
-#   include "utils.epro"
+#  if __has_include("cond.epro")
+#   include "cond.epro"
 #  endif
-#  if __has_include("module.epro")
-#   include "module.epro"
-#  endif
-#  if __has_include("hashtable.epro")
-#   include "hashtable.epro"
-#  endif
-#  if __has_include("options.epro")
-#   include "options.epro"
-#  endif
-#  if __has_include("signals.epro")
-#   include "signals.epro"
+#  if __has_include("context.epro")
+#   include "context.epro"
 #  endif
 #  if __has_include("exec.epro")
 #   include "exec.epro"
 #  endif
-#  if __has_include("parse.epro")
-#   include "parse.epro"
+#  if __has_include("glob.epro")
+#   include "glob.epro"
 #  endif
-#  if __has_include("builtin.epro")
-#   include "builtin.epro"
+#  if __has_include("hashtable.epro")
+#   include "hashtable.epro"
+#  endif
+#  if __has_include("hashnameddir.epro")
+#   include "hashnameddir.epro"
+#  endif
+#  if __has_include("hist.epro")
+#   include "hist.epro"
+#  endif
+#  if __has_include("init.epro")
+#   include "init.epro"
+#  endif
+#  if __has_include("input.epro")
+#   include "input.epro"
 #  endif
 #  if __has_include("jobs.epro")
 #   include "jobs.epro"
+#  endif
+#  if __has_include("lex.epro")
+#   include "lex.epro"
+#  endif
+#  if __has_include("linklist.epro")
+#   include "linklist.epro"
+#  endif
+#  if __has_include("loop.epro")
+#   include "loop.epro"
+#  endif
+#  if __has_include("math.epro")
+#   include "math.epro"
+#  endif
+#  if __has_include("mem.epro")
+#   include "mem.epro"
+#  endif
+#  if __has_include("module.epro")
+#   include "module.epro"
+#  endif
+#  if __has_include("options.epro")
+#   include "options.epro"
+#  endif
+#  if __has_include("params.epro")
+#   include "params.epro"
+#  endif
+#  if __has_include("parse.epro")
+#   include "parse.epro"
+#  endif
+#  if __has_include("pattern.epro")
+#   include "pattern.epro"
+#  endif
+#  if __has_include("prompt.epro")
+#   include "prompt.epro"
+#  endif
+#  if __has_include("signals.epro")
+#   include "signals.epro"
+#  endif
+#  if __has_include("signames.epro")
+#   include "signames.epro"
+#  endif
+#  if __has_include("sort.epro")
+#   include "sort.epro"
+#  endif
+#  if __has_include("string.epro")
+#   include "string.epro"
+#  endif
+#  if __has_include("subst.epro")
+#   include "subst.epro"
+#  endif
+#  if __has_include("text.epro")
+#   include "text.epro"
+#  endif
+#  if __has_include("utils.epro")
+#   include "utils.epro"
+#  endif
+#  if __has_include("openssh_bsd_setres_id.epro")
+#   include "openssh_bsd_setres_id.epro"
 #  endif
 # endif
 #endif /* !ZSH_MDH_INCLUDED */
