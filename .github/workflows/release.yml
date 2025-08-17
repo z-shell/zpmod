@@ -59,7 +59,8 @@ jobs:
             yodl \
             libncurses5-dev \
             libpcre3-dev \
-            libgdbm-dev
+            libgdbm-dev \
+            zsh
 
       - name: Install build dependencies (macOS)
         if: matrix.os == 'macos-latest'
