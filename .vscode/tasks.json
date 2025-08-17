@@ -46,6 +46,16 @@
       "label": "CTest: smoke",
       "type": "shell",
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure"
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
     }
   ]
 }
