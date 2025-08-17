@@ -74,16 +74,26 @@ jobs:
           set -euo pipefail
           cmake --build build-cmake --target stage
 
-      - name: Ensure module is in staged site-modules
+      - name: Locate and stage module
         run: |
           set -euo pipefail
           MODLIBDIR=$(cmake -LA -N build-cmake 2>/dev/null | grep '^CMAKE_INSTALL_LIBDIR:' | cut -d= -f2 || true)
           MODLIBDIR=${MODLIBDIR:-lib}
           MODDIR="build-cmake/stage/${MODLIBDIR}/zsh/site-modules"
-          [ -d "$MODDIR" ] || MODDIR="build-cmake/stage/lib/zsh/site-modules"
+          if [ ! -d "$MODDIR" ]; then MODDIR="build-cmake/stage/lib/zsh/site-modules"; fi
           mkdir -p "$MODDIR"
-          if [ ! -e "$MODDIR/zpmod.so" ] && [ -f build-cmake/out/lib/zpmod.so ]; then
-            cp -f build-cmake/out/lib/zpmod.so "$MODDIR/zpmod.so"
+          CANDIDATE=""
+          if [ -f build-cmake/out/lib/zpmod.so ]; then CANDIDATE="build-cmake/out/lib/zpmod.so"; fi
+          if [ -z "$CANDIDATE" ]; then
+            CANDIDATE=$(find build-cmake -type f -name 'zpmod.*' | grep -E '/(lib)?zpmod\.(so|dylib|bundle)$' | head -n1 || true)
+          fi
+          if [ -z "$CANDIDATE" ] && [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ]; then
+            OUT_PATH=$(sed -n 's/.* -o \([^ ]*\).*/\1/p' build-cmake/CMakeFiles/zpmod.dir/link.txt | head -n1 || true)
+            if [ -n "${OUT_PATH:-}" ] && [ "${OUT_PATH#/*}" = "$OUT_PATH" ]; then OUT_PATH="build-cmake/${OUT_PATH}"; fi
+            if [ -n "${OUT_PATH:-}" ] && [ -f "$OUT_PATH" ]; then CANDIDATE="$OUT_PATH"; fi
+          fi
+          if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE" ]; then
+            cp -f "$CANDIDATE" "$MODDIR/zpmod.so"
           fi
           ls -la "$MODDIR" || true
 
@@ -98,7 +108,7 @@ jobs:
             echo "zsh not found" >&2
             exit 1
           fi
-          zsh -fc "module_path=(\"$MODDIR\" $module_path); zmodload -i zpmod && print -r -- 'zpmod smoke OK'"
+          zsh -fc "module_path=(\"$MODDIR\" $module_path); print -r -- module_path=$module_path; zmodload -i zpmod && print -r -- 'zpmod smoke OK'"
 
       - name: Package (CPack TGZ)
         run: |

@@ -34,6 +34,28 @@ _Pragma("GCC diagnostic push")
 # include "prototypes.h"
 # include "hashtable.h"
 # include "ztype.h"
+/* Pull in vendored zsh prototype headers if available to declare
+ * core APIs (zalloc/zfree, params, utils, module, etc.). */
+# if defined(__has_include)
+#  if __has_include("mem.epro")
+#   include "mem.epro"
+#  endif
+#  if __has_include("params.epro")
+#   include "params.epro"
+#  endif
+#  if __has_include("utils.epro")
+#   include "utils.epro"
+#  endif
+#  if __has_include("module.epro")
+#   include "module.epro"
+#  endif
+#  if __has_include("hashtable.epro")
+#   include "hashtable.epro"
+#  endif
+#  if __has_include("options.epro")
+#   include "options.epro"
+#  endif
+# endif
 #endif /* !ZSH_MDH_INCLUDED */
 
 /* Ensure mod_export is defined for module symbols */
