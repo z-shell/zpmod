@@ -81,12 +81,12 @@ jobs:
           cd build-cmake
 
           # Generate checksums for all package files
-          for file in *.tar.* *.zip *.dmg 2>/dev/null; do
+          for file in *.tar.* *.zip *.dmg; do
             if [ -f "$file" ]; then
-              sha256sum "$file" >> SHA256SUMS.txt || shasum -a 256 "$file" >> SHA256SUMS.txt
+              sha256sum "$file" >> SHA256SUMS.txt 2>/dev/null || shasum -a 256 "$file" >> SHA256SUMS.txt
               echo "Generated checksum for: $file"
             fi
-          done
+          done 2>/dev/null || true
 
           if [ -f SHA256SUMS.txt ]; then
             echo "Package checksums:"
