@@ -17,6 +17,12 @@
 #include "zpmod.pro"
 #include "zpmod_version.h"
 
+/* Fallback prototypes when building without generated zsh.mdh/epro headers */
+#ifndef ZSH_MDH_INCLUDED
+extern void deletehashtable(HashTable ht);
+extern char *getsparam(char *s);
+#endif
+
 /* Optional terminal/locale detection for emoji support */
 #include <dirent.h>
 #include <errno.h>
