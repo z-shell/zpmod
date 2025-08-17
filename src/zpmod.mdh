@@ -31,7 +31,6 @@ _Pragma("GCC diagnostic push")
 # include "zsh_system.h"
 # include "zsh.h"
 # include "signals.h"
-# include "prototypes.h"
 # include "hashtable.h"
 # include "ztype.h"
 /* Pull in vendored zsh prototype headers if available to declare
@@ -54,6 +53,21 @@ _Pragma("GCC diagnostic push")
 #  endif
 #  if __has_include("options.epro")
 #   include "options.epro"
+#  endif
+#  if __has_include("signals.epro")
+#   include "signals.epro"
+#  endif
+#  if __has_include("exec.epro")
+#   include "exec.epro"
+#  endif
+#  if __has_include("parse.epro")
+#   include "parse.epro"
+#  endif
+#  if __has_include("builtin.epro")
+#   include "builtin.epro"
+#  endif
+#  if __has_include("jobs.epro")
+#   include "jobs.epro"
 #  endif
 # endif
 #endif /* !ZSH_MDH_INCLUDED */
