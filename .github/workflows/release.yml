@@ -1,7 +1,3 @@
-# Release workflow
-# - Trigger: tag pushes matching v*
-# - Build matrix: Ubuntu + macOS
-# - Outputs: staged module, built library, CPack packages, SHA256SUMS
 name: Release
 
 on:
@@ -10,32 +6,30 @@ on:
       - "v*"
   workflow_dispatch:
 
-defaults:
-  run:
-    shell: bash
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  package:
-    name: Package and upload artifacts
+  build:
+    name: Build + Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    env:
-      CMAKE_BUILD_PARALLEL_LEVEL: 3
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Cache ccache
@@ -44,197 +38,111 @@ jobs:
           path: |
             ~/.cache/ccache
           key: |
-            ${{ runner.os }}-ccache-release-${{hashFiles('CMakeLists.txt', 'src/**', 'cmake/**') }}
+            ${{ runner.os }}-ccache-release-${{ hashFiles('CMakeLists.txt', 'src/**', 'cmake/**') }}
           restore-keys: |
             ${{ runner.os }}-ccache-
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install ccache ninja
-          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
       - name: Install dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y zsh ccache ninja-build
+          sudo apt-get install -y ninja-build zsh ccache
 
-      - name: Show tool versions
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
         run: |
-          cmake --version
-          zsh --version
-          ccache --version || true
-          GEN_VAL="$(awk -F= '/^CMAKE_GENERATOR:/{print $2}' build-cmake/CMakeCache.txt 2>/dev/null || true)"
-          if [ -n "$GEN_VAL" ]; then
-            echo "CMAKE_GENERATOR cache: $GEN_VAL"
-          else
-            echo "CMAKE_GENERATOR cache: unknown (not configured yet)"
-          fi
+          set -euo pipefail
+          brew install ninja ccache || true
+          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
 
-      - name: Configure (Release)
+      - name: Configure (Ninja, Release)
         run: |
+          set -euo pipefail
           rm -rf build-cmake
-          cmake -G Ninja -S . -B build-cmake \
+          cmake -S . -B build-cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_VERBOSE_MAKEFILE=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
-      - name: Build
-        run: cmake --build build-cmake --target zpmod -- -v
-
-      - name: Stage
+      - name: Build module
         run: |
-          set -euxo pipefail
-          cmake --build build-cmake --target stage -- -v || true
-          # Fallback to direct install if stage target did not run cleanly
-          if [ ! -d build-cmake/stage/lib ] || [ ! -e build-cmake/stage/lib/zsh/site-modules/zpmod.so ]; then
-            cmake --install build-cmake --prefix build-cmake/stage || true
-          fi
-          # If the module still isn't in the staged directory, copy the built artifact as a final fallback
-          STAGE_MODDIR="build-cmake/stage/lib/zsh/site-modules"
-          mkdir -p "$STAGE_MODDIR"
-          if [ ! -e "$STAGE_MODDIR/zpmod.so" ] && [ ! -e "$STAGE_MODDIR/zpmod.dylib" ]; then
-            # Try to find a produced module in the build tree
-            FOUND_MOD="$(
-              find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
-                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
-            )"
-            # If not found, derive from CMake link.txt
-            if [ -z "$FOUND_MOD" ]; then
-              LINK_TXT="$(
-                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
-                  echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
-                find build-cmake/CMakeFiles -type f \
-                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
-              )"
-              if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
-                OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
-                if [ -n "$OUT_PATH" ]; then
-                  case "$OUT_PATH" in
-                    /*) OUT_ABS="$OUT_PATH" ;;
-                    *) OUT_ABS="build-cmake/$OUT_PATH" ;;
-                  esac
-                  if [ -f "$OUT_ABS" ]; then
-                    FOUND_MOD="$OUT_ABS"
-                  fi
-                fi
-              fi
-            fi
-            # If we have a candidate, copy it into stage as zpmod.so
-            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
-              STAGE_TARGET="$STAGE_MODDIR/zpmod.so"
-              cp -f "$FOUND_MOD" "$STAGE_TARGET"
-              echo "Copied module from $FOUND_MOD to $STAGE_TARGET" || true
-              (command -v file >/dev/null 2>&1 && file "$STAGE_TARGET") || true
-            fi
-          fi
-          echo "==== Staged tree ===="
-          ls -lR build-cmake/stage || true
-          echo "==== Built libs ===="
-          ls -l build-cmake/out/lib || true
+          set -euo pipefail
+          cmake --build build-cmake -j 2
 
-      - name: Smoke load module
+      - name: Stage install
         run: |
-          set -euxo pipefail
-          MODDIR="$PWD/build-cmake/stage/lib/zsh/site-modules"
-          echo "Preferred MODDIR=$MODDIR"
-          # Ensure staged dir exists and has a module; if not, search elsewhere and backfill
-          if [ ! -d "$MODDIR" ] || { [ ! -f "$MODDIR/zpmod.so" ] && [ ! -f "$MODDIR/zpmod.dylib" ]; }; then
-            echo "Staged module missing; searching build tree for a candidate..."
-            FOUND_MOD="$(
-              find build-cmake -maxdepth 8 -type f -print 2>/dev/null | \
-                grep -E '/(lib)?zpmod\.(so|dylib|bundle)$|/(lib)?zpmod$' | head -n 1 || true
-            )"
-            if [ -z "$FOUND_MOD" ]; then
-              LINK_TXT="$(
-                [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ] && \
-                  echo build-cmake/CMakeFiles/zpmod.dir/link.txt || \
-                find build-cmake/CMakeFiles -type f \
-                  -path '*/zpmod.dir/*/link.txt' -print 2>/dev/null | head -n 1 || true
-              )"
-              if [ -n "$LINK_TXT" ] && [ -f "$LINK_TXT" ]; then
-                OUT_PATH="$(awk '{for(i=1;i<=NF;i++){if($i=="-o"){print $(i+1); exit}}}' "$LINK_TXT" | sed 's/\"//g')"
-                if [ -n "$OUT_PATH" ]; then
-                  case "$OUT_PATH" in
-                    /*) OUT_ABS="$OUT_PATH" ;;
-                    *) OUT_ABS="build-cmake/$OUT_PATH" ;;
-                  esac
-                  if [ -f "$OUT_ABS" ]; then
-                    FOUND_MOD="$OUT_ABS"
-                  fi
-                fi
-              fi
-            fi
-            if [ -n "$FOUND_MOD" ] && [ -f "$FOUND_MOD" ]; then
-              echo "Found candidate module: $FOUND_MOD"
-              mkdir -p "$MODDIR"
-              cp -f "$FOUND_MOD" "$MODDIR/zpmod.so" || true
-              echo "Backfilled staged dir with $FOUND_MOD as zpmod.so"
-            else
-              echo "No module found in build tree. Diagnostics:"
-              find build-cmake -maxdepth 8 -type f -print | grep -E 'zpmod' || true
-              exit 1
-            fi
+          set -euo pipefail
+          cmake --build build-cmake --target stage
+
+      - name: Ensure module is in staged site-modules
+        run: |
+          set -euo pipefail
+          MODLIBDIR=$(cmake -LA -N build-cmake 2>/dev/null | grep '^CMAKE_INSTALL_LIBDIR:' | cut -d= -f2 || true)
+          MODLIBDIR=${MODLIBDIR:-lib}
+          MODDIR="build-cmake/stage/${MODLIBDIR}/zsh/site-modules"
+          [ -d "$MODDIR" ] || MODDIR="build-cmake/stage/lib/zsh/site-modules"
+          mkdir -p "$MODDIR"
+          if [ ! -e "$MODDIR/zpmod.so" ] && [ -f build-cmake/out/lib/zpmod.so ]; then
+            cp -f build-cmake/out/lib/zpmod.so "$MODDIR/zpmod.so"
           fi
-          # Show what's staged now
           ls -la "$MODDIR" || true
-          export MODDIR
-          # Load module from the available directory explicitly
-          zsh -fc 'print -r -- "zsh: $ZSH_VERSION"; \
-                   print -r -- "Before module_path:"; print -lr -- $module_path; \
-                   zmodload -d "${MODDIR}"; \
-                   print -r -- "After module_path:"; print -lr -- $module_path; \
-                   zmodload -i zpmod; \
-                   zmodload -L zpmod || true; \
-                   whence -w zpmod || true'
 
-      - name: Package with CPack
+      - name: Smoke test (zmodload)
         run: |
-          cmake --build build-cmake --target package || true
+          set -euo pipefail
+          MODLIBDIR=$(cmake -LA -N build-cmake 2>/dev/null | grep '^CMAKE_INSTALL_LIBDIR:' | cut -d= -f2 || true)
+          MODLIBDIR=${MODLIBDIR:-lib}
+          MODDIR="build-cmake/stage/${MODLIBDIR}/zsh/site-modules"
+          [ -d "$MODDIR" ] || MODDIR="build-cmake/stage/lib/zsh/site-modules"
+          if ! command -v zsh >/dev/null 2>&1; then
+            echo "zsh not found" >&2
+            exit 1
+          fi
+          zsh -fc "module_path=(\"$MODDIR\" $module_path); zmodload -i zpmod && print -r -- 'zpmod smoke OK'"
 
-      - name: Generate SHA256 checksums
+      - name: Package (CPack TGZ)
         run: |
-          set -euxo pipefail
-          cd build-cmake
-          : > SHA256SUMS
-          list="$(ls out/lib/zpmod.* 2>/dev/null || true) $(ls *.tar.* *.tgz 2>/dev/null || true)"
-          for f in $list; do
-            if command -v sha256sum >/dev/null 2>&1; then
-              sha256sum "$f" >> SHA256SUMS
+          set -euo pipefail
+          (cd build-cmake && cpack -G TGZ)
+          ls -la build-cmake/*.tar.gz build-cmake/*.tgz || true
+
+      - name: Compute checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(build-cmake/*.tar.gz build-cmake/*.tgz)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No packages found" >&2
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            if [ "${RUNNER_OS:-}" = "macOS" ]; then
+              shasum -a 256 "$f" > "${f}.sha256"
             else
-              shasum -a 256 "$f" >> SHA256SUMS
+              sha256sum "$f" > "${f}.sha256"
             fi
           done
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: zpmod-${{ runner.os }}-${{ github.ref_name }}-artifacts
+          name: zpmod-${{ runner.os }}-${{ github.ref_name || github.run_number }}
           path: |
-            build-cmake/out/lib/zpmod.*
-            build-cmake/stage/**
-            build-cmake/*.tar.*
+            build-cmake/*.tar.gz
             build-cmake/*.tgz
-            build-cmake/SHA256SUMS
+            build-cmake/*.sha256
           retention-days: 14
 
-  github-release:
-    name: Create GitHub Release
-    needs: package
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - name: Publish GitHub Release (tag pushes)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: ncipollo/release-action@v1
         with:
-          path: dist
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/**
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+          allowUpdates: true
+          draft: false
+          generateReleaseNotes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          artifacts: |
+            build-cmake/*.tar.gz
+            build-cmake/*.tgz
+            build-cmake/*.sha256
