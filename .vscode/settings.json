@@ -32,8 +32,20 @@
 
   // Associate zsh files and set a formatter
   "files.associations": {
+    "*.lzui": "shellscript",
+    "zui-event-loop": "shellscript",
+    "*za-*": "shellscript",
+    "*z-a-*": "shellscript",
+    "*zew-*": "shellscript",
+    "*.ch": "shellscript",
+    "_headers": "ini",
+    "*.zunit": "shellscript",
+    "*.html": "html",
+    "*.main": "shellscript",
+    "*.gitconfig": "git-configuration",
     "*.zsh": "shellscript",
-    "*.ztst": "shellscript"
+    "*.ztst": "shellscript",
+    "*.epro": "cpp"
   },
 
   // Keep Trunk from running on build artifacts in the Problems panel too
