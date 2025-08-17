@@ -21,6 +21,7 @@ _Pragma("GCC diagnostic push")
 
 /* Fallback: minimal includes for out-of-tree builds without zsh.mdh */
 #ifndef ZSH_MDH_INCLUDED
+# include "hashtable.h"
 # ifdef HAVE_CONFIG_H
 #  include "config.h"
 # else
@@ -144,6 +145,38 @@ _Pragma("GCC diagnostic push")
 #   include "openssh_bsd_setres_id.epro"
 #  endif
 # endif
+/* Pull in vendored zsh prototype headers to declare internals. */
+# include "builtin.epro"
+# include "compat.epro"
+# include "cond.epro"
+# include "context.epro"
+# include "exec.epro"
+# include "glob.epro"
+# include "hashtable.epro"
+# include "hashnameddir.epro"
+# include "hist.epro"
+# include "init.epro"
+# include "input.epro"
+# include "jobs.epro"
+# include "lex.epro"
+# include "linklist.epro"
+# include "loop.epro"
+# include "math.epro"
+# include "mem.epro"
+# include "module.epro"
+# include "options.epro"
+# include "params.epro"
+# include "parse.epro"
+# include "pattern.epro"
+# include "prompt.epro"
+# include "signals.epro"
+# include "signames.epro"
+# include "sort.epro"
+# include "string.epro"
+# include "subst.epro"
+# include "text.epro"
+# include "utils.epro"
+# include "openssh_bsd_setres_id.epro"
 #endif /* !ZSH_MDH_INCLUDED */
 
 /* Ensure mod_export is defined for module symbols */
