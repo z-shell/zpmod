@@ -53,21 +53,42 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
+          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
           brew install ninja ccache || true
-          echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
+          # Only add ccache libexec wrappers if ccache is installed and prefix resolves
+          if brew list --versions ccache >/dev/null 2>&1; then
+            if brew --prefix ccache >/dev/null 2>&1; then
+              echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
+            fi
+          fi
 
       - name: Configure (Ninja, Release)
         run: |
           set -euo pipefail
           rm -rf build-cmake
+          LAUNCHER_ARGS=()
+          if command -v ccache >/dev/null 2>&1; then
+            LAUNCHER_ARGS+=( -DCMAKE_C_COMPILER_LAUNCHER=ccache )
+          fi
           cmake -S . -B build-cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            "${LAUNCHER_ARGS[@]}"
+          # Show brief cache summary for diagnostics
+          cmake -LA -N build-cmake | sed -n '1,120p'
 
       - name: Build module
         run: |
           set -euo pipefail
           cmake --build build-cmake -j 2
+
+      - name: Show CMake logs on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          echo '--- CMakeError.log ---'
+          sed -n '1,200p' build-cmake/CMakeFiles/CMakeError.log || true
+          echo '--- CMakeOutput.log ---'
+          sed -n '1,200p' build-cmake/CMakeFiles/CMakeOutput.log || true
 
       - name: Stage install
         run: |
