@@ -21,7 +21,6 @@ _Pragma("GCC diagnostic push")
 
 /* Fallback: minimal includes for out-of-tree builds without zsh.mdh */
 #ifndef ZSH_MDH_INCLUDED
-# include "hashtable.h"
 # ifdef HAVE_CONFIG_H
 #  include "config.h"
 # else
@@ -30,14 +29,12 @@ _Pragma("GCC diagnostic push")
 #  define HAVE_CONFIG_H 1
 #  define ZSH_OOT_MODULE 1
 # endif
+/* Follow zsh.mdh include order for core headers */
 # include "zsh_system.h"
 # include "zsh.h"
+/* SIGCOUNT is required by signames.epro and signals.h macros */
+# include "sigcount.h"
 # include "signals.h"
-# if defined(__has_include)
-#  if __has_include("sigcount.h")
-#   include "sigcount.h"
-#  endif
-# endif
 # include "hashtable.h"
 # include "ztype.h"
 
