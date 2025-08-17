@@ -5,175 +5,152 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: write
+    inputs:
+      tag:
+        description: "Tag to build"
+        required: false
+        default: ""
 
 jobs:
   build:
-    name: Build + Smoke (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-    defaults:
-      run:
-        shell: bash
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           submodules: recursive
 
-      - name: Cache ccache
-        uses: actions/cache@v4
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
         with:
-          path: |
-            ~/.cache/ccache
-          key: |
-            ${{ runner.os }}-ccache-release-${{ hashFiles('CMakeLists.txt', 'src/**', 'cmake/**') }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-
+          cmake-version: "3.20"
 
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ matrix.os }}-release
+
+      - name: Install build dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ninja-build zsh ccache
+          sudo apt-get install -y \
+            build-essential \
+            autotools-dev \
+            autoconf \
+            automake \
+            pkg-config \
+            libtool \
+            texinfo \
+            yodl \
+            libncurses5-dev \
+            libpcre3-dev \
+            libgdbm-dev
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
+      - name: Install build dependencies (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
-          set -euo pipefail
-          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1
-          brew install ninja ccache || true
-          # Only add ccache libexec wrappers if ccache is installed and prefix resolves
-          if brew list --versions ccache >/dev/null 2>&1; then
-            if brew --prefix ccache >/dev/null 2>&1; then
-              echo "$(brew --prefix ccache)/libexec" >> "$GITHUB_PATH"
-            fi
-          fi
+          brew install autoconf automake libtool ncurses pcre gdbm yodl texinfo
 
-      - name: Configure (Ninja, Release)
+      - name: Configure project
         run: |
-          set -euo pipefail
-          rm -rf build-cmake
-          LAUNCHER_ARGS=()
-          if command -v ccache >/dev/null 2>&1; then
-            LAUNCHER_ARGS+=( -DCMAKE_C_COMPILER_LAUNCHER=ccache )
-          fi
-          cmake -S . -B build-cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            "${LAUNCHER_ARGS[@]}"
-          # Show brief cache summary for diagnostics
-          cmake -LA -N build-cmake | sed -n '1,120p'
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
 
-      - name: Build module
+      - name: Build and package
         run: |
-          set -euo pipefail
-          cmake --build build-cmake -j 2
+          export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test
 
-      - name: Show CMake logs on failure
-        if: failure()
+      - name: Generate checksums
         run: |
-          set -euo pipefail
-          echo '--- CMakeError.log ---'
-          sed -n '1,200p' build-cmake/CMakeFiles/CMakeError.log || true
-          echo '--- CMakeOutput.log ---'
-          sed -n '1,200p' build-cmake/CMakeFiles/CMakeOutput.log || true
+          cd build-cmake
 
-      - name: Stage install
-        run: |
-          set -euo pipefail
-          cmake --build build-cmake --target stage
-
-      - name: Locate and stage module
-        run: |
-          set -euo pipefail
-          MODLIBDIR=$(cmake -LA -N build-cmake 2>/dev/null | grep '^CMAKE_INSTALL_LIBDIR:' | cut -d= -f2 || true)
-          MODLIBDIR=${MODLIBDIR:-lib}
-          MODDIR="build-cmake/stage/${MODLIBDIR}/zsh/site-modules"
-          if [ ! -d "$MODDIR" ]; then MODDIR="build-cmake/stage/lib/zsh/site-modules"; fi
-          mkdir -p "$MODDIR"
-          CANDIDATE=""
-          if [ -f build-cmake/out/lib/zpmod.so ]; then CANDIDATE="build-cmake/out/lib/zpmod.so"; fi
-          if [ -z "$CANDIDATE" ]; then
-            CANDIDATE=$(find build-cmake -type f -name 'zpmod.*' | grep -E '/(lib)?zpmod\.(so|dylib|bundle)$' | head -n1 || true)
-          fi
-          if [ -z "$CANDIDATE" ] && [ -f build-cmake/CMakeFiles/zpmod.dir/link.txt ]; then
-            OUT_PATH=$(sed -n 's/.* -o \([^ ]*\).*/\1/p' build-cmake/CMakeFiles/zpmod.dir/link.txt | head -n1 || true)
-            if [ -n "${OUT_PATH:-}" ] && [ "${OUT_PATH#/*}" = "$OUT_PATH" ]; then OUT_PATH="build-cmake/${OUT_PATH}"; fi
-            if [ -n "${OUT_PATH:-}" ] && [ -f "$OUT_PATH" ]; then CANDIDATE="$OUT_PATH"; fi
-          fi
-          if [ -n "$CANDIDATE" ] && [ -f "$CANDIDATE" ]; then
-            cp -f "$CANDIDATE" "$MODDIR/zpmod.so"
-          fi
-          ls -la "$MODDIR" || true
-
-      - name: Smoke test (zmodload)
-        run: |
-          set -euo pipefail
-          MODLIBDIR=$(cmake -LA -N build-cmake 2>/dev/null | grep '^CMAKE_INSTALL_LIBDIR:' | cut -d= -f2 || true)
-          MODLIBDIR=${MODLIBDIR:-lib}
-          MODDIR="build-cmake/stage/${MODLIBDIR}/zsh/site-modules"
-          [ -d "$MODDIR" ] || MODDIR="build-cmake/stage/lib/zsh/site-modules"
-          if ! command -v zsh >/dev/null 2>&1; then
-            echo "zsh not found" >&2
-            exit 1
-          fi
-          zsh -fc "module_path=(\"$MODDIR\" $module_path); print -r -- module_path=$module_path; zmodload -i zpmod && print -r -- 'zpmod smoke OK'"
-
-      - name: Package (CPack TGZ)
-        run: |
-          set -euo pipefail
-          (cd build-cmake && cpack -G TGZ)
-          ls -la build-cmake/*.tar.gz build-cmake/*.tgz || true
-
-      - name: Compute checksums
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(build-cmake/*.tar.gz build-cmake/*.tgz)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No packages found" >&2
-            exit 1
-          fi
-          for f in "${files[@]}"; do
-            if [ "${RUNNER_OS:-}" = "macOS" ]; then
-              shasum -a 256 "$f" > "${f}.sha256"
-            else
-              sha256sum "$f" > "${f}.sha256"
+          # Generate checksums for all package files
+          for file in *.tar.* *.zip *.dmg 2>/dev/null; do
+            if [ -f "$file" ]; then
+              sha256sum "$file" >> SHA256SUMS.txt || shasum -a 256 "$file" >> SHA256SUMS.txt
+              echo "Generated checksum for: $file"
             fi
           done
 
-      - name: Upload artifact
+          if [ -f SHA256SUMS.txt ]; then
+            echo "Package checksums:"
+            cat SHA256SUMS.txt
+          else
+            echo "Warning: No package files found for checksums"
+          fi
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: zpmod-${{ runner.os }}-${{ github.ref_name || github.run_number }}
+          name: zpmod-${{ matrix.platform }}
           path: |
-            build-cmake/*.tar.gz
-            build-cmake/*.tgz
-            build-cmake/*.sha256
-          retention-days: 14
+            build-cmake/*.tar.*
+            build-cmake/*.zip
+            build-cmake/*.dmg
+            build-cmake/SHA256SUMS.txt
+          retention-days: 90
 
-      - name: Publish GitHub Release (tag pushes)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: ncipollo/release-action@v1
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          tag: ${{ github.ref_name }}
-          allowUpdates: true
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+
+          # Collect all package files and checksums
+          find artifacts/ -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "SHA256SUMS.txt" | \
+          while read file; do
+            if [ -f "$file" ]; then
+              cp "$file" release-assets/
+            fi
+          done
+
+          # Generate combined checksums file
+          cd release-assets
+          if ls *.tar.* *.zip *.dmg >/dev/null 2>&1; then
+            sha256sum *.tar.* *.zip *.dmg 2>/dev/null > SHA256SUMS-combined.txt || \
+            shasum -a 256 *.tar.* *.zip *.dmg > SHA256SUMS-combined.txt
+            echo "Combined checksums:"
+            cat SHA256SUMS-combined.txt
+          fi
+
+          # List all assets
+          echo "Release assets:"
+          ls -la
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
           draft: false
-          generateReleaseNotes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          artifacts: |
-            build-cmake/*.tar.gz
-            build-cmake/*.tgz
-            build-cmake/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
