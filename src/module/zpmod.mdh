@@ -43,6 +43,39 @@ _Pragma("GCC diagnostic push")
 #  if __has_include("params.epro")
 #   include "params.epro"
 #  endif
+#  if __has_include("mem.epro")
+#   include "mem.epro"
+#  endif
+#  if __has_include("string.epro")
+#   include "string.epro"
+#  endif
+#  if __has_include("hashtable.epro")
+#   include "hashtable.epro"
+#  endif
+#  if __has_include("options.epro")
+#   include "options.epro"
+#  endif
+#  if __has_include("parse.epro")
+#   include "parse.epro"
+#  endif
+#  if __has_include("exec.epro")
+#   include "exec.epro"
+#  endif
+#  if __has_include("input.epro")
+#   include "input.epro"
+#  endif
+#  if __has_include("jobs.epro")
+#   include "jobs.epro"
+#  endif
+#  if __has_include("prompt.epro")
+#   include "prompt.epro"
+#  endif
+#  if __has_include("loop.epro")
+#   include "loop.epro"
+#  endif
+#  if __has_include("init.epro")
+#   include "init.epro"
+#  endif
 #  if __has_include("utils.epro")
 #   include "utils.epro"
 #  endif
@@ -56,6 +89,17 @@ _Pragma("GCC diagnostic push")
 # include "builtin.epro"
 # include "module.epro"
 # include "params.epro"
+# include "mem.epro"
+# include "string.epro"
+# include "hashtable.epro"
+# include "options.epro"
+# include "parse.epro"
+# include "exec.epro"
+# include "input.epro"
+# include "jobs.epro"
+# include "prompt.epro"
+# include "loop.epro"
+# include "init.epro"
 # include "utils.epro"
 # include "signals.epro"
 # include "signames.epro"
