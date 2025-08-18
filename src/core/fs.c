@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: MIT */
+/**
+ * @file fs.c
+ * @brief Core filesystem routines used by builtins and subcommands.
+ */
 #include "zpmod.mdh"
 #include "zpmod.pro"
 #include <dirent.h>
@@ -16,8 +20,14 @@
 #include "zpmod_fs.h"
 #include "zpmod_utils.h"
 
-int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
-                     char *fields) {
+/** See zpmod_fs.h for contract. */
+/* (nam, outname, inname, follow, fields) — see header for parameter intent */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+int zp_pathstat_core(char *nam /* builtin name */,
+                     char *outname /* output array name */,
+                     char *inname /* input array name */,
+                     int follow /* follow symlinks (stat vs lstat) */,
+                     char *fields /* field filter tokens */) {
   char **inarr = getaparam(inname);
   if (!inarr) {
     zwarnnam(nam, "%s: input must be an indexed array", inname);
@@ -54,42 +64,54 @@ int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
       off += snprintf(buf + off, (int)sizeof(buf) - off, "path=%s", p_in);
       if (want_type) {
         char t = '?';
-        if (S_ISREG(st.st_mode))
+        if (S_ISREG(st.st_mode)) {
           t = 'f';
-        else if (S_ISDIR(st.st_mode))
+        } else if (S_ISDIR(st.st_mode)) {
           t = 'd';
-        else if (S_ISLNK(st.st_mode))
+        } else if (S_ISLNK(st.st_mode)) {
           t = 'l';
+        }
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",type=%c", t);
       }
-      if (want_size)
+      if (want_size) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",size=%ld",
                         (long)st.st_size);
-      if (want_mode)
+      }
+      if (want_mode) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",mode=%o",
                         (unsigned)(st.st_mode & 07777));
-      if (want_mtime)
+      }
+      if (want_mtime) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",mtime=%ld",
                         (long)st.st_mtime);
-      if (want_uid)
+      }
+      if (want_uid) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",uid=%ld",
                         (long)st.st_uid);
-      if (want_gid)
+      }
+      if (want_gid) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",gid=%ld",
                         (long)st.st_gid);
-      if (want_ino)
+      }
+      if (want_ino) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",ino=%ld",
                         (long)st.st_ino);
-      if (want_nlink)
+      }
+      if (want_nlink) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",nlink=%ld",
                         (long)st.st_nlink);
+      }
     } else {
       off += snprintf(buf + off, (int)sizeof(buf) - off, "path=%s", p_in);
-      if (want_type)
+      if (want_type) {
         off += snprintf(buf + off, (int)sizeof(buf) - off, ",type=%c", '?');
+      }
       off += snprintf(buf + off, (int)sizeof(buf) - off, ",errno=%d", errno);
     }
     buf[sizeof(buf) - 1] = '\0';
+    /* Make 'off' observable to silence static analyzer dead store warnings. */
+    volatile int _zpmod_sink_off = off;
+    (void)_zpmod_sink_off;
     int used = (int)strlen(buf);
     char *outstr = metafy(buf, used, META_DUP);
     char indexed[256];
@@ -99,9 +121,18 @@ int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
   }
   return 0;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
-int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
-                    int only_dirs, int only_files) {
+/** See zpmod_fs.h for contract. */
+/* (nam, outname, dir, inc_all, only_dirs, only_files) — see header for
+ * parameter intent */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+int zp_dirlist_core(char *nam /* builtin name */,
+                    char *outname /* output array name */,
+                    char *dir /* directory to list */,
+                    int inc_all /* include dotfiles */,
+                    int only_dirs /* restrict to directories */,
+                    int only_files /* restrict to regular files */) {
   int dlen = 0;
   char *udir = zp_unmetafy_zalloc(dir, &dlen);
   if (!udir) {
@@ -122,19 +153,24 @@ int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
   int idx = 1;
   while ((de = readdir(dp)) != NULL) {
     const char *name = de->d_name;
-    if (!inc_all && name[0] == '.')
+    if (!inc_all && name[0] == '.') {
       continue;
+    }
     if (only_dirs || only_files) {
       char full[PATH_MAX];
       int n = snprintf(full, sizeof(full), "%s/%s", udir, name);
-      if (n <= 0 || (size_t)n >= sizeof(full))
+      if (n <= 0 || (size_t)n >= sizeof(full)) {
         continue;
-      if (lstat(full, &st) != 0)
+      }
+      if (lstat(full, &st) != 0) {
         continue;
-      if (only_dirs && !S_ISDIR(st.st_mode))
+      }
+      if (only_dirs && !S_ISDIR(st.st_mode)) {
         continue;
-      if (only_files && !S_ISREG(st.st_mode))
+      }
+      if (only_files && !S_ISREG(st.st_mode)) {
         continue;
+      }
     }
     char indexed[256];
     snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
@@ -144,9 +180,18 @@ int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
   zfree(udir, dlen + 1);
   return 0;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
-int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
-                     int split, int delim) {
+/** See zpmod_fs.h for contract. */
+/* (nam, outname, path, use_mmap, split, delim) — see header for parameter
+ * intent */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+int zp_readfile_core(char *nam /* builtin name */,
+                     char *outname /* scalar/array target name */,
+                     char *path /* file path */,
+                     int use_mmap /* prefer mmap when available */,
+                     int split /* split output into array */,
+                     int delim /* delimiter used when split=1 */) {
   int plen = 0;
   char *upath = zp_unmetafy_zalloc(path, &plen);
   if (!upath) {
@@ -220,10 +265,11 @@ int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
     unsetparam(outname);
     setsparam(outname, metafy(buf, (int)sz, META_DUP));
 #ifdef ZPMOD_HAVE_MMAP
-    if (use_mmap && cap == sz)
+    if (use_mmap && cap == sz) {
       munmap(buf, sz);
-    else
+    } else {
       zfree(buf, cap);
+    }
 #else
     zfree(buf, cap);
 #endif
@@ -260,12 +306,14 @@ int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
     setsparam(indexed, rec);
   }
 #ifdef ZPMOD_HAVE_MMAP
-  if (use_mmap && cap == sz)
+  if (use_mmap && cap == sz) {
     munmap(buf, sz);
-  else
+  } else {
     zfree(buf, cap);
+  }
 #else
   zfree(buf, cap);
 #endif
   return 0;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
