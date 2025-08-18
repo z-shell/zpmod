@@ -12,8 +12,16 @@
 /* Parameter functions from params.c */
 #ifndef mod_import_function
 Param setaparam(char *s, char **aval);
+char *getsparam(char *s);
+char **getaparam(char *s);
+Param setsparam(char *s, char *val);
+void unsetparam(char *s);
 #else
 mod_import_function Param setaparam(char *s, char **aval);
+mod_import_function char *getsparam(char *s);
+mod_import_function char **getaparam(char *s);
+mod_import_function Param setsparam(char *s, char *val);
+mod_import_function void unsetparam(char *s);
 #endif
 
 /* Memory management functions from mem.c */
@@ -21,10 +29,30 @@ mod_import_function Param setaparam(char *s, char **aval);
 void *zalloc(size_t size);
 void zfree(void *p, int sz);
 void zsfree(char *p);
+void *zrealloc(void *ptr, size_t size);
 #else
 mod_import_function void *zalloc(size_t size);
 mod_import_function void zfree(void *p, int sz);
 mod_import_function void zsfree(char *p);
+mod_import_function void *zrealloc(void *ptr, size_t size);
+#endif
+
+/* String/metafication functions from utils.c */
+#ifndef mod_import_function
+char *metafy(char *buf, int len, int heap);
+char *unmetafy(char *s, int *len);
+void zwarnnam(const char *cmd, const char *fmt, ...);
+#else
+mod_import_function char *metafy(char *buf, int len, int heap);
+mod_import_function char *unmetafy(char *s, int *len);
+mod_import_function void zwarnnam(const char *cmd, const char *fmt, ...);
+#endif
+
+/* Option functions from options.c */
+#ifndef mod_import_function
+int optlookup(const char *name);
+#else
+mod_import_function int optlookup(const char *name);
 #endif
 
 /* Module feature functions from module.c */
