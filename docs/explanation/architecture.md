@@ -5,6 +5,29 @@ zpmod is a binary zsh module providing two primary enhancements:
 1. Opportunistic compilation of sourced scripts to `.zwc` and subsequent fast loading.
 2. Comprehensive profiling of every sourced file during shell initialization.
 
+## Layout
+
+The codebase is split into clear layers:
+
+- `src/core/` — core facilities used across commands
+  - `utils.c`: unmetafy/dup helpers and argv scanning
+  - `emoji.c`: terminal/locale detection and icon helpers
+  - `fs.c`: filesystem primitives (pathstat, dirlist, readfile)
+  - `source.c`: custom dot/source override and source-study implementation
+- `src/builtins/` — thin wrappers that expose functionality as builtins
+  - `zpmod_builtin.c`: the `zpmod` command (subcommands: report-append, source-study, dirlist, pathstat, readfile)
+  - `fs_builtins.c`: `zppathstat`, `zpdirlist`, `zpreadfile`
+  - `readarray.c`: `readarray` builtin
+- `src/compat/` — cross-version shims
+  - `options.c`: stable-to-runtime option mapping for varying zsh versions
+- `src/include/` — public headers wiring modules together
+  - `zpmod_*.h` headers export small, focused interfaces between units
+- `src/module/module.c` — builtin table and module hooks (setup*/finish*, features\_, ...)
+- `src/module/zpmod.mdh`, `src/module/zpmod.pro` — out-of-tree build stubs
+- `src/completion/_zpmod` — zsh completion script installed with the module
+
+This replaces the older monolithic `src/zpmod.c` with modular units that are easier to navigate and test.
+
 ## Hooks
 
 At `setup_()` the module:
@@ -13,7 +36,7 @@ At `setup_()` the module:
 - Substitutes their handlers with `bin_custom_dot`.
 - Keeps original function pointers for restoration in `finish_()`.
 
-## Event Tracking
+## Event Tracking (Source Study)
 
 Each time a file is sourced via intercepted builtins:
 

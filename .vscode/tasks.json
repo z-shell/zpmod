@@ -56,6 +56,21 @@
       "label": "CMake: build",
       "type": "shell",
       "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
+    },
+    {
+      "label": "CMake: configure",
+      "type": "shell",
+      "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build-cmake -DCMAKE_BUILD_TYPE=Release"
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
     }
   ]
 }

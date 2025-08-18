@@ -23,7 +23,12 @@ Appends `<body>` to `ZI_REPORTS[plugin-ID]`. Non-zero status if plugin ID missin
 zpmod source-study [ -l ]
 ```
 
-Outputs timed listing of sourced files. `-l` prints full absolute paths.
+Outputs timed listing of sourced files.
+
+Notes:
+
+- By default, only basenames are printed (e.g., `init.zsh`).
+- Pass `-l` to print full absolute paths (e.g., `/home/user/.zshrc.d/init.zsh`).
 
 ## dirlist
 

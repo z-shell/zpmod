@@ -95,7 +95,19 @@ if(NOT EXISTS "${ZSH_CONFIG_DIR}/config.h")
   endif()
 endif()
 
-add_library(zpmod MODULE src/zpmod.c)
+set(ZPMOD_SOURCES
+  src/module/module.c
+  src/core/utils.c
+  src/core/emoji.c
+  src/core/fs.c
+  src/core/source.c
+  src/compat/options.c
+  src/builtins/fs_builtins.c
+  src/builtins/readarray.c
+  src/builtins/zpmod_builtin.c
+)
+
+add_library(zpmod MODULE ${ZPMOD_SOURCES})
 
 # Ensure our module includes zsh headers and config
 # Also include src for module-local generated headers (zpmod.mdh/pro if present)
@@ -105,6 +117,9 @@ target_include_directories(zpmod PRIVATE
   ${ZSH_HEADERS_DIR}
   ${CMAKE_SOURCE_DIR}/vendor/zsh/Src
   ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/src/module
+  ${CMAKE_SOURCE_DIR}/src/include
+  ${CMAKE_SOURCE_DIR}/src/compat
   ${GENERATED_DIR}
 )
 
@@ -244,7 +259,7 @@ if(DOXYGEN_FOUND)
   endif()
   # Pass version into Doxygen as well
   set(ZPMOD_VERSION "${ZPMOD_VERSION}")
-  configure_file("${CMAKE_SOURCE_DIR}/docs/Doxyfile.in" "${DOXYFILE_OUT}" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/cmake/Doxyfile.in" "${DOXYFILE_OUT}" @ONLY)
   add_custom_target(docs
     COMMAND ${DOXYGEN_EXECUTABLE} "${DOXYFILE_OUT}"
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -255,6 +270,6 @@ else()
 endif()
 
 # Install zsh completion to site-functions
-install(FILES ${CMAKE_SOURCE_DIR}/src/_zpmod
+install(FILES ${CMAKE_SOURCE_DIR}/src/completion/_zpmod
         DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions
         OPTIONAL)

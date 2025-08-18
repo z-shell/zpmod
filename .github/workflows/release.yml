@@ -1,19 +1,40 @@
+# Release workflow for zpmod
+# Builds cross-platform packages and creates GitHub releases for tagged versions
 name: Release
 
 on:
+  # Automatically trigger on version tags (v1.0.0, v2.0.0-alpha, etc.)
   push:
     tags:
       - "v*"
+
+  # Allow manual release builds via GitHub UI
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build"
+        description: "Tag to build (optional - uses current ref if empty)"
         required: false
         default: ""
+        type: string
+
+# Set workflow-level permissions for security
+permissions:
+  contents: read
+
+# Prevent concurrent releases to avoid conflicts
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  # Build zpmod packages for multiple platforms
   build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
     strategy:
+      # Don't cancel other builds if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -23,30 +44,38 @@ jobs:
           - os: macos-latest
             platform: macos
 
-    runs-on: ${{ matrix.os }}
-
     steps:
+      # Check out source code with submodules
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          # Fetch full history for accurate version detection
+          fetch-depth: 0
 
+      # Set up build tools using latest actions
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.20"
 
       - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
+        uses: seanmiddleditch/gha-setup-ninja@v5
 
+      # Configure caching for faster builds
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
           key: ${{ matrix.os }}-release
+          max-size: 500M
 
+      # Install platform-specific build dependencies
+
+      # Install platform-specific build dependencies
       - name: Install build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
+          # Update package index and install required packages for zsh module building
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -65,37 +94,53 @@ jobs:
       - name: Install build dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
+          # Install required packages via Homebrew
+          # Note: yodl is not available on macOS, but not essential for module building
           brew install autoconf automake libtool ncurses pcre gdbm texinfo
 
+      # Configure and build project using our unified script
       - name: Configure project
         run: |
+          # Add ccache to PATH for faster builds
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          # Configure with Ninja generator and Release build type
           ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
 
       - name: Build and package
         run: |
+          # Add ccache to PATH for faster builds
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
+          # Build, test, and create packages
           ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test
 
+      # Generate cryptographic checksums for release packages
       - name: Generate checksums
         run: |
           cd build-cmake
 
-          # Generate checksums for all package files
+          # Create checksums for all package files
+          echo "🔍 Searching for package files..."
           for file in *.tar.* *.zip *.dmg; do
             if [ -f "$file" ]; then
-              sha256sum "$file" >> SHA256SUMS.txt 2>/dev/null || shasum -a 256 "$file" >> SHA256SUMS.txt
-              echo "Generated checksum for: $file"
+              # Use appropriate checksum tool based on platform
+              if command -v sha256sum >/dev/null 2>&1; then
+                sha256sum "$file" >> SHA256SUMS.txt
+              else
+                shasum -a 256 "$file" >> SHA256SUMS.txt
+              fi
+              echo "✅ Generated checksum for: $file"
             fi
           done 2>/dev/null || true
 
+          # Display results
           if [ -f SHA256SUMS.txt ]; then
-            echo "Package checksums:"
+            echo "📝 Package checksums:"
             cat SHA256SUMS.txt
           else
-            echo "Warning: No package files found for checksums"
+            echo "⚠️  Warning: No package files found for checksums"
           fi
 
+      # Upload build artifacts for the release job
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -106,52 +151,108 @@ jobs:
             build-cmake/*.dmg
             build-cmake/SHA256SUMS.txt
           retention-days: 90
+          if-no-files-found: warn
 
+  # Create GitHub release with all platform artifacts
   release:
+    name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: startsWith(github.ref, 'refs/tags/')
 
+    # Security: Minimal permissions required for release creation
     permissions:
       contents: write
 
     steps:
+      # Download all build artifacts from matrix jobs
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      # Prepare and organize release assets
       - name: Prepare release assets
         run: |
+          echo "📦 Preparing release assets..."
           mkdir -p release-assets
 
-          # Collect all package files and checksums
+          # Collect all package files and checksums from platform builds
+          echo "🔍 Collecting artifacts from platform builds..."
           find artifacts/ -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "SHA256SUMS.txt" | \
           while read file; do
             if [ -f "$file" ]; then
+              echo "📥 Copying: $(basename "$file")"
               cp "$file" release-assets/
             fi
           done
 
-          # Generate combined checksums file
+          # Generate unified checksums file for all platforms
           cd release-assets
+          echo "🔐 Generating combined checksums..."
           if ls *.tar.* *.zip *.dmg >/dev/null 2>&1; then
-            sha256sum *.tar.* *.zip *.dmg 2>/dev/null > SHA256SUMS-combined.txt || \
-            shasum -a 256 *.tar.* *.zip *.dmg > SHA256SUMS-combined.txt
-            echo "Combined checksums:"
+            # Use appropriate checksum tool based on platform
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum *.tar.* *.zip *.dmg 2>/dev/null > SHA256SUMS-combined.txt
+            else
+              shasum -a 256 *.tar.* *.zip *.dmg > SHA256SUMS-combined.txt
+            fi
+            echo "📋 Combined checksums:"
             cat SHA256SUMS-combined.txt
+          else
+            echo "⚠️  Warning: No package files found for checksums"
+            touch SHA256SUMS-combined.txt
           fi
 
-          # List all assets
-          echo "Release assets:"
+          # Display final assets list
+          echo ""
+          echo "📊 Final release assets:"
           ls -la
 
+      # Create GitHub release with comprehensive metadata
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          # Release assets and metadata
           files: release-assets/*
           generate_release_notes: true
           draft: false
+
+          # Enhanced release description
+          body: |
+            ## zpmod ${{ github.ref_name }}
+
+            Cross-platform zsh module release built from commit ${{ github.sha }}.
+
+            ### 📥 Downloads
+
+            Choose the appropriate package for your platform:
+            - **Ubuntu/Debian**: Download the `.tar.gz` file
+            - **macOS**: Download the `.tar.gz` file
+            - **Other platforms**: See README.md for manual build instructions
+
+            ### 🔐 Verification
+
+            All packages include SHA256 checksums for integrity verification:
+            ```bash
+            # Download SHA256SUMS-combined.txt and verify
+            sha256sum -c SHA256SUMS-combined.txt
+            ```
+
+            ### 🚀 Installation
+
+            1. Download the appropriate package for your platform
+            2. Extract: `tar -xzf zpmod-*.tar.gz`
+            3. Follow installation instructions in the included README
+
+            ### 📋 Package Contents
+
+            Each package includes:
+            - Compiled zsh module files
+            - Documentation and examples
+            - Installation scripts
+            - SHA256 checksums
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

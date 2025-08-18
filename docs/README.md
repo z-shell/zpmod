@@ -9,3 +9,7 @@ Start here:
 - How‑to guides: [how-to/README.md](./how-to/README.md)
 - Reference: [reference/README.md](./reference/README.md)
 - Explanation: [explanation/README.md](./explanation/README.md)
+
+Testing:
+
+- Test suite guide: [tests/README.md](../tests/README.md)

@@ -1,148 +1,150 @@
-# Minimal zpmod test suite
+# Enhanced zpmod test suite with improved reporting and organization
 
 if(NOT ZSH_EXECUTABLE)
+  message(STATUS "ZSH not found - skipping tests")
   return()
 endif()
 
-# Compute staged module path
+# Test configuration
 set(ZPMOD_STAGE_MODULE_DIR "${ZPMOD_STAGE_DIR}/${ZPMOD_ZSH_MODDIR}")
 
-# Smoke test: load module from staged directory
-add_test(NAME zpmod_smoke
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/smoke.zsh)
-set_tests_properties(zpmod_smoke PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Test categories for organization
+set(ZPMOD_TEST_LABELS "")
 
-# Builtin presence test: verify the 'zpmod' builtin is registered
-add_test(NAME zpmod_builtin_present
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/builtin_present.zsh)
-set_tests_properties(zpmod_builtin_present PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Helper function to add zpmod tests with consistent properties
+function(add_zpmod_test TEST_NAME TEST_FILE)
+  set(options SLOW)
+  set(oneValueArgs TIMEOUT CATEGORY)
+  set(multiValueArgs LABELS)
+  cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-# custom_dot: verify '.' and 'source' replaced behavior still sources a file
-add_test(NAME zpmod_custom_dot
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/custom_dot.zsh)
-set_tests_properties(zpmod_custom_dot PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  # Add the test
+  add_test(NAME ${TEST_NAME}
+    COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/${TEST_FILE})
 
-# readarray basic behaviors
-add_test(NAME zpmod_readarray
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray.zsh)
-set_tests_properties(zpmod_readarray PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  # Set standard properties
+  set_tests_properties(${TEST_NAME} PROPERTIES
+    ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
 
-# readarray delimiter edge-cases
-add_test(NAME zpmod_readarray_delim
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray_delim.zsh)
-set_tests_properties(zpmod_readarray_delim PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  # Set timeout (default 30 seconds, 60 for slow tests)
+  if(ARG_SLOW)
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 60)
+  elseif(ARG_TIMEOUT)
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT ${ARG_TIMEOUT})
+  else()
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
+  endif()
 
-# readarray: fd + custom delimiter
-add_test(NAME zpmod_readarray_fd
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray_fd.zsh)
-set_tests_properties(zpmod_readarray_fd PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  # Set category and labels
+  set(test_labels "")
+  if(ARG_CATEGORY)
+    list(APPEND test_labels ${ARG_CATEGORY})
+  endif()
+  if(ARG_LABELS)
+    list(APPEND test_labels ${ARG_LABELS})
+  endif()
 
-# readarray: clearing behavior when -O not provided
-add_test(NAME zpmod_readarray_clear
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray_clear.zsh)
-set_tests_properties(zpmod_readarray_clear PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  if(test_labels)
+    set_tests_properties(${TEST_NAME} PROPERTIES LABELS "${test_labels}")
+    list(APPEND ZPMOD_TEST_LABELS ${test_labels})
+    list(REMOVE_DUPLICATES ZPMOD_TEST_LABELS)
+    set(ZPMOD_TEST_LABELS ${ZPMOD_TEST_LABELS} PARENT_SCOPE)
+  endif()
+endfunction()
 
-# report-append memory safety and correctness
-add_test(NAME zpmod_report_append
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpmod_report_append.zsh)
-set_tests_properties(zpmod_report_append PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Core functionality tests
+add_zpmod_test(zpmod_smoke core/smoke.zsh
+  CATEGORY "core" LABELS "smoke;essential")
 
-# readarray: large input stress test
-add_test(NAME zpmod_readarray_large
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray_large.zsh)
-set_tests_properties(zpmod_readarray_large PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_builtin_present core/builtin_present.zsh
+  CATEGORY "core" LABELS "builtin;essential")
 
-# readarray: fd + delimiter + trim
-add_test(NAME zpmod_readarray_fd_t
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/readarray_fd_t.zsh)
-set_tests_properties(zpmod_readarray_fd_t PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
-# option handling
-add_test(NAME zpmod_options
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/options.zsh)
-set_tests_properties(zpmod_options PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Custom dot functionality
+add_zpmod_test(zpmod_custom_dot builtin/custom_dot.zsh
+  CATEGORY "builtin" LABELS "custom_dot")
 
-# New fast FS helpers and reader tests
-add_test(NAME zpmod_zpdirlist
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpdirlist.zsh)
-set_tests_properties(zpmod_zpdirlist PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Source-study formatting and options
+add_zpmod_test(zpmod_source_study core/source_study.zsh
+  CATEGORY "core" LABELS "source-study")
 
-add_test(NAME zpmod_zppathstat
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat.zsh)
-set_tests_properties(zpmod_zppathstat PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# readarray builtin tests
+add_zpmod_test(zpmod_readarray builtin/readarray.zsh
+  CATEGORY "builtin" LABELS "readarray;comprehensive")
 
-add_test(NAME zpmod_zpreadfile
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile.zsh)
-set_tests_properties(zpmod_zpreadfile PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_readarray_delim builtin/readarray_delim.zsh
+  CATEGORY "builtin" LABELS "readarray;edge_cases")
 
-add_test(NAME zpmod_subcommands
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpmod_subcommands.zsh)
-set_tests_properties(zpmod_subcommands PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_readarray_fd builtin/readarray_fd.zsh
+  CATEGORY "builtin" LABELS "readarray;file_descriptor")
 
-add_test(NAME zpmod_zppathstat_fields
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_fields.zsh)
-set_tests_properties(zpmod_zppathstat_fields PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_readarray_clear builtin/readarray_clear.zsh
+  CATEGORY "builtin" LABELS "readarray;behavior")
 
-add_test(NAME zpmod_zppathstat_follow
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_follow.zsh)
-set_tests_properties(zpmod_zppathstat_follow PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_readarray_large builtin/readarray_large.zsh
+  CATEGORY "builtin" LABELS "readarray;stress" SLOW)
 
-add_test(NAME zpmod_zpdirlist_filters
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpdirlist_filters.zsh)
-set_tests_properties(zpmod_zpdirlist_filters PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_readarray_fd_t builtin/readarray_fd_t.zsh
+  CATEGORY "builtin" LABELS "readarray;file_descriptor;trim")
 
-# macOS suffix/loader invariant
-add_test(NAME zpmod_macos_suffix
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/macos_suffix.zsh)
-set_tests_properties(zpmod_macos_suffix PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}"
-  SKIP_REGULAR_EXPRESSION "^$")
-# Additional error/edge tests
-add_test(NAME zpmod_zpreadfile_errors
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_errors.zsh)
-set_tests_properties(zpmod_zpreadfile_errors PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# zpmod command and subcommand tests
+add_zpmod_test(zpmod_report_append command/zpmod_report_append.zsh
+  CATEGORY "command" LABELS "report;memory_safety")
 
-add_test(NAME zpmod_zpreadfile_crlf
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_crlf.zsh)
-set_tests_properties(zpmod_zpreadfile_crlf PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_options command/options.zsh
+  CATEGORY "command" LABELS "options;argument_parsing")
 
-add_test(NAME zpmod_zpreadfile_trailing_delim
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_trailing_delim.zsh)
-set_tests_properties(zpmod_zpreadfile_trailing_delim PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_subcommands command/zpmod_subcommands.zsh
+  CATEGORY "command" LABELS "subcommands;cli")
 
-add_test(NAME zpmod_zpreadfile_mixed_line_endings
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_mixed_line_endings.zsh)
-set_tests_properties(zpmod_zpreadfile_mixed_line_endings PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+# Filesystem utility tests
+add_zpmod_test(zpmod_zpdirlist filesystem/zpdirlist.zsh
+  CATEGORY "filesystem" LABELS "directory;listing")
 
-add_test(NAME zpmod_zpreadfile_empty
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zpreadfile_empty.zsh)
-set_tests_properties(zpmod_zpreadfile_empty PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_zpdirlist_filters filesystem/zpdirlist_filters.zsh
+  CATEGORY "filesystem" LABELS "directory;filtering")
 
-add_test(NAME zpmod_zppathstat_errno_fields
-  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/zppathstat_errno_fields.zsh)
-set_tests_properties(zpmod_zppathstat_errno_fields PROPERTIES
-  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+add_zpmod_test(zpmod_zppathstat filesystem/zppathstat.zsh
+  CATEGORY "filesystem" LABELS "stat;path_info")
+
+add_zpmod_test(zpmod_zppathstat_fields filesystem/zppathstat_fields.zsh
+  CATEGORY "filesystem" LABELS "stat;field_access")
+
+add_zpmod_test(zpmod_zppathstat_follow filesystem/zppathstat_follow.zsh
+  CATEGORY "filesystem" LABELS "stat;symlink_follow")
+
+add_zpmod_test(zpmod_zppathstat_errno_fields filesystem/zppathstat_errno_fields.zsh
+  CATEGORY "filesystem" LABELS "stat;error_handling")
+
+# File reading tests
+add_zpmod_test(zpmod_zpreadfile file_io/zpreadfile.zsh
+  CATEGORY "file_io" LABELS "read;basic")
+
+add_zpmod_test(zpmod_zpreadfile_errors file_io/zpreadfile_errors.zsh
+  CATEGORY "file_io" LABELS "read;error_handling")
+
+add_zpmod_test(zpmod_zpreadfile_crlf file_io/zpreadfile_crlf.zsh
+  CATEGORY "file_io" LABELS "read;line_endings")
+
+add_zpmod_test(zpmod_zpreadfile_trailing_delim file_io/zpreadfile_trailing_delim.zsh
+  CATEGORY "file_io" LABELS "read;delimiters")
+
+add_zpmod_test(zpmod_zpreadfile_mixed_line_endings file_io/zpreadfile_mixed_line_endings.zsh
+  CATEGORY "file_io" LABELS "read;line_endings;edge_cases")
+
+add_zpmod_test(zpmod_zpreadfile_empty file_io/zpreadfile_empty.zsh
+  CATEGORY "file_io" LABELS "read;empty_files;edge_cases")
+
+add_zpmod_test(zpmod_zpreadfile_zero file_io/zpreadfile_zero.zsh
+  CATEGORY "file_io" LABELS "read;null_bytes;edge_cases")
+
+# Platform-specific tests
+add_zpmod_test(zpmod_macos_suffix platform/macos_suffix.zsh
+  CATEGORY "platform" LABELS "macos;suffix;loader" TIMEOUT 15)
+
+# Test summary and organization
+message(STATUS "zpmod test suite configured:")
+message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform")
+message(STATUS "  Total tests: ${CMAKE_CURRENT_LIST_DIR} test files")
+message(STATUS "  Enhanced features: timeout control, test categories, improved reporting")
 
 # Note: legacy upstream zsh *.ztst tests present in this folder are ignored by CTest.

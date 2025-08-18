@@ -1,66 +1,156 @@
+# zpmod Documentation Build and Deployment Workflow
+#
+# This workflow automatically builds and deploys project documentation using Doxygen
+# and GitHub Pages. It processes C code comments, generates comprehensive API documentation,
+# and publishes it to the project's GitHub Pages site for easy developer access.
+#
+# Features:
+# - Automated Doxygen documentation generation from source code comments
+# - GraphViz integration for visual dependency diagrams and call graphs
+# - GitHub Pages deployment with zero-configuration hosting
+# - Cross-reference generation linking code elements and documentation
+# - Responsive HTML output optimized for modern browsers
+#
+# Triggers:
+# - Push to main/develop: Update docs for stable and development branches
+# - Manual dispatch: On-demand documentation rebuilds for testing
+#
+# Output: Deployed to https://{owner}.github.io/{repo}/ via GitHub Pages
+
 name: Docs
 
+# Workflow triggers: Automated and manual execution
 on:
   push:
     branches: [main, develop]
-  workflow_dispatch:
+    paths:
+      - "src/**" # Rebuild when source code changes
+      - "docs/**" # Rebuild when documentation changes
+      - "CMakeLists.txt" # Rebuild when build config changes
+      - "cmake/Doxyfile.in" # Rebuild when Doxygen config changes
+  workflow_dispatch: # Allow manual documentation rebuilds
 
+# Security: GitHub Pages deployment permissions
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: read # Read repository contents for documentation
+  pages: write # Deploy to GitHub Pages
+  id-token: write # Authenticate with GitHub Pages
 
+# Concurrency: Prevent overlapping documentation deployments
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: true # Cancel previous runs when new ones start
 
 jobs:
+  # Build documentation using Doxygen and prepare for GitHub Pages
   build:
+    name: Build Documentation
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
-      - name: Checkout
+      # Source code checkout with full submodules for complete documentation
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0 # Full history for git-based versioning
 
-      - name: Install dependencies
+      # Cache documentation dependencies for faster builds
+      - name: Cache documentation dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/doxygen
+            build-docs/CMakeCache.txt
+            build-docs/CMakeFiles
+          key: docs-${{ runner.os }}-${{ hashFiles('cmake/Doxyfile.in', 'CMakeLists.txt') }}
+          restore-keys: |
+            docs-${{ runner.os }}-
+
+      # Install documentation generation tools
+      - name: Install documentation dependencies
         run: |
+          echo "📦 Installing documentation build tools..."
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz
+          sudo apt-get install -y \
+            doxygen \             # Primary documentation generator
+            graphviz \            # Dependency and call graph visualization
+            texlive-latex-base \  # LaTeX support for mathematical formulas
+            texlive-latex-extra \ # Additional LaTeX packages
+            ghostscript           # PostScript/PDF processing
 
+      # Display tool versions for build reproducibility
       - name: Show tool versions
         run: |
+          echo "🔍 Documentation toolchain versions:"
           cmake --version
           doxygen --version
-          dot -V || true
+          dot -V 2>&1 || true           # GraphViz version
+          pdflatex --version || true    # LaTeX version
+          gs --version || true          # Ghostscript version
 
-      - name: Configure (CMake)
-        run: cmake -S . -B build-docs -DCMAKE_VERBOSE_MAKEFILE=ON
-
-      - name: Build docs
+      # Configure documentation build with CMake
+      - name: Configure documentation build
         run: |
+          echo "🔧 Configuring documentation build with CMake..."
+          cmake -S . -B build-docs \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # Generate comprehensive documentation with Doxygen
+      - name: Build documentation
+        run: |
+          echo "📚 Building documentation with Doxygen..."
           set -euxo pipefail
+
+          # Build documentation target with verbose output
           cmake --build build-docs --target docs -- -v
-          echo "==== Docs tree ===="
+
+          echo ""
+          echo "📋 Documentation build structure:"
           ls -lR build-docs/docs || true
 
-      - name: Setup Pages
+          echo ""
+          echo "📊 Documentation statistics:"
+          if [ -d "build-docs/docs/html" ]; then
+            echo "HTML files: $(find build-docs/docs/html -name "*.html" | wc -l)"
+            echo "Total size: $(du -sh build-docs/docs/html | cut -f1)"
+          fi
+
+      # Configure GitHub Pages for documentation hosting
+      - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload Pages artifact
+      # Upload documentation as GitHub Pages artifact
+      - name: Upload documentation artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: build-docs/docs/html
+          retention-days: 90
 
+  # Deploy documentation to GitHub Pages
   deploy:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 10
+
+    # GitHub Pages environment configuration
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
+      # Deploy documentation to GitHub Pages hosting
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      # Log successful deployment information
+      - name: Log deployment success
+        run: |
+          echo "🚀 Documentation successfully deployed!"
+          echo "📖 Documentation URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "⏰ Deployment completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

@@ -43,13 +43,19 @@ Options:
   --prefix <DIR>             Install prefix for 'cmake --install'
   --stage-prefix <DIR>       Staging prefix for local install (default: build-cmake/stage)
   --moddir <REL-PATH>        Install subdir for module (relative to prefix). Default: lib/zsh/site-modules
-  --install-zi               Install zpmod.$ext to Zi modules dir (${ZI[ZMODULES_DIR]}/zpmod[/Src])
+  --install-zi               Install zpmod.$ext to Zi modules dir (${ZI[ZMODULES_DIR]}/zpmod)
   --install-user             Install zpmod.$ext to user site-modules (default: ~/.local/lib/zsh/site-modules)
   --install-system           Install system-wide (uses --prefix or defaults to /usr/local)
   --package                  Build a binary package with CPack (default TGZ)
   --cpack-generators <LIST>  Comma-separated CPack generators (e.g., TGZ;TXZ;DEB;RPM)
   --docs                     Build API docs via the CMake 'docs' target (Doxygen)
   --test                     Run a runtime smoke test in zsh after build
+  --ctest                    Run the full CTest suite after build/stage
+  --ctest-label <LABEL>      Filter CTest by label (repeatable; OR'ed)
+  --ctest-regex <REGEX>      Filter CTest by test name regex (-R)
+  --ctest-jobs <N>           Parallel CTest jobs (default: same as -j/--jobs)
+  --ctest-color              Enable test color output (sets ZPMOD_TEST_COLOR=1)
+  --ctest-debug              Enable test debug logs (sets ZPMOD_TEST_DEBUG=1)
   --verbose                  Verbose CMake and make/ninja output
   -h, --help                 Show this help and exit
 
@@ -81,6 +87,14 @@ CPACK_GENERATORS=
 DO_DOCS=false
 RUN_TEST=false
 VERBOSE=false
+# CTest controls
+DO_CTEST=false
+typeset -a CTEST_LABELS
+CTEST_LABELS=()
+CTEST_REGEX=
+CTEST_JOBS=
+CTEST_COLOR=false
+CTEST_DEBUG=false
 # install modes
 INSTALL_ZI=false
 INSTALL_USER=false
@@ -109,6 +123,12 @@ while (( $# > 0 )); do
   --cpack-generators)shift; CPACK_GENERATORS=${1:-} ;;
   --docs)            DO_DOCS=true ;;
     --test)            RUN_TEST=true ;;
+  --ctest)           DO_CTEST=true ;;
+  --ctest-label)     shift; CTEST_LABELS+=(${1:-}) ;;
+  --ctest-regex)     shift; CTEST_REGEX=${1:-} ;;
+  --ctest-jobs)      shift; CTEST_JOBS=${1:-} ;;
+  --ctest-color)     CTEST_COLOR=true ;;
+  --ctest-debug)     CTEST_DEBUG=true ;;
     --verbose)         VERBOSE=true ;;
     -h|--help)         usage; exit 0 ;;
     *)                 args+=$1 ;;
@@ -358,6 +378,41 @@ if $RUN_TEST; then
   _msg "Running CMake 'smoke' target"
   cmake --build "$BUILD_DIR" --target smoke || _die "Smoke test failed"
   _ok "Smoke test passed"
+fi
+
+# ---- CTest (optional) ----
+if $DO_CTEST; then
+  _msg "Running CTest suite"
+  # default CTest jobs mirrors build jobs unless overridden
+  local cj=${CTEST_JOBS:-$JOBS}
+  local -a ctest_cmd
+  ctest_cmd=( ctest --test-dir "$BUILD_DIR" --output-on-failure -j "$cj" )
+  if (( ${#CTEST_LABELS} )); then
+    # OR the labels via a regex like: label1|label2
+    local label_regex
+    label_regex="${(j:|:)CTEST_LABELS}"
+    ctest_cmd+=( -L "$label_regex" )
+  fi
+  if [[ -n ${CTEST_REGEX:-} ]]; then
+    ctest_cmd+=( -R "$CTEST_REGEX" )
+  fi
+  # environment flags for test helpers
+  local -a env_prefix
+  env_prefix=()
+  $CTEST_COLOR && env_prefix+=( ZPMOD_TEST_COLOR=1 )
+  $CTEST_DEBUG && env_prefix+=( ZPMOD_TEST_DEBUG=1 )
+
+  # Use env to safely prefix variables even when negated with '!'
+  local -a run_cmd
+  if (( ${#env_prefix} )); then
+    run_cmd=( env ${=env_prefix} ${=ctest_cmd} )
+  else
+    run_cmd=( ${=ctest_cmd} )
+  fi
+  if ! ${=run_cmd}; then
+    _die "CTest failed"
+  fi
+  _ok "CTest passed"
 fi
 
 _ok "All done"
