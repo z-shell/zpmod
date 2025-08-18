@@ -1,5 +1,11 @@
 /* SPDX-License-Identifier: MIT */
-/* Centralized imports for zsh-generated .epro prototypes and externs. */
+/* Centralized imports for zsh-generated .epro prototypes and externs.
+ * Maintenance:
+ * - Only add a new .epro include here if you introduce usage of a symbol
+ *   (function/variable/type) that causes a missing prototype/export at build.
+ * - Prefer relying on zsh's zsh.mdh when available; this header is the
+ *   out-of-tree fallback aggregator for required .epro declarations.
+ */
 #ifndef ZPMOD_ZSH_IMPORTS_H
 #define ZPMOD_ZSH_IMPORTS_H
 
