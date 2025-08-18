@@ -28,6 +28,8 @@ The codebase is split into clear layers:
 
 This replaces the older monolithic `src/zpmod.c` with modular units that are easier to navigate and test.
 
+> See also: a concise maintainer-oriented overview of the `src/` layout and rules lives in [src/README.md](../../src/README.md).
+
 ## Hooks
 
 At `setup_()` the module:
