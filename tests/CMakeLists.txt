@@ -96,6 +96,10 @@ add_zpmod_test(zpmod_options command/options.zsh
 add_zpmod_test(zpmod_subcommands command/zpmod_subcommands.zsh
   CATEGORY "command" LABELS "subcommands;cli")
 
+# Compat: options mapping sentinel and basics
+add_zpmod_test(zpmod_options_mapping compat/options_mapping.zsh
+  CATEGORY "core" LABELS "compat;options;loader")
+
 # Filesystem utility tests
 add_zpmod_test(zpmod_zpdirlist filesystem/zpdirlist.zsh
   CATEGORY "filesystem" LABELS "directory;listing")
