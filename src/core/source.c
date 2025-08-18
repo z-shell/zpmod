@@ -1,4 +1,14 @@
 /* SPDX-License-Identifier: MIT */
+/**
+ * @file source.c
+ * @brief Overrides for '.'/source and source-study event recording/reporting.
+ *
+ * This module hooks into zsh’s sourcing mechanism to optionally compile ZWC
+ * caches, measure durations, and produce a report via the `zpmod source-study`
+ * subcommand. It also respects user options like FUNCTION_ARGZERO, PATH_DIRS,
+ * POSIX_BUILTINS, SHIN_STDIN, and SOURCE_TRACE through the stable option
+ * mapping helpers.
+ */
 #include "zpmod.mdh"
 #include "zpmod.pro"
 #include <errno.h>
@@ -24,6 +34,12 @@ static HashTable zp_source_events = NULL;
 static int zp_sevent_count = 0;
 
 /* dot/source replacement */
+/**
+ * @brief Replacement handler for '.' and 'source' builtins.
+ *
+ * Mirrors zsh’s semantics while integrating custom search behavior and
+ * error reporting, and delegates to custom_source() to execute the script.
+ */
 int bin_custom_dot(char *name, char **argv, UNUSED(Options ops),
                    UNUSED(int func)) {
   char **old;
@@ -37,11 +53,13 @@ int bin_custom_dot(char *name, char **argv, UNUSED(Options ops),
   char *buf;
   struct stat st;
   enum source_return ret;
-  if (!*argv)
+  if (!*argv) {
     return 0;
+  }
   old = pparams;
-  if (argv[1])
+  if (argv[1]) {
     pparams = zarrdup(argv + 1);
+  }
   enam = arg0 = ztrdup(*argv);
   if (isset(zp_conv_opt(FUNCTIONARGZERO__))) {
     old0 = argzero;
@@ -148,10 +166,13 @@ static FuncDump dumps;
 static int custom_zwcstat(char *filename, struct stat *buf) {
   if (stat(filename, buf)) {
 #ifdef HAVE_FSTAT
-    for (FuncDump f = dumps; f; f = f->next) {
-      if (!strncmp(filename, f->filename, strlen(f->filename)) &&
-          !fstat(f->fd, buf))
+    for (FuncDump fdump_iter = dumps; fdump_iter;
+         fdump_iter = fdump_iter->next) {
+      if (!strncmp(filename, fdump_iter->filename,
+                   strlen(fdump_iter->filename)) &&
+          !fstat(fdump_iter->fd, buf)) {
         return 0;
+      }
     }
 #endif
     return 1;
@@ -163,20 +184,24 @@ static int custom_zwcstat(char *filename, struct stat *buf) {
 #endif
 
 static FDHead custom_dump_find_func(Wordcode h, char *name) {
-  FDHead n, e = (FDHead)(h + fdheaderlen(h));
+  FDHead n;
+  FDHead e = (FDHead)(h + fdheaderlen(h));
   for (n = firstfdhead(h); n < e; n = nextfdhead(n)) {
-    if (!strcmp(name, fdname(n) + fdhtail(n)))
+    if (!strcmp(name, fdname(n) + fdhtail(n))) {
       return n;
+    }
   }
   return NULL;
 }
 
 static Wordcode custom_load_dump_header(char *nam, char *name, int err) {
-  int fd, v = 1;
+  int fd;
+  int v = 1;
   wordcode buf[FD_PRELEN + 1];
   if ((fd = open(name, O_RDONLY)) < 0) {
-    if (err)
+    if (err) {
       zwarnnam(nam, "%d: can't open zwc file: %s", __LINE__, name);
+    }
     return NULL;
   }
   if (read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
@@ -184,11 +209,12 @@ static Wordcode custom_load_dump_header(char *nam, char *name, int err) {
       (v = (fdmagic(buf) != FD_MAGIC && fdmagic(buf) != FD_OMAGIC)) ||
       strcmp(fdversion(buf), getsparam("ZSH_VERSION")) != 0) {
     if (err) {
-      if (!v)
+      if (!v) {
         zwarnnam(nam, "%d: zwc file has wrong version (zsh-%s): %s", __LINE__,
                  fdversion(buf), name);
-      else
+      } else {
         zwarnnam(nam, "%d: invalid zwc file: %s", __LINE__, name);
+      }
     }
     close(fd);
     return NULL;
@@ -249,11 +275,13 @@ static void custom_load_dump_file(char *dump, struct stat *sbuf, int other,
     off = 0;
     mlen = len;
   }
-  if ((fd = open(dump, O_RDONLY)) < 0)
+  if ((fd = open(dump, O_RDONLY)) < 0) {
     return;
+  }
   fd = movefd(fd);
-  if (fd == -1)
+  if (fd == -1) {
     return;
+  }
   if ((addr = (Wordcode)mmap(NULL, mlen, PROT_READ, MAP_SHARED, fd, off)) ==
       ((Wordcode)-1)) {
     close(fd);
@@ -280,6 +308,12 @@ static void custom_load_dump_file(char *dump, struct stat *sbuf, int other,
 static Eprog custom_check_dump_file(char *file, struct stat *sbuf, char *name,
                                     int *ksh, int test_only);
 
+/**
+ * @brief Try to locate or build a ZWC dump for the script and return Eprog.
+ *
+ * When possible, compiles to .zwc and loads that for performance.
+ * Returns NULL if no dump is available and the caller should use a file fd.
+ */
 Eprog custom_try_source_file(char *file) {
   Eprog prog;
   struct stat stc;
@@ -376,8 +410,9 @@ rec:
     return NULL;
   }
   if ((h = custom_dump_find_func(d, name))) {
-    if (test_only)
+    if (test_only) {
       return &dummy_eprog;
+    }
 #ifdef USE_MMAP
     if (f) {
       Eprog prog = (Eprog)zalloc(sizeof(*prog));
@@ -391,7 +426,7 @@ rec:
       prog->prog = f->map + h->start;
       prog->strs = ((char *)prog->prog) + h->strs;
       prog->shf = NULL;
-      prog->dump = f;
+      prog->dump = NULL;
       incrdumpcount(f);
       while (np--) {
         *pp++ = dummy_patprog1;
@@ -457,6 +492,12 @@ rec:
 }
 
 /* custom_source and reporting */
+/**
+ * @brief Execute a sourced script and record a timing event for reporting.
+ *
+ * Integrates with zsh state (opts, cmdstack, funcstack) and restores on exit.
+ * Records duration and paths for later consumption by the report generator.
+ */
 mod_export enum source_return custom_source(char *s) {
   Eprog prog;
   int tempfd = -1;
@@ -532,8 +573,7 @@ mod_export enum source_return custom_source(char *s) {
       ret = SOURCE_ERROR;
     }
   } else {
-    int value;
-    switch (value = loop(0, 0)) {
+    switch (loop(0, 0)) {
     case LOOP_OK:
       break;
     case LOOP_EMPTY:
