@@ -23,12 +23,7 @@
   ],
 
   // Prefer clangd if installed
-  "clangd.arguments": [
-    "--compile-commands-dir",
-    "${workspaceFolder}",
-    "--header-insertion=never",
-    "--background-index"
-  ],
+  "clangd.arguments": ["--compile-commands-dir", "${workspaceFolder}", "--header-insertion=never", "--background-index"],
 
   // Associate zsh files and set a formatter
   "files.associations": {

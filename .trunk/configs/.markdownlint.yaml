@@ -1,10 +1,55 @@
-# Autoformatter friendly markdownlint config (all formatting rules disabled)
+# ZPMod Markdown Linting Configuration
+# Prettier-friendly markdownlint config with ZPMod-specific enhancements
+
+# Base configuration
+extends: markdownlint/style/prettier
+
+# ZPMod-specific rules
 default: true
-blank_lines: false
-bullet: false
-html: false
-indentation: false
-line_length: false
-spaces: false
-url: false
-whitespace: false
+
+# Line length - consistent with code formatting
+MD013:
+  line_length: 140
+  heading_line_length: 80
+  code_block_line_length: 100
+  tables: false
+  stern: false
+
+# Heading styles - consistent with documentation
+MD003:
+  style: atx
+
+# Lists - consistent formatting
+MD004:
+  style: dash
+
+MD007:
+  indent: 2
+
+# Links and references
+MD034: false # Allow bare URLs in documentation
+
+# Allow specific HTML tags for documentation
+MD033:
+  allowed_elements:
+    - br
+    - sub
+    - sup
+    - kbd
+    - details
+    - summary
+
+# Code blocks
+MD046:
+  style: fenced
+
+# Emphasis
+MD049:
+  style: asterisk
+
+MD050:
+  style: asterisk
+
+# ZPMod documentation patterns
+MD041: false # First line in file should be top level heading (not always needed)
+MD045: false # Images should have alternate text (not always needed for diagrams)
