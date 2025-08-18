@@ -1,4 +1,8 @@
 /* SPDX-License-Identifier: MIT */
+/**
+ * @file zpmod_builtin.c
+ * @brief `zpmod` dispatcher builtin and subcommands.
+ */
 #include "zpmod.mdh"
 #include "zpmod.pro"
 #include "zpmod_emoji.h"
@@ -6,8 +10,13 @@
 #include "zpmod_source.h"
 #include "zpmod_utils.h"
 
-static int zp_append_report(const char *nam, const char *target, int target_len,
-                            const char *body, int body_len) {
+/* Wrapper-friendly signature; parameters documented to avoid swappable warning.
+ */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+static int zp_append_report(const char *nam /* reporting name */,
+                            const char *target /* plugin key */,
+                            const char *body /* text to append */,
+                            int body_len) {
   Param pm = NULL;
   Param val_pm = NULL;
   HashTable ht = NULL;
@@ -26,8 +35,9 @@ static int zp_append_report(const char *nam, const char *target, int target_len,
     zwarnnam(nam, "unknown plugin: %s", target);
     return 1;
   }
-  if (body_len == 0)
+  if (body_len == 0) {
     return 0;
+  }
   char *target_string = val_pm->u.str;
   target_string_len = target_string ? strlen(target_string) : 0;
   new_extended_len = target_string_len + body_len;
@@ -51,7 +61,9 @@ static int zp_append_report(const char *nam, const char *target, int target_len,
   }
   return 0;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
+/** Print usage for the `zpmod` builtin. */
 void zpmod_usage(void) {
   fprintf(
       stdout,
@@ -78,6 +90,201 @@ void zpmod_usage(void) {
   fflush(stdout);
 }
 
+/* Subcommand helpers to keep bin_zpmod simple */
+static int cmd_report_append(char *nam, char **argv) {
+  char *target = NULL;
+  char *body = NULL;
+  int target_len = 0;
+  int body_len = 0;
+  target = *argv++;
+  if (!target) {
+    zwarnnam(
+        nam,
+        "report-append: missing plugin ID (e.g., z-shell/zbrowse). See -h.");
+    return 1;
+  }
+  target = zp_unmetafy_zalloc(target, &target_len);
+  if (!target) {
+    zwarnnam(nam, "out of memory");
+    return 1;
+  }
+  body = *argv++;
+  if (!body) {
+    zwarnnam(nam, "report-append: missing text to append. See -h.");
+    zfree(target, target_len);
+    return 1;
+  }
+  body_len = (int)strlen(body);
+  {
+    int rc = zp_append_report(nam, target, body, body_len);
+    zfree(target, target_len);
+    return rc;
+  }
+}
+
+static int cmd_source_study(const char *nam, char **argv) {
+  (void)nam;
+  char *report;
+  int rep_size;
+  report = zp_build_source_report(!zp_has_option(argv, 'l'), &rep_size);
+  fprintf(stdout, "%s",
+          report ? report : "❌ zpmod: failed to build source report\n");
+  fflush(stdout);
+  if (rep_size) {
+    zfree(report, rep_size);
+  } else if (report) {
+    zsfree(report);
+  }
+  return 0;
+}
+
+static int cmd_dirlist(char *nam, char **argv) {
+  int inc_all = 0;
+  int only_dirs = 0;
+  int only_files = 0;
+  while (*argv && argv[0][0] == '-' && argv[0][1]) {
+    if (strcmp(argv[0], "--") == 0) {
+      argv++;
+      break;
+    }
+    const char *o = argv[0] + 1;
+    int stop = 0;
+    while (*o && !stop) {
+      switch (*o++) {
+      case 'a':
+        inc_all = 1;
+        break;
+      case 'd':
+        only_dirs = 1;
+        break;
+      case 'f':
+        only_files = 1;
+        break;
+      default:
+        stop = 1;
+        break;
+      }
+    }
+    if (stop) {
+      break;
+    }
+    argv++;
+  }
+  if (!argv[0] || !argv[1]) {
+    zwarnnam(nam, "dirlist: usage: zpmod dirlist [-a] [-d] [-f] out_array dir");
+    return 1;
+  }
+  return zp_dirlist_core(nam, argv[0], argv[1], inc_all, only_dirs, only_files);
+}
+
+static int cmd_pathstat(char *nam, char **argv) {
+  int follow = 0;
+  char *fields = NULL;
+  while (*argv && argv[0][0] == '-' && argv[0][1]) {
+    if (strcmp(argv[0], "--") == 0) {
+      argv++;
+      break;
+    }
+    if (strcmp(argv[0], "-L") == 0) {
+      follow = 1;
+      argv++;
+      continue;
+    }
+    if (argv[0][1] == 'f') {
+      if (argv[0][2] != '\0') {
+        fields = argv[0] + 2;
+        argv++;
+      } else {
+        argv++;
+        if (!*argv) {
+          zwarnnam(nam, "pathstat: -f requires fields");
+          return 1;
+        }
+        fields = *argv++;
+      }
+      continue;
+    }
+    break;
+  }
+  if (!argv[0] || !argv[1]) {
+    zwarnnam(
+        nam,
+        "pathstat: usage: zpmod pathstat [-L] [-f fields] out_array in_array");
+    return 1;
+  }
+  return zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
+}
+
+static int cmd_readfile(char *nam, char **argv) {
+  int use_mmap = 0;
+  int split = 0;
+  int delim = '\n';
+  while (*argv && argv[0][0] == '-' && argv[0][1]) {
+    if (strcmp(argv[0], "--") == 0) {
+      argv++;
+      break;
+    }
+    if (strcmp(argv[0], "-m") == 0) {
+      use_mmap = 1;
+      argv++;
+      continue;
+    }
+    if (strcmp(argv[0], "-0") == 0) {
+      split = 1;
+      delim = '\0';
+      argv++;
+      continue;
+    }
+    if (argv[0][1] == 'd') {
+      char *a = NULL;
+      if (argv[0][2] != '\0') {
+        a = argv[0] + 2;
+        argv++;
+      } else {
+        argv++;
+        if (!*argv) {
+          zwarnnam(nam, "readfile: -d requires delimiter");
+          return 1;
+        }
+        a = *argv++;
+      }
+      if (a && *a) {
+        split = 1;
+        if (a[0] == '\\') {
+          switch (a[1]) {
+          case 'n':
+            delim = '\n';
+            break;
+          case 't':
+            delim = '\t';
+            break;
+          case '0':
+            delim = '\0';
+            break;
+          case 'r':
+            delim = '\r';
+            break;
+          default:
+            delim = (unsigned char)a[1];
+            break;
+          }
+        } else {
+          delim = (unsigned char)a[0];
+        }
+      }
+      continue;
+    }
+    break;
+  }
+  if (!argv[0] || !argv[1]) {
+    zwarnnam(nam,
+             "readfile: usage: zpmod readfile [-m] [-d delim|-0] var file");
+    return 1;
+  }
+  return zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);
+}
+
+/** `zpmod` builtin entrypoint and subcommand dispatcher. */
 int bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func)) {
   char *subcmd = NULL;
   int ret = 0;
@@ -99,180 +306,15 @@ int bin_zpmod(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func)) {
   }
   subcmd = *argv++;
   if (0 == strcmp(subcmd, "report-append")) {
-    char *target = NULL;
-    char *body = NULL;
-    int target_len = 0;
-    int body_len = 0;
-    target = *argv++;
-    if (!target) {
-      zwarnnam(
-          nam,
-          "report-append: missing plugin ID (e.g., z-shell/zbrowse). See -h.");
-      return 1;
-    }
-    target = zp_unmetafy_zalloc(target, &target_len);
-    if (!target) {
-      zwarnnam(nam, "out of memory");
-      return 1;
-    }
-    body = *argv++;
-    if (!body) {
-      zwarnnam(nam, "report-append: missing text to append. See -h.");
-      return 1;
-    }
-    body_len = strlen(body);
-    ret = zp_append_report(nam, target, target_len, body, body_len);
-    zfree(target, target_len);
+    ret = cmd_report_append(nam, argv);
   } else if (0 == strcmp(subcmd, "source-study")) {
-    char *report;
-    int rep_size;
-    report = zp_build_source_report(!zp_has_option(argv, 'l'), &rep_size);
-    fprintf(stdout, "%s",
-            report ? report : "❌ zpmod: failed to build source report\n");
-    fflush(stdout);
-    if (rep_size) {
-      zfree(report, rep_size);
-    } else if (report) {
-      zsfree(report);
-    }
+    ret = cmd_source_study(nam, argv);
   } else if (0 == strcmp(subcmd, "dirlist")) {
-    int inc_all = 0, only_dirs = 0, only_files = 0;
-    while (*argv && argv[0][0] == '-' && argv[0][1]) {
-      if (strcmp(argv[0], "--") == 0) {
-        argv++;
-        break;
-      }
-      const char *o = argv[0] + 1;
-      int stop = 0;
-      while (*o && !stop) {
-        switch (*o++) {
-        case 'a':
-          inc_all = 1;
-          break;
-        case 'd':
-          only_dirs = 1;
-          break;
-        case 'f':
-          only_files = 1;
-          break;
-        default:
-          stop = 1;
-          break;
-        }
-      }
-      if (stop)
-        break;
-      else
-        argv++;
-    }
-    if (!argv[0] || !argv[1]) {
-      zwarnnam(nam,
-               "dirlist: usage: zpmod dirlist [-a] [-d] [-f] out_array dir");
-      return 1;
-    }
-    ret =
-        zp_dirlist_core(nam, argv[0], argv[1], inc_all, only_dirs, only_files);
+    ret = cmd_dirlist(nam, argv);
   } else if (0 == strcmp(subcmd, "pathstat")) {
-    int follow = 0;
-    char *fields = NULL;
-    while (*argv && argv[0][0] == '-' && argv[0][1]) {
-      if (strcmp(argv[0], "--") == 0) {
-        argv++;
-        break;
-      }
-      if (strcmp(argv[0], "-L") == 0) {
-        follow = 1;
-        argv++;
-        continue;
-      }
-      if (argv[0][1] == 'f') {
-        if (argv[0][2] != '\0') {
-          fields = argv[0] + 2;
-          argv++;
-        } else {
-          argv++;
-          if (!*argv) {
-            zwarnnam(nam, "pathstat: -f requires fields");
-            return 1;
-          }
-          fields = *argv++;
-        }
-        continue;
-      }
-      break;
-    }
-    if (!argv[0] || !argv[1]) {
-      zwarnnam(nam, "pathstat: usage: zpmod pathstat [-L] [-f fields] "
-                    "out_array in_array");
-      return 1;
-    }
-    ret = zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
+    ret = cmd_pathstat(nam, argv);
   } else if (0 == strcmp(subcmd, "readfile")) {
-    int use_mmap = 0, split = 0;
-    int delim = '\n';
-    while (*argv && argv[0][0] == '-' && argv[0][1]) {
-      if (strcmp(argv[0], "--") == 0) {
-        argv++;
-        break;
-      }
-      if (strcmp(argv[0], "-m") == 0) {
-        use_mmap = 1;
-        argv++;
-        continue;
-      }
-      if (strcmp(argv[0], "-0") == 0) {
-        split = 1;
-        delim = '\0';
-        argv++;
-        continue;
-      }
-      if (argv[0][1] == 'd') {
-        char *a = NULL;
-        if (argv[0][2] != '\0') {
-          a = argv[0] + 2;
-          argv++;
-        } else {
-          argv++;
-          if (!*argv) {
-            zwarnnam(nam, "readfile: -d requires delimiter");
-            return 1;
-          }
-          a = *argv++;
-        }
-        if (a && *a) {
-          split = 1;
-          if (a[0] == '\\') {
-            switch (a[1]) {
-            case 'n':
-              delim = '\n';
-              break;
-            case 't':
-              delim = '\t';
-              break;
-            case '0':
-              delim = '\0';
-              break;
-            case 'r':
-              delim = '\r';
-              break;
-            default:
-              delim = (unsigned char)a[1];
-              break;
-            }
-          } else {
-            delim = (unsigned char)a[0];
-          }
-        }
-        continue;
-      }
-      break;
-    }
-    if (!argv[0] || !argv[1]) {
-      zwarnnam(nam,
-               "readfile: usage: zpmod readfile [-m] [-d delim|-0] var file");
-      return 1;
-    }
-    ret = zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);
+    ret = cmd_readfile(nam, argv);
   } else {
     zwarnnam(nam, "unknown subcommand: %s. See -h.", subcmd);
   }
@@ -285,7 +327,8 @@ static struct builtin self_builtins[] = {
 };
 
 struct builtin *zp_get_self_builtins(size_t *count) {
-  if (count)
+  if (count) {
     *count = sizeof(self_builtins) / sizeof(*self_builtins);
+  }
   return self_builtins;
 }
