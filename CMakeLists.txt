@@ -100,14 +100,23 @@ set(ZPMOD_SOURCES
   src/core/utils.c
   src/core/emoji.c
   src/core/fs.c
-  src/core/source.c
   src/compat/options.c
   src/builtins/fs_builtins.c
   src/builtins/readarray.c
   src/builtins/zpmod_builtin.c
 )
 
+# Add source.c only if we have full zsh headers (for in-tree builds)
+if(EXISTS "${ZSH_HEADERS_DIR}/zsh.mdh")
+  list(APPEND ZPMOD_SOURCES src/core/source.c)
+endif()
+
 add_library(zpmod MODULE ${ZPMOD_SOURCES})
+
+# Define ZPMOD_HAVE_SOURCE_STUDY if source.c is included
+if(EXISTS "${ZSH_HEADERS_DIR}/zsh.mdh")
+  target_compile_definitions(zpmod PRIVATE ZPMOD_HAVE_SOURCE_STUDY=1)
+endif()
 
 # Ensure our module includes zsh headers and config
 # Also include src for module-local generated headers (zpmod.mdh/pro if present)

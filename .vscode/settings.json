@@ -40,7 +40,8 @@
     "*.gitconfig": "git-configuration",
     "*.zsh": "shellscript",
     "*.ztst": "shellscript",
-    "*.epro": "cpp"
+    "*.epro": "cpp",
+    "*.mdh": "cpp"
   },
 
   // Keep Trunk from running on build artifacts in the Problems panel too

@@ -24,11 +24,6 @@ _Pragma("GCC diagnostic push")
 # include "zsh_system.h"
 # include "zsh.h"
 # include "sigcount.h"
-# if defined(__has_include)
-#  if __has_include("zmod_imports_placeholder.h")
-#   include "zmod_imports_placeholder.h"
-#  endif
-# endif
 # ifndef mod_import_variable
 #  define mod_import_variable
 # endif
