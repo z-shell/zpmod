@@ -9,6 +9,13 @@
 #ifndef ZPMOD_ZSH_IMPORTS_H
 #define ZPMOD_ZSH_IMPORTS_H
 
+/* Parameter functions from params.c */
+#ifndef mod_import_function
+Param setaparam(char *s, char **aval);
+#else
+mod_import_function Param setaparam(char *s, char **aval);
+#endif
+
 #if defined(__has_include)
 #if __has_include("builtin.epro")
 #include "builtin.epro"
