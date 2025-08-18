@@ -16,6 +16,28 @@ Param setaparam(char *s, char **aval);
 mod_import_function Param setaparam(char *s, char **aval);
 #endif
 
+/* Memory management functions from mem.c */
+#ifndef mod_import_function
+void *zalloc(size_t size);
+void zfree(void *p, int sz);
+void zsfree(char *p);
+#else
+mod_import_function void *zalloc(size_t size);
+mod_import_function void zfree(void *p, int sz);
+mod_import_function void zsfree(char *p);
+#endif
+
+/* Module feature functions from module.c */
+#ifndef mod_import_function
+char **featuresarray(Module m, Features f);
+int handlefeatures(Module m, Features f, int **enables);
+int setfeatureenables(Module m, Features f, int *e);
+#else
+mod_import_function char **featuresarray(Module m, Features f);
+mod_import_function int handlefeatures(Module m, Features f, int **enables);
+mod_import_function int setfeatureenables(Module m, Features f, int *e);
+#endif
+
 #if defined(__has_include)
 #if __has_include("builtin.epro")
 #include "builtin.epro"
