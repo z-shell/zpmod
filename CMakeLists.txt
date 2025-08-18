@@ -224,10 +224,11 @@ endif()
 if(ZSH_EXECUTABLE)
   # Path where the module will be staged
   set(ZPMOD_STAGE_MODULE_DIR "${ZPMOD_STAGE_DIR}/${ZPMOD_ZSH_MODDIR}")
+  # Use the same smoke script as CTest to avoid discrepancies in module_path handling
   add_custom_target(smoke
     DEPENDS stage
-    COMMAND ${ZSH_EXECUTABLE} -f -c "module_path=(\"${ZPMOD_STAGE_MODULE_DIR}\" \$module_path); zmodload -i zpmod && print -r -- 'zpmod smoke OK'"
-    COMMENT "Running zsh smoke test loading zpmod from staged prefix"
+  COMMAND ${CMAKE_COMMAND} -E env ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR} ${ZSH_EXECUTABLE} -f ${CMAKE_SOURCE_DIR}/tests/core/smoke.zsh
+    COMMENT "Running zsh smoke test using staged module and helpers"
     VERBATIM)
 
   # CTest integration

@@ -1,5 +1,7 @@
 # Copilot instructions for zpmod
 
+## Overview
+
 ### Purpose & scope
 
 Work efficiently in this repo with minimal tool calls and small, focused edits. Favor local context, reproducible tasks, and zpmod’s established patterns.

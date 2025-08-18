@@ -265,6 +265,29 @@ _msg "Staging into $STAGE_PREFIX"
 cmake --install "$BUILD_DIR" --prefix "$STAGE_PREFIX" || _die "Stage install failed"
 _ok "Staged to $STAGE_PREFIX"
 
+# ---- staged tree hygiene (defensive cleanup) ----
+# Some debugging flows may accidentally create a nested 'zsh/zpmod.*' symlink under
+# the site-modules directory (e.g., stage/lib/zsh/site-modules/zsh/zpmod.so -> ../zpmod.so).
+# This can confuse module discovery. Clean up such stray nested entries if detected.
+{
+  local moddir="$STAGE_PREFIX/${MOD_SUBDIR:-lib/zsh/site-modules}"
+  local nested_dir="$moddir/zsh"
+  if [[ -d $nested_dir ]]; then
+    local removed=false
+    for ext in so bundle dylib dll; do
+      local nested="$nested_dir/zpmod.$ext"
+      if [[ -L $nested ]]; then
+        _warn "Removing stray nested symlink: ${nested:t} in ${nested:h}"
+        rm -f -- "$nested" 2>/dev/null && removed=true
+      fi
+    done
+    # Remove the now-empty nested dir (best-effort)
+    if $removed; then
+      rmdir -- "$nested_dir" 2>/dev/null || true
+    fi
+  fi
+} || true
+
 # ---- packaging (optional) ----
 if $DO_PACKAGE; then
   _msg "Packaging with CPack (${CPACK_GENERATORS:-TGZ})"
@@ -337,7 +360,7 @@ if $INSTALL_ZI; then
   # Optionally symlink completion into Zi's completions directory
   if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[COMPLETIONS_DIR]:-} ]]; then
     compdir=${ZI[COMPLETIONS_DIR]}
-    src_comp="$REPO_ROOT/src/_zpmod"
+  src_comp="$REPO_ROOT/src/completion/_zpmod"
     if [[ -f $src_comp ]]; then
       mkdir -p -- "$compdir" || _warn "Cannot create completions dir: $compdir"
       if [[ -e "$compdir/_zpmod" && ! -L "$compdir/_zpmod" ]]; then
