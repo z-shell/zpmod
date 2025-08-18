@@ -6,7 +6,8 @@ Common install flags:
 
 - `--install-zi` — copy to Zi modules dir: `${ZI[ZMODULES_DIR]}/zpmod`
 - `--install-user` — copy to user-local site modules: `~/.local/lib/zsh/site-modules`
-- `--install-system` — system-wide install via CMake. Uses `--prefix` if set (defaults to `/usr/local`) and installs under `${prefix}/lib/zsh/site-modules`.
+- `--install-system` — system-wide install via CMake. Uses `--prefix` if set (defaults to `/usr/local`) and installs under
+  `${prefix}/lib/zsh/site-modules`.
 
 ## Quick use
 
@@ -66,7 +67,8 @@ Notes:
 
 ## Notes
 
-- The exact system module directory can vary by distro or architecture. Using `lib/zsh/site-modules` keeps third-party modules version-agnostic and matches this project’s CMake defaults.
+- The exact system module directory can vary by distro or architecture. Using `lib/zsh/site-modules` keeps third-party modules
+  version-agnostic and matches this project’s CMake defaults.
 - Verify the module is available:
 
 ```zsh

@@ -11,10 +11,12 @@ This directory contains the zpmod module sources organized by layer:
 
 ## Maintenance rules
 
-- Builtins are registered statically in `module/module.c`; features via `features_/enables_`; `setup_` installs overrides, `finish_` restores.
+- Builtins are registered statically in `module/module.c`; features via `features_/enables_`; `setup_` installs overrides, `finish_`
+  restores.
 - Use zsh allocators (`zalloc`, `zfree`, `zsfree`); when length is known, free with the exact length.
 - Map options via the stable enum using `compat/options.c` and `include/zpmod_compat.h` (`zp_conv_opt`).
-- Prefer vendored zsh headers under `vendor/zsh`; keep public APIs within `include/zpmod_*.h` to avoid leaking internal headers between units.
+- Prefer vendored zsh headers under `vendor/zsh`; keep public APIs within `include/zpmod_*.h` to avoid leaking internal headers between
+  units.
 
 ## Module imports
 

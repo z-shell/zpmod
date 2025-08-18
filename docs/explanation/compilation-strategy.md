@@ -19,7 +19,8 @@ Minimize startup and sourcing time by using zsh's wordcode compiled form (`.zwc`
 
 ## Debug Mode Influence
 
-When `ZI_MOD_DEBUG=1` module logs reasons for skipping compilation (permissions, missing access) and may attempt compilation even if not strictly necessary for diagnostics.
+When `ZI_MOD_DEBUG=1` module logs reasons for skipping compilation (permissions, missing access) and may attempt compilation even if not
+strictly necessary for diagnostics.
 
 ## Error Handling
 

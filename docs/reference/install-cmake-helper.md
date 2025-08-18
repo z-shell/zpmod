@@ -45,7 +45,8 @@ scripts/cmake.configure.zsh --install-system --prefix /usr/local
 
 Notes:
 
-- If `vendor/zsh/config.h` is missing and vendor build isn't disabled, the script builds vendored zsh to generate headers/prototypes required by zpmod.
+- If `vendor/zsh/config.h` is missing and vendor build isn't disabled, the script builds vendored zsh to generate headers/prototypes
+  required by zpmod.
 - If `vendor/zsh/Src/zsh` exists, it’s used for the smoke and test runs (you can override with `-DZSH_EXECUTABLE=...` at configure time).
 
 ## Local load & testing
@@ -69,4 +70,5 @@ Expected staged artifact layout:
 - Shared object at: `build-cmake/stage/lib/zsh/site-modules/zpmod.so` (platform suffix may vary)
 - No nested `zsh/` subdirectory should exist under `site-modules/`.
 
-Note: if a stray nested path like `build-cmake/stage/lib/zsh/site-modules/zsh/zpmod.so` appears (often from manual debugging), the helper performs a defensive cleanup to remove that symlink and fold the directory if empty, to keep module discovery unambiguous.
+Note: if a stray nested path like `build-cmake/stage/lib/zsh/site-modules/zsh/zpmod.so` appears (often from manual debugging), the helper
+performs a defensive cleanup to remove that symlink and fold the directory if empty, to keep module discovery unambiguous.

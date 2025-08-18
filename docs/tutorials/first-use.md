@@ -25,7 +25,8 @@ scripts/cmake.configure.zsh --install-user
 
 ## 2. Load Early
 
-Place the lines output by the installer at the very top of `~/.zshrc` (before plugin managers) so zpmod can intercept all early `source` / `.` calls:
+Place the lines output by the installer at the very top of `~/.zshrc` (before plugin managers) so zpmod can intercept all early `source` /
+`.` calls:
 
 ```zsh
 module_path+=("${HOME}/.zi/zmodules/zpmod")
@@ -59,7 +60,8 @@ You will see a list like:
 
 ## 5. Verify Compilation
 
-Pick a sourced script from the list, and look for a sibling `script.zwc`. If it exists and timestamps match or are newer, zpmod is successfully compiling.
+Pick a sourced script from the list, and look for a sibling `script.zwc`. If it exists and timestamps match or are newer, zpmod is
+successfully compiling.
 
 ## 6. Enable Debug (Optional)
 

@@ -4,7 +4,8 @@
 
 ### Purpose & scope
 
-Work efficiently in this repo with minimal tool calls and small, focused edits. Favor local context, reproducible tasks, and zpmod’s established patterns.
+Work efficiently in this repo with minimal tool calls and small, focused edits. Favor local context, reproducible tasks, and zpmod’s
+established patterns.
 
 ### Architecture quick brief
 
@@ -140,4 +141,5 @@ For complex tasks, use the sequential thinking tool to break down problems step 
   6. Verify against requirements
   7. Finalize implementation plan
 
-This module requires deep zsh internals knowledge - always verify changes against multiple zsh versions and test thoroughly with the ztst framework.
+This module requires deep zsh internals knowledge - always verify changes against multiple zsh versions and test thoroughly with the ztst
+framework.
