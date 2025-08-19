@@ -1,0 +1,181 @@
+services:
+  # Minimal environment testing (simulates CI)
+  test-minimal:
+    build:
+      context: ..
+      dockerfile: docker/minimal.Dockerfile
+    container_name: zpmod-test-minimal
+    volumes:
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_TEST_ENV=minimal
+      - CTEST_OUTPUT_ON_FAILURE=1
+
+  # Full development environment testing
+  test-full-dev:
+    build:
+      context: ..
+      dockerfile: docker/full-dev.Dockerfile
+    container_name: zpmod-test-full-dev
+    volumes:
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_TEST_ENV=full-dev
+      - CTEST_OUTPUT_ON_FAILURE=1
+
+  # Smoke tests only (quick validation)
+  test-smoke:
+    build:
+      context: ..
+      dockerfile: docker/minimal.Dockerfile
+    container_name: zpmod-test-smoke
+    command: ["ctest", "--test-dir", "build-cmake", "-R", "zpmod_smoke", "--output-on-failure"]
+    environment:
+      - ZPMOD_TEST_ENV=smoke
+      - CTEST_OUTPUT_ON_FAILURE=1
+
+  # Build validation (check if source.c is properly included/excluded)
+  build-validation:
+    build:
+      context: ..
+      dockerfile: docker/minimal.Dockerfile
+    container_name: zpmod-build-validation
+    command:
+      - "sh"
+      - "-c"
+      - >
+        cmake --build build-cmake -j 2 &&
+        echo '=== Build completed ===' &&
+        find build-cmake -name '*.o' | grep -E '(source|module)' | sort
+    environment:
+      - ZPMOD_TEST_ENV=build-validation
+
+  # Documentation build environment
+  build-docs:
+    build:
+      context: ..
+      dockerfile: docker/docs.Dockerfile
+    container_name: zpmod-build-docs
+    volumes:
+      - ../:/workspace
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_BUILD_TYPE=Release
+      - CMAKE_VERBOSE_MAKEFILE=ON
+      - USER_ID
+      - GROUP_ID
+      - USER_NAME
+      - GROUP_NAME
+    command:
+      - "sh"
+      - "-c"
+      - >
+        echo '🧹 Cleaning any existing build directory...' &&
+        sudo rm -rf build-cmake || rm -rf build-cmake &&
+        echo '🏗️  Configuring documentation build...' &&
+        cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=$${ZPMOD_BUILD_TYPE:-Release}
+        $${CMAKE_VERBOSE_MAKEFILE:+-DCMAKE_VERBOSE_MAKEFILE=ON} &&
+        echo '📚 Building documentation with Doxygen...' &&
+        cmake --build build-cmake --target docs &&
+        echo '✅ Documentation build complete!' &&
+        echo '📋 Copying documentation to build-results...' &&
+        mkdir -p build-results/docs &&
+        cp -r build-cmake/docs/* build-results/docs/ &&
+        echo '📊 Documentation ready at: build-results/docs/html/index.html'
+
+  # Documentation with clean rebuild
+  build-docs-clean:
+    build:
+      context: ..
+      dockerfile: docker/docs.Dockerfile
+    container_name: zpmod-build-docs-clean
+    volumes:
+      - ../:/workspace
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_BUILD_TYPE=Release
+      - USER_ID
+      - GROUP_ID
+      - USER_NAME
+      - GROUP_NAME
+    command:
+      - "sh"
+      - "-c"
+      - >
+        echo '🧹 Cleaning previous build...' &&
+        sudo rm -rf build-cmake build-results/docs || rm -rf build-cmake build-results/docs &&
+        echo '🏗️  Configuring clean documentation build...' &&
+        cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=$${ZPMOD_BUILD_TYPE:-Release} &&
+        echo '📚 Building documentation with Doxygen...' &&
+        cmake --build build-cmake --target docs &&
+        echo '✅ Clean documentation build complete!' &&
+        echo '📋 Copying documentation to build-results...' &&
+        mkdir -p build-results/docs &&
+        cp -r build-cmake/docs/* build-results/docs/ &&
+        echo '📊 Documentation ready at: build-results/docs/html/index.html'
+
+  # Release build and stage (produces staged tree under build-results/release)
+  build-release:
+    build:
+      context: ..
+      dockerfile: docker/docs.Dockerfile
+    container_name: zpmod-build-release
+    volumes:
+      - ../:/workspace
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_BUILD_TYPE=Release
+      - CMAKE_VERBOSE_MAKEFILE=ON
+      - USER_ID
+      - GROUP_ID
+      - USER_NAME
+      - GROUP_NAME
+    command:
+      - "sh"
+      - "-c"
+      - >
+        echo '🧹 Cleaning previous release output...' &&
+        sudo rm -rf build-results/release || rm -rf build-results/release &&
+        echo '🏗️  Configuring build...' &&
+        cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=$${ZPMOD_BUILD_TYPE:-Release}
+        $${CMAKE_VERBOSE_MAKEFILE:+-DCMAKE_VERBOSE_MAKEFILE=ON} &&
+        echo '🔧 Building module...' &&
+        cmake --build build-cmake -j 2 &&
+        echo '📦 Staging module (cmake --build --target stage)...' &&
+        cmake --build build-cmake --target stage &&
+        echo '📋 Copying staged tree to build-results/release ...' &&
+        mkdir -p build-results/release &&
+        cp -r build-cmake/stage/* build-results/release/ &&
+        echo '✅ Release staging complete at build-results/release/'
+
+  # Clean release build (forces full rebuild and fresh stage)
+  build-release-clean:
+    build:
+      context: ..
+      dockerfile: docker/docs.Dockerfile
+    container_name: zpmod-build-release-clean
+    volumes:
+      - ../:/workspace
+      - ../build-results:/workspace/build-results
+    environment:
+      - ZPMOD_BUILD_TYPE=Release
+      - USER_ID
+      - GROUP_ID
+      - USER_NAME
+      - GROUP_NAME
+    command:
+      - "sh"
+      - "-c"
+      - >
+        echo '🧹 Cleaning build and previous release output...' &&
+        sudo rm -rf build-cmake build-results/release || rm -rf build-cmake build-results/release &&
+        echo '🏗️  Configuring clean build...' &&
+        cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=$${ZPMOD_BUILD_TYPE:-Release} &&
+        echo '🔧 Building module...' &&
+        cmake --build build-cmake -j 2 &&
+        echo '📦 Staging module (cmake --build --target stage)...' &&
+        cmake --build build-cmake --target stage &&
+        echo '📋 Copying staged tree to build-results/release ...' &&
+        mkdir -p build-results/release &&
+        cp -r build-cmake/stage/* build-results/release/ &&
+        echo '✅ Clean release staging complete at build-results/release/'
