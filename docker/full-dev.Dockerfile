@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     git \
     ca-certificates \
+    groff-base \
+    util-linux \
     autoconf \
     automake \
     libtool \
@@ -23,7 +25,7 @@ WORKDIR /tmp/zsh
 RUN ./Util/preconfig && \
     ./configure --enable-modules --enable-dynamic --with-tcsetpgrp && \
     make -j"$(nproc)" && \
-    make install && \
+    make install || make install.bin install.modules install.fns && \
     rm -rf /tmp/zsh
 
 # Set working directory
@@ -43,7 +45,7 @@ RUN rm -rf build-cmake && \
         cmake -S . -B build-cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=ON \
-            -DZSH_EXECUTABLE=/usr/bin/zsh && \
+            -DZSH_EXECUTABLE=/usr/local/bin/zsh && \
     cmake --build build-cmake -j 2 && \
     cmake --build build-cmake --target stage
 

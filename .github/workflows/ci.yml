@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,6 +43,16 @@ jobs:
         run: |
           cd docker && docker compose run --rm build-validation
 
+      - name: Upload build logs (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.env }}
+          path: |
+            build-results/**
+            build-cmake/Testing/**
+          if-no-files-found: ignore
+
   smoke-tests:
     name: Smoke Tests
     runs-on: ubuntu-latest
@@ -56,5 +67,16 @@ jobs:
 
       - name: Build and run smoke tests
         run: |
-          cd docker && docker compose build test-smoke
-          cd docker && docker compose run --rm test-smoke
+          cd docker
+          docker compose build test-smoke
+          docker compose run --rm test-smoke
+
+      - name: Upload smoke logs (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-smoke
+          path: |
+            build-results/**
+            build-cmake/Testing/**
+          if-no-files-found: ignore
