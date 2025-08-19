@@ -7,13 +7,13 @@ different environments.
 
 ### Build Documentation in Container
 
-```bash
+````bash
 # Standard documentation build
 ./scripts/docker-test.sh docs
 
 # Clean rebuild (removes previous build first)
 ./scripts/docker-test.sh docs-clean
-```
+```bash
 
 ### Using Docker Compose Directly
 
@@ -26,7 +26,7 @@ docker-compose run --rm build-docs
 
 # Clean rebuild
 docker-compose run --rm build-docs-clean
-```
+```bash
 
 ## What Gets Built
 
@@ -42,9 +42,9 @@ The containerized documentation build generates:
 
 Generated documentation is available at:
 
-```
+```text
 build-results/docs/html/index.html
-```
+```bash
 
 You can open this directly in your browser:
 
@@ -57,7 +57,7 @@ open build-results/docs/html/index.html
 
 # Or view the file path
 echo "file://$(pwd)/build-results/docs/html/index.html"
-```
+```bash
 
 ## Container Features
 
@@ -92,7 +92,7 @@ ZPMOD_BUILD_TYPE=Release
 
 # Enable verbose CMake output
 CMAKE_VERBOSE_MAKEFILE=ON
-```
+```bash
 
 ## Integration with CI/CD
 
@@ -112,14 +112,14 @@ The containerized docs build integrates with:
 # Clean Docker cache and rebuild
 docker system prune -f
 cd docker && docker-compose build --no-cache build-docs
-```
+```yaml
 
 **Documentation not generated:**
 
 ```bash
 # Check for Doxygen errors in container logs
 cd docker && docker-compose run --rm build-docs 2>&1 | grep -i error
-```
+````
 
 **Output directory not found:**
 

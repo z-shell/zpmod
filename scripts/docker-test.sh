@@ -41,10 +41,14 @@ ensure_build_results_dir() {
 
 # Export host user/group so containers can match file ownership
 export_user_env() {
-  export USER_ID="$(id -u)"
-  export GROUP_ID="$(id -g)"
-  export USER_NAME="$(id -un)"
-  export GROUP_NAME="$(id -gn)"
+  USER_ID="$(id -u)"
+  export USER_ID
+  GROUP_ID="$(id -g)"
+  export GROUP_ID
+  USER_NAME="$(id -un)"
+  export USER_NAME
+  GROUP_NAME="$(id -gn)"
+  export GROUP_NAME
   log_info "Using UID:GID ${USER_ID}:${GROUP_ID} (${USER_NAME}:${GROUP_NAME}) for container file ownership"
 }
 
