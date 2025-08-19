@@ -10,3 +10,4 @@ Task‑oriented guides for common zpmod scenarios.
 - [Enable debug logging](enable-debug.md)
 - [Use readarray builtin](use-readarray.md)
 - [Append to plugin report](append-report.md)
+- [Build documentation with containers](build-docs-container.md)
