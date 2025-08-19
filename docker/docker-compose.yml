@@ -9,6 +9,7 @@ services:
       - ../build-results:/workspace/build-results
     environment:
       - ZPMOD_TEST_ENV=minimal
+      - ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules
       - CTEST_OUTPUT_ON_FAILURE=1
     command:
       - "sh"
@@ -26,6 +27,7 @@ services:
       - ../build-results:/workspace/build-results
     environment:
       - ZPMOD_TEST_ENV=full-dev
+      - ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules
       - CTEST_OUTPUT_ON_FAILURE=1
     command:
       - "sh"
@@ -42,6 +44,7 @@ services:
     command: ["ctest", "--test-dir", "build-cmake", "-R", "zpmod_smoke", "--output-on-failure"]
     environment:
       - ZPMOD_TEST_ENV=smoke
+      - ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules
       - CTEST_OUTPUT_ON_FAILURE=1
 
   # Build validation (check if source.c is properly included/excluded)
