@@ -32,7 +32,7 @@ jobs:
 
       - name: Build test environment
         run: |
-          cd docker && docker compose build test-${{ matrix.env }}
+          cd docker && docker compose build --no-cache test-${{ matrix.env }}
 
       - name: Run tests in ${{ matrix.env }} environment
         run: |
@@ -68,7 +68,7 @@ jobs:
       - name: Build and run smoke tests
         run: |
           cd docker
-          docker compose build test-smoke
+          docker compose build --no-cache test-smoke
           docker compose run --rm test-smoke
 
       - name: Upload smoke logs (if any)
