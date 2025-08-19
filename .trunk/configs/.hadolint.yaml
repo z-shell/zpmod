@@ -1,3 +1,5 @@
 # Following source doesn't work in most setups
 ignored:
   - SC1091
+
+  - DL3008 # Don't pin apt packages to reduce maintenance burden; base image provides stability

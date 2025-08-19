@@ -22,7 +22,7 @@ RUN ./Util/preconfig && \
     ./configure --enable-modules --enable-dynamic --with-tcsetpgrp && \
     make -j"$(nproc)" && \
     make install && \
-    cd / && rm -rf /tmp/zsh
+    rm -rf /tmp/zsh
 
 # Set working directory
 WORKDIR /workspace
