@@ -33,84 +33,28 @@
       "problemMatcher": []
     },
     {
-      "label": "CMake: configure",
+      "label": "Docs: container build (clean)",
       "type": "shell",
-      "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build-cmake -DCMAKE_BUILD_TYPE=Release"
+      "command": "docker compose -f ${workspaceFolder}/docker/docker-compose.yml run --rm build-docs-clean",
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "USER_ID": "${env:USER_ID}",
+          "GROUP_ID": "${env:GROUP_ID}"
+        }
+      }
     },
     {
-      "label": "CMake: build",
+      "label": "Release: container stage (clean)",
       "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CTest: smoke",
-      "type": "shell",
-      "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CMake: configure",
-      "type": "shell",
-      "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build-cmake -DCMAKE_BUILD_TYPE=Release"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CTest: all",
-      "type": "shell",
-      "command": "ctest --test-dir ${workspaceFolder}/build-cmake --output-on-failure -j 2"
-    },
-    {
-      "label": "CMake: stage",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake --target stage"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CTest: smoke",
-      "type": "shell",
-      "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
-    },
-    {
-      "label": "CTest: smoke",
-      "type": "shell",
-      "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure"
+      "command": "docker compose -f ${workspaceFolder}/docker/docker-compose.yml run --rm build-release-clean",
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "USER_ID": "${env:USER_ID}",
+          "GROUP_ID": "${env:GROUP_ID}"
+        }
+      }
     }
   ]
 }

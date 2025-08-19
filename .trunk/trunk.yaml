@@ -11,6 +11,7 @@ lint:
     - checkov
     - trufflehog
   enabled:
+    - hadolint@2.12.1-beta
     - clang-tidy@16.0.3
     - clang-format@16.0.3
     - gitleaks@8.28.0
