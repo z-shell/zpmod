@@ -7,16 +7,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
+    ca-certificates \
     autoconf \
     automake \
     libtool \
     texinfo \
     ncurses-dev \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Build zsh from source to get full development environment
-RUN git clone --depth 1 --branch zsh-5.9 https://github.com/zsh-users/zsh.git /tmp/zsh && \
-    :
+RUN git clone --depth 1 --branch zsh-5.9 https://github.com/zsh-users/zsh.git /tmp/zsh
 WORKDIR /tmp/zsh
 RUN ./Util/preconfig && \
     ./configure --enable-modules --enable-dynamic --with-tcsetpgrp && \
