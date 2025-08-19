@@ -1,3 +1,5 @@
+build-cmake/
+build-*/
 Makefile
 tags
 TAGS
@@ -14,22 +16,6 @@ compile_commands.json
 *~
 .*.sw?
 \#*
-
-/build-cmake/
-/build-sanitize/
-/META-FAQ
-/config.cache
-/config.h
-/config.log
-/config.modules
-/config.modules.sh
-/config.status
-/config.status.lineno
-/cscope.out
-/stamp-h
-/autom4te.cache
-
-Config/defs.mk
 
 CVS
 .#*
