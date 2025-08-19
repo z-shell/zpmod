@@ -60,4 +60,22 @@
 #endif
 #endif /* __has_include */
 
+/* Fallback declarations for out-of-tree builds when zsh-generated .epro
+ * headers are not available in the include path. These are minimal
+ * prototypes sufficient for compilation; symbols are resolved at runtime
+ * by the hosting zsh.
+ */
+#include <stddef.h>
+
+#if !defined(__has_include) || !__has_include("mem.epro")
+void *zalloc(size_t size);
+void zfree(void *ptr, size_t size);
+void zsfree(char *ptr);
+#endif
+
+#if !defined(__has_include) || !__has_include("string.epro")
+char *ztrdup(const char *s);
+char *dupstring(const char *s);
+#endif
+
 #endif /* ZPMOD_ZSH_IMPORTS_H */
