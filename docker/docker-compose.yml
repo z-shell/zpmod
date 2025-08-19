@@ -10,6 +10,11 @@ services:
     environment:
       - ZPMOD_TEST_ENV=minimal
       - CTEST_OUTPUT_ON_FAILURE=1
+    command:
+      - "sh"
+      - "-c"
+      - >
+        ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Full development environment testing
   test-full-dev:
@@ -22,6 +27,11 @@ services:
     environment:
       - ZPMOD_TEST_ENV=full-dev
       - CTEST_OUTPUT_ON_FAILURE=1
+    command:
+      - "sh"
+      - "-c"
+      - >
+        ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Smoke tests only (quick validation)
   test-smoke:

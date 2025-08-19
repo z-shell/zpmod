@@ -29,11 +29,21 @@ RUN ./Util/preconfig && \
 # Set working directory
 WORKDIR /workspace
 
-# Copy project files
-COPY . .
+# Create non-root user for running tests
+RUN useradd -m -u 1000 -U zp
+
+# Copy project files with ownership to non-root user
+COPY --chown=zp:zp . .
+RUN chown -R zp:zp /workspace
+
+# Switch to non-root user
+USER zp
 
 RUN rm -rf build-cmake && \
-    cmake -S . -B build-cmake -DCMAKE_BUILD_TYPE=Release && \
+        cmake -S . -B build-cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=ON \
+            -DZSH_EXECUTABLE=/usr/bin/zsh && \
     cmake --build build-cmake -j 2 && \
     cmake --build build-cmake --target stage
 
