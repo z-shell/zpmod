@@ -55,6 +55,13 @@
           "GROUP_ID": "${env:GROUP_ID}"
         }
       }
+    },
+    {
+      "label": "Docker: test-minimal (one-shot)",
+      "type": "shell",
+      "command": "docker compose -f docker/docker-compose.yml build test-minimal && docker compose -f docker/docker-compose.yml run --rm test-minimal",
+      "problemMatcher": ["$gcc"],
+      "group": "build"
     }
   ]
 }
