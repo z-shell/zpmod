@@ -71,11 +71,44 @@
 void *zalloc(size_t size);
 void zfree(void *ptr, size_t size);
 void zsfree(char *ptr);
+void *zrealloc(void *ptr, size_t size);
 #endif
 
 #if !defined(__has_include) || !__has_include("string.epro")
 char *ztrdup(const char *s);
 char *dupstring(const char *s);
+#endif
+
+#if !defined(__has_include) || !__has_include("utils.epro")
+char *metafy(char *s, int len, int how);
+char *unmetafy(char *s, int *len);
+#endif
+
+#if !defined(__has_include) || !__has_include("params.epro")
+char *getsparam(const char *name);
+char **getaparam(const char *name);
+void setsparam(const char *name, char *value);
+void setaparam(const char *name, char **value);
+void unsetparam(const char *name);
+extern HashTable paramtab;
+#endif
+
+#if !defined(__has_include) || !__has_include("hashtable.epro")
+HashNode gethashnode2(HashTable ht, const char *name);
+#endif
+
+#if !defined(__has_include) || !__has_include("options.epro")
+int optlookup(const char *name);
+#endif
+
+#if !defined(__has_include) || !__has_include("builtin.epro")
+void zwarnnam(const char *cmd, const char *fmt, ...);
+#endif
+
+#if !defined(__has_include) || !__has_include("module.epro")
+char **featuresarray(Module m, Features *features);
+int handlefeatures(Module m, Features *features, int **enables);
+int setfeatureenables(Module m, Features *features, int **enables);
 #endif
 
 #endif /* ZPMOD_ZSH_IMPORTS_H */
