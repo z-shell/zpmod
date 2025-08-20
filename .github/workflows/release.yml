@@ -1,14 +1,9 @@
-# Release workflow for zpmod
-# Builds cross-platform packages and creates GitHub releases for tagged versions
 name: Release
 
 on:
-  # Automatically trigger on version tags (v1.0.0, v2.0.0-alpha, etc.)
   push:
     tags:
       - "v*"
-
-  # Allow manual release builds via GitHub UI
   workflow_dispatch:
     inputs:
       tag:
@@ -17,24 +12,21 @@ on:
         default: ""
         type: string
 
-# Set workflow-level permissions for security
 permissions:
   contents: read
 
-# Prevent concurrent releases to avoid conflicts
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # Build zpmod packages for multiple platforms
   build:
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-
+    permissions:
+      contents: read
     strategy:
-      # Don't cancel other builds if one fails
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -43,39 +35,26 @@ jobs:
             platform: linux
           - os: macos-latest
             platform: macos
-
     steps:
-      # Check out source code with submodules
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          # Fetch full history for accurate version detection
           fetch-depth: 0
-
-      # Set up build tools using latest actions
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.20"
-
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
-
-      # Configure caching for faster builds
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
           key: ${{ matrix.os }}-release
           max-size: 500M
-
-      # Install platform-specific build dependencies
-
-      # Install platform-specific build dependencies
       - name: Install build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          # Update package index and install required packages for zsh module building
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -90,224 +69,102 @@ jobs:
             libpcre3-dev \
             libgdbm-dev \
             zsh
-
       - name: Install build dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          # Install required packages via Homebrew
-          # Note: yodl is not available on macOS, but not essential for module building
           brew install autoconf automake libtool ncurses pcre gdbm texinfo
-
-      # Configure and build project using our unified script
       - name: Configure project
         run: |
-          # Add ccache to PATH for faster builds
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          # Configure with Ninja generator and Release build type
           ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
-
       - name: Build and package
         run: |
-          # Add ccache to PATH for faster builds
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          name: Release
+          ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.platform }}
+          path: |
+            build-cmake/**/*.tar.*
+            build-cmake/**/*.zip
+            build-cmake/**/*.dmg
+          if-no-files-found: ignore
 
-          on:
-            push:
-              tags:
-                - "v*"
-            workflow_dispatch:
-              inputs:
-                tag:
-                  description: "Tag to build (optional - uses current ref if empty)"
-                  required: false
-                  default: ""
-                  type: string
+  stage-tree:
+    name: Stage tree (container)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build staged tree (container)
+        run: |
+          set -euo pipefail
+          export USER_ID="$(id -u)"
+          export GROUP_ID="$(id -g)"
+          mkdir -p build-results/release
+          docker compose -f docker/docker-compose.yml run --rm build-release-clean
+      - name: Upload staged tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-tree
+          path: build-results/release
+          retention-days: 30
+          if-no-files-found: error
 
-          permissions:
-            contents: read
+  release:
+    name: Create Release
+    needs: [build, stage-tree]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts/ \( -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "SHA256SUMS.txt" \) -type f -print0 \
+            | xargs -0 -I {} cp {} release-assets/ 2>/dev/null || true
+          cd release-assets
+          if ls *.tar.* *.zip *.dmg >/dev/null 2>&1; then
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256sum *.tar.* *.zip *.dmg 2>/dev/null > SHA256SUMS-combined.txt
+            else
+              shasum -a 256 *.tar.* *.zip *.dmg > SHA256SUMS-combined.txt
+            fi
+          else
+            touch SHA256SUMS-combined.txt
+          fi
+          ls -la
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          body: |
+            ## zpmod ${{ github.ref_name }}
 
-          concurrency:
-            group: release-${{ github.ref }}
-            cancel-in-progress: false
+            Cross-platform zsh module release built from commit ${{ github.sha }}.
 
-          jobs:
-            build:
-              name: Build (${{ matrix.platform }})
-              runs-on: ${{ matrix.os }}
-              timeout-minutes: 30
-              strategy:
-                fail-fast: false
-                matrix:
-                  os: [ubuntu-latest, macos-latest]
-                  include:
-                    - os: ubuntu-latest
-                      platform: linux
-                    - os: macos-latest
-                      platform: macos
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v4
-                  with:
-                    submodules: recursive
-                    fetch-depth: 0
+            ### Downloads
 
-                - name: Setup CMake
-                  uses: jwlawson/actions-setup-cmake@v2
-                  with:
-                    cmake-version: "3.20"
+            - Ubuntu/macOS: Download the appropriate archive
+            - Verify with SHA256SUMS-combined.txt
 
-                - name: Setup Ninja
-                  uses: seanmiddleditch/gha-setup-ninja@v5
+            ### Installation
 
-                - name: Setup ccache
-                  uses: hendrikmuhs/ccache-action@v1
-                  with:
-                    key: ${{ matrix.os }}-release
-                    max-size: 500M
-
-                - name: Install build dependencies (Ubuntu)
-                  if: matrix.os == 'ubuntu-latest'
-                  run: |
-                    sudo apt-get update
-                    sudo apt-get install -y \
-                      build-essential \
-                      autotools-dev \
-                      autoconf \
-                      automake \
-                      pkg-config \
-                      libtool \
-                      texinfo \
-                      yodl \
-                      libncurses5-dev \
-                      libpcre3-dev \
-                      libgdbm-dev \
-                      zsh
-
-                - name: Install build dependencies (macOS)
-                  if: matrix.os == 'macos-latest'
-                  run: |
-                    brew install autoconf automake libtool ncurses pcre gdbm texinfo
-
-                - name: Configure project
-                  run: |
-                    export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-                    ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
-
-                - name: Build and package
-                  run: |
-                    export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-                    ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test
-
-                - name: Generate checksums
-                  run: |
-                    cd build-cmake
-                    for file in *.tar.* *.zip *.dmg; do
-                      if [ -f "$file" ]; then
-                        if command -v sha256sum >/dev/null 2>&1; then
-                          sha256sum "$file" >> SHA256SUMS.txt
-                        else
-                          shasum -a 256 "$file" >> SHA256SUMS.txt
-                        fi
-                      fi
-                    done 2>/dev/null || true
-                    if [ -f SHA256SUMS.txt ]; then
-                      cat SHA256SUMS.txt
-                    fi
-
-                - name: Upload artifacts
-                  uses: actions/upload-artifact@v4
-                  with:
-                    name: zpmod-${{ matrix.platform }}
-                    path: |
-                      build-cmake/*.tar.*
-                      build-cmake/*.zip
-                      build-cmake/*.dmg
-                      build-cmake/SHA256SUMS.txt
-                    retention-days: 90
-                    if-no-files-found: warn
-
-            stage-tree:
-              name: Stage tree (container)
-              runs-on: ubuntu-latest
-              timeout-minutes: 30
-              needs: build
-              steps:
-                - name: Checkout
-                  uses: actions/checkout@v4
-                  with:
-                    submodules: recursive
-
-                - name: Build staged tree (container)
-                  run: |
-                    set -euo pipefail
-                    export USER_ID="$(id -u)"
-                    export GROUP_ID="$(id -g)"
-                    mkdir -p build-results/release
-                    docker compose -f docker/docker-compose.yml run --rm build-release-clean
-
-                - name: Upload staged tree
-                  uses: actions/upload-artifact@v4
-                  with:
-                    name: staged-tree
-                    path: build-results/release
-                    retention-days: 30
-                    if-no-files-found: error
-
-            release:
-              name: Create Release
-              needs: [build, stage-tree]
-              runs-on: ubuntu-latest
-              timeout-minutes: 15
-              if: startsWith(github.ref, 'refs/tags/')
-              permissions:
-                contents: write
-              steps:
-                - name: Download all artifacts
-                  uses: actions/download-artifact@v4
-                  with:
-                    path: artifacts
-
-                - name: Prepare release assets
-                  run: |
-                    mkdir -p release-assets
-                    find artifacts/ -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "SHA256SUMS.txt" | while read file; do
-                      if [ -f "$file" ]; then
-                        cp "$file" release-assets/
-                      fi
-                    done
-                    cd release-assets
-                    if ls *.tar.* *.zip *.dmg >/dev/null 2>&1; then
-                      if command -v sha256sum >/dev/null 2>&1; then
-                        sha256sum *.tar.* *.zip *.dmg 2>/dev/null > SHA256SUMS-combined.txt
-                      else
-                        shasum -a 256 *.tar.* *.zip *.dmg > SHA256SUMS-combined.txt
-                      fi
-                    else
-                      touch SHA256SUMS-combined.txt
-                    fi
-                    ls -la
-
-                - name: Create Release
-                  uses: softprops/action-gh-release@v2
-                  with:
-                    files: release-assets/*
-                    generate_release_notes: true
-                    draft: false
-                    body: |
-                      ## zpmod ${{ github.ref_name }}
-
-                      Cross-platform zsh module release built from commit ${{ github.sha }}.
-
-                      ### Downloads
-
-                      - Ubuntu/macOS: Download the appropriate archive
-                      - Verify with SHA256SUMS-combined.txt
-
-                      ### Installation
-
-                      1. Download package for your platform
-                      2. Extract and follow included README
-                    prerelease: ${{ contains(github.ref_name, '-') }}
-                  env:
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            1. Download package for your platform
+            2. Extract and follow included README
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

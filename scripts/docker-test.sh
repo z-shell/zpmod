@@ -35,8 +35,22 @@ log_error() {
 }
 
 ensure_build_results_dir() {
-  mkdir -p "${PROJECT_ROOT}/build-results/docs"
-  mkdir -p "${PROJECT_ROOT}/build-results/release"
+  # Check if the main build-results directory exists
+  if [[ ! -d "${PROJECT_ROOT}/build-results" ]]; then
+    log_info "Creating build-results directory"
+    mkdir -p "${PROJECT_ROOT}/build-results"
+  else
+    log_info "Using existing build-results directory"
+  fi
+  # Create subdirectories if they don't exist
+  for subdir in "docs" "release"; do
+    if [[ ! -d "${PROJECT_ROOT}/build-results/${subdir}" ]]; then
+      log_info "Creating build-results/${subdir} directory"
+      mkdir -p "${PROJECT_ROOT}/build-results/${subdir}"
+    else
+      log_info "Using existing build-results/${subdir} directory"
+    fi
+  done
 }
 
 # Export host user/group so containers can match file ownership

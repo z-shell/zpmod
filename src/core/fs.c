@@ -42,10 +42,12 @@ int zp_pathstat_core(char *nam /* builtin name */,
   const int want_ino = (!fields || strstr(fields, "ino"));
   const int want_nlink = (!fields || strstr(fields, "nlink"));
 
-  unsetparam(outname);
-  char **out = (char **)zalloc(sizeof(char *));
-  out[0] = NULL;
-  setaparam(outname, out);
+    unsetparam(outname);
+    size_t in_count = 0;
+    for (int i = 0; inarr[i]; ++i) ++in_count;
+    char **out = (char **)zalloc((in_count + 1) * sizeof(char *));
+    out[0] = NULL;
+    setaparam(outname, out);
 
   struct stat st;
   int idx = 1;
@@ -141,13 +143,16 @@ int zp_dirlist_core(char *nam /* builtin name */,
   }
   DIR *dp = opendir(udir);
   if (!dp) {
-    zwarnnam(nam, "%s: %e", dir, errno);
+    int e = errno;
+    zfree(udir, dlen + 1);
+    zwarnnam(nam, "%s: %e", dir, e);
     return 1;
   }
   unsetparam(outname);
   char **out = (char **)zalloc(sizeof(char *));
   out[0] = NULL;
   setaparam(outname, out);
+
   struct dirent *de;
   struct stat st;
   int idx = 1;
@@ -156,22 +161,22 @@ int zp_dirlist_core(char *nam /* builtin name */,
     if (!inc_all && name[0] == '.') {
       continue;
     }
-    if (only_dirs || only_files) {
-      char full[PATH_MAX];
-      int n = snprintf(full, sizeof(full), "%s/%s", udir, name);
-      if (n <= 0 || (size_t)n >= sizeof(full)) {
-        continue;
-      }
-      if (lstat(full, &st) != 0) {
-        continue;
-      }
-      if (only_dirs && !S_ISDIR(st.st_mode)) {
-        continue;
-      }
-      if (only_files && !S_ISREG(st.st_mode)) {
-        continue;
-      }
+
+    char full[PATH_MAX];
+    int n = snprintf(full, sizeof(full), "%s/%s", udir, name);
+    if (n <= 0 || (size_t)n >= sizeof(full)) {
+      continue;
     }
+    if (lstat(full, &st) != 0) {
+      continue;
+    }
+    if (only_dirs && !S_ISDIR(st.st_mode)) {
+      continue;
+    }
+    if (only_files && !S_ISREG(st.st_mode)) {
+      continue;
+    }
+
     char indexed[256];
     snprintf(indexed, sizeof(indexed), "%s[%d]", outname, idx++);
     setsparam(indexed, metafy((char *)name, (int)strlen(name), META_DUP));
