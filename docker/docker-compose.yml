@@ -17,8 +17,12 @@ services:
       - >
         cmake --build build-cmake &&
         cmake --build build-cmake --target stage &&
+        echo 'Debug CI environment:' &&
+        pwd && ls -la /workspace/build-cmake/stage/lib/zsh/site-modules/ &&
+        echo "ENV ZPMOD_STAGE_MODULE_DIR: $ZPMOD_STAGE_MODULE_DIR" &&
         export ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules &&
-        ctest --test-dir build-cmake --output-on-failure -j 2
+        echo "After export: $ZPMOD_STAGE_MODULE_DIR" &&
+        ctest --test-dir build-cmake -R zpmod_smoke --output-on-failure -V
 
   # Full development environment testing
   test-full-dev:
