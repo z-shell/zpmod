@@ -15,6 +15,8 @@ services:
       - "sh"
       - "-c"
       - >
+        cmake --build build-cmake &&
+        cmake --build build-cmake --target stage &&
         ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Full development environment testing
@@ -33,6 +35,8 @@ services:
       - "sh"
       - "-c"
       - >
+        cmake --build build-cmake &&
+        cmake --build build-cmake --target stage &&
         ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Smoke tests only (quick validation)
@@ -41,7 +45,13 @@ services:
       context: ..
       dockerfile: docker/minimal.Dockerfile
     container_name: zpmod-test-smoke
-    command: ["ctest", "--test-dir", "build-cmake", "-R", "zpmod_smoke", "--output-on-failure"]
+    command:
+      - "sh"
+      - "-c"
+      - >
+        cmake --build build-cmake &&
+        cmake --build build-cmake --target stage &&
+        ctest --test-dir build-cmake -R zpmod_smoke --output-on-failure
     environment:
       - ZPMOD_TEST_ENV=smoke
       - ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules
