@@ -491,18 +491,28 @@ load_zpmod() {
 
   # Ensure zsh can discover the module by name via module_path (robust with set -u)
   test_debug "Prepending to module_path: $module_dir"
-  typeset -ga module_path
-  # Prepend only if not already present
-  if (( ${module_path[(Ie)$module_dir]} == 0 )); then
-    module_path=("$module_dir" ${module_path[@]:-})
-  fi
+  # Load with staged dir taking absolute precedence; restore afterwards
+  local -a _old_module_path
+  _old_module_path=(${module_path[@]:-})
+  module_path=("$module_dir")
   if ! zmodload -i zpmod 2>err.txt; then
     echo -e "${RED}ERROR${NC}: zmodload failed:" >&2
     cat err.txt >&2
+    # Extra diagnostics to aid CI failures
+    echo -e "${YELLOW}Diagnostics:${NC}" >&2
+    echo -e "  module_path entries:" >&2
+    print -l -- ${module_path[@]:-} >&2
+    echo -e "  Staged dir listing (${module_dir}):" >&2
+    command ls -la -- "$module_dir" 2>/dev/null >&2 || echo "  (unable to list staged dir)" >&2
     rm -f err.txt
+    # Restore original module_path before exiting
+    module_path=("$module_dir" ${_old_module_path[@]:-})
     exit 1
   fi
   rm -f err.txt 2>/dev/null || true
+
+  # Restore original module_path, ensuring staged dir stays first
+  module_path=("$module_dir" ${_old_module_path[@]:-})
 
   # Optionally enable feature-gated builtins if provided
   if [[ -n "$features" ]]; then
