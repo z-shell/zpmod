@@ -489,18 +489,20 @@ load_zpmod() {
   fi
   local module_dir="${ZPMOD_STAGE_MODULE_DIR:?ZPMOD_STAGE_MODULE_DIR is required}"
 
-  # Ensure zsh can discover the module by name
+  # Ensure zsh can discover the module by name via module_path (robust with set -u)
   test_debug "Prepending to module_path: $module_dir"
-  module_path=("$module_dir" $module_path)
-
-  # Load by module name; -i makes it idempotent
+  typeset -ga module_path
+  # Prepend only if not already present
+  if (( ${module_path[(Ie)$module_dir]} == 0 )); then
+    module_path=("$module_dir" ${module_path[@]:-})
+  fi
   if ! zmodload -i zpmod 2>err.txt; then
     echo -e "${RED}ERROR${NC}: zmodload failed:" >&2
     cat err.txt >&2
     rm -f err.txt
     exit 1
   fi
-  rm -f err.txt
+  rm -f err.txt 2>/dev/null || true
 
   # Optionally enable feature-gated builtins if provided
   if [[ -n "$features" ]]; then
