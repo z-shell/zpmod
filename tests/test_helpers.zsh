@@ -483,40 +483,31 @@ test_debug() {
 
 # Load zpmod with error checking
 load_zpmod() {
+  local features=""
+  if (( $# >= 1 )); then
+    features=$1
+  fi
   local module_dir="${ZPMOD_STAGE_MODULE_DIR:?ZPMOD_STAGE_MODULE_DIR is required}"
 
-  # Find the actual module file
-  local module_file=""
-  # Prefer .so, but check others for portability
-  for ext in so bundle dylib dll; do
-    if [[ -e "$module_dir/zpmod.$ext" ]]; then
-      module_file="$module_dir/zpmod.$ext"
-      break
-    fi
-  done
+  # Ensure zsh can discover the module by name
+  test_debug "Prepending to module_path: $module_dir"
+  module_path=("$module_dir" $module_path)
 
-  if [[ -z "$module_file" ]]; then
-    echo -e "${RED}ERROR${NC}: zpmod shared object not found in '$module_dir'" >&2
-    # Show directory contents for easier debugging in CI
-    ls -al "$module_dir" >&2
+  # Load by module name; -i makes it idempotent
+  if ! zmodload -i zpmod 2>err.txt; then
+    echo -e "${RED}ERROR${NC}: zmodload failed:" >&2
+    cat err.txt >&2
+    rm -f err.txt
     exit 1
   fi
+  rm -f err.txt
 
-  test_debug "Loading module from: $module_file"
-
-  # Load module using absolute path to bypass module_path issues.
-  # This is the most reliable method in CI environments.
-  # The `||` block provides a clear, immediate failure message.
-  zmodload -i "$module_file" || {
-    echo -e "${RED}FATAL${NC}: zmodload -i failed for '$module_file'" >&2
-    exit 1
-  }
-
-  # After successful loading, enable features required by tests.
-  # The `-e` flag is critical here to prevent a second, implicit load attempt,
-  # which was the cause of the previous CI failure. It ensures we are only
-  # managing features of the *already loaded* module.
-  zmodload -e -F zpmod b:zpmod b:custom_dot b:zpreadfile b:source-study 2>/dev/null || true
+  # Optionally enable feature-gated builtins if provided
+  if [[ -n "$features" ]]; then
+    local -a _f
+    _f=(${(z)features})
+    zmodload -e -F zpmod "${_f[@]}" 2>/dev/null || true
+  fi
 
   test_debug "zpmod loaded successfully"
 }
