@@ -225,14 +225,42 @@ add_custom_target(stage
   COMMENT "Installing into staging prefix: ${ZPMOD_STAGE_DIR}"
   VERBATIM)
 
-# Basic CPack configuration for packaging
+# Basic CPack configuration for packaging (OS-specific generators)
 set(CPACK_PACKAGE_NAME "zpmod")
 set(CPACK_PACKAGE_VENDOR "z-shell")
 set(CPACK_PACKAGE_CONTACT "https://github.com/z-shell/zpmod")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "zpmod: extra builtins and helpers for zsh")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/z-shell/zpmod")
 set(CPACK_PACKAGE_VERSION "${ZPMOD_VERSION}")
-if(NOT DEFINED CPACK_GENERATOR)
-  set(CPACK_GENERATOR "TGZ")
+
+# Prefer /usr for Linux packages; keep default (/usr/local) on macOS
+if(UNIX AND NOT APPLE)
+  set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 endif()
+
+# Default generator can be overridden via -DCPACK_GENERATOR or script flag
+if(NOT DEFINED CPACK_GENERATOR)
+  if(APPLE)
+    set(CPACK_GENERATOR "TGZ")
+  else()
+    set(CPACK_GENERATOR "TGZ")
+  endif()
+endif()
+
+# Debian package metadata
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "z-shell")
+set(CPACK_DEBIAN_PACKAGE_SECTION "shells")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "zsh")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+
+# RPM package metadata
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "Shells")
+set(CPACK_RPM_PACKAGE_REQUIRES "zsh")
+set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+# macOS DMG (DragNDrop) needs no extra metadata
+
 set(CPACK_PACKAGE_FILE_NAME "zpmod-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 include(CPack)
 

@@ -80,7 +80,13 @@ jobs:
       - name: Build and package
         run: |
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-          ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test
+          # Select OS-specific CPack generators
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            GEN="TGZ;TXZ;DEB;RPM"
+          else
+            GEN="TGZ;TXZ;DragNDrop"
+          fi
+          ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test --cpack-generators "$GEN"
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -89,6 +95,8 @@ jobs:
             build-cmake/**/*.tar.*
             build-cmake/**/*.zip
             build-cmake/**/*.dmg
+            build-cmake/**/*.deb
+            build-cmake/**/*.rpm
           if-no-files-found: ignore
 
   stage-tree:
