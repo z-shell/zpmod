@@ -97,6 +97,7 @@ jobs:
             build-cmake/**/*.dmg
             build-cmake/**/*.deb
             build-cmake/**/*.rpm
+          retention-days: 30
           if-no-files-found: ignore
 
   stage-tree:
@@ -137,6 +138,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
       - name: Prepare release assets
         run: |
           mkdir -p release-assets

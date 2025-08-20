@@ -78,6 +78,7 @@ jobs:
           path: |
             build-results/**
             build-cmake/Testing/**
+          retention-days: 7
           if-no-files-found: ignore
 
   docker-tests:
@@ -124,6 +125,7 @@ jobs:
           path: |
             build-results/**
             build-cmake/Testing/**
+          retention-days: 7
           if-no-files-found: ignore
 
   smoke-tests:
@@ -156,4 +158,5 @@ jobs:
           path: |
             build-results/**
             build-cmake/Testing/**
+          retention-days: 7
           if-no-files-found: ignore

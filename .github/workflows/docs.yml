@@ -55,7 +55,7 @@ jobs:
     name: Deploy to Pages
     needs: build-docs
     runs-on: ubuntu-latest
-  timeout-minutes: 10
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
