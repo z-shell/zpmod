@@ -106,9 +106,11 @@ void zwarnnam(const char *cmd, const char *fmt, ...);
 #endif
 
 #if !defined(__has_include) || !__has_include("module.epro")
-char **featuresarray(Module m, Features *features);
-int handlefeatures(Module m, Features *features, int **enables);
-int setfeatureenables(Module m, Features *features, int **enables);
+/* Note: "Features" is a pointer typedef (struct features *). The real
+ * prototypes take a Features (pointer), not a pointer-to-pointer. */
+char **featuresarray(Module m, Features features);
+int handlefeatures(Module m, Features features, int **enables);
+int setfeatureenables(Module m, Features features, int **enables);
 #endif
 
 #endif /* ZPMOD_ZSH_IMPORTS_H */
