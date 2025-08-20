@@ -17,6 +17,7 @@ services:
       - >
         cmake --build build-cmake &&
         cmake --build build-cmake --target stage &&
+        export ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules &&
         ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Full development environment testing
@@ -37,6 +38,7 @@ services:
       - >
         cmake --build build-cmake &&
         cmake --build build-cmake --target stage &&
+        export ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules &&
         ctest --test-dir build-cmake --output-on-failure -j 2
 
   # Smoke tests only (quick validation)
@@ -51,6 +53,7 @@ services:
       - >
         cmake --build build-cmake &&
         cmake --build build-cmake --target stage &&
+        export ZPMOD_STAGE_MODULE_DIR=/workspace/build-cmake/stage/lib/zsh/site-modules &&
         ctest --test-dir build-cmake -R zpmod_smoke --output-on-failure
     environment:
       - ZPMOD_TEST_ENV=smoke
