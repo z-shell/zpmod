@@ -151,6 +151,21 @@
       "type": "shell",
       "command": "docker compose -f docker/docker-compose.yml build test-minimal && docker compose -f docker/docker-compose.yml run --rm test-minimal",
       "group": "build"
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
+    },
+    {
+      "label": "CMake: stage",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake --target stage"
+    },
+    {
+      "label": "CTest: all",
+      "type": "shell",
+      "command": "ctest --test-dir ${workspaceFolder}/build-cmake --output-on-failure -j 2"
     }
   ]
 }

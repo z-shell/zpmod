@@ -24,6 +24,9 @@
 #define HAVE_LIMITS_H 1
 #define HAVE_DLFCN_H 1
 
+/* Ensure correct fs syscall availability in out-of-tree builds */
+#define HAVE_LSTAT 1
+
 #define HAVE_SETUID 1
 #define HAVE_SETEUID 1
 #define HAVE_SETGID 1
