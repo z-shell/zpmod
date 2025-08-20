@@ -9,8 +9,17 @@
  * POSIX_BUILTINS, SHIN_STDIN, and SOURCE_TRACE through the stable option
  * mapping helpers.
  */
-#include "zpmod.mdh"
-#include "zpmod.pro"
+#if defined(__has_include)
+# if __has_include("zsh.mdh")
+#  include "zpmod.mdh"
+#  include "zpmod.pro"
+# else
+#  include "zpmod_analysis_stubs.h"
+# endif
+#else
+# include "zpmod.mdh"
+# include "zpmod.pro"
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
