@@ -42,12 +42,14 @@ int zp_pathstat_core(char *nam /* builtin name */,
   const int want_ino = (!fields || strstr(fields, "ino"));
   const int want_nlink = (!fields || strstr(fields, "nlink"));
 
-    unsetparam(outname);
-    size_t in_count = 0;
-    for (int i = 0; inarr[i]; ++i) ++in_count;
-    char **out = (char **)zalloc((in_count + 1) * sizeof(char *));
-    out[0] = NULL;
-    setaparam(outname, out);
+  unsetparam(outname);
+  size_t in_count = 0;
+  for (int i = 0; inarr[i]; ++i) {
+    ++in_count;
+  }
+  char **out = (char **)zalloc((in_count + 1) * sizeof(char *));
+  out[0] = NULL;
+  setaparam(outname, out);
 
   struct stat st;
   int idx = 1;
