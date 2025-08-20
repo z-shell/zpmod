@@ -47,11 +47,23 @@ on:
         default: false
         type: boolean
 
-permissions: read-all
+permissions:
+  actions: write
+  checks: write
+  contents: write
+  discussions: read
+  issues: read
+  pull-requests: read
+  statuses: read
+
+concurrency:
+  group: cleanup-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   del_runs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       actions: write
       checks: write
@@ -68,3 +80,5 @@ jobs:
           delete_workflow_by_state_pattern: ${{ inputs.delete_workflow_by_state_pattern }}
           delete_run_by_conclusion_pattern: ${{ inputs.delete_run_by_conclusion_pattern }}
           dry_run: ${{ inputs.dry_run }}
+      - name: Summary
+        run: echo "Cleanup completed"
