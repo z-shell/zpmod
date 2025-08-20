@@ -487,6 +487,7 @@ load_zpmod() {
 
   # Find the actual module file
   local module_file=""
+  # Prefer .so, but check others for portability
   for ext in so bundle dylib dll; do
     if [[ -e "$module_dir/zpmod.$ext" ]]; then
       module_file="$module_dir/zpmod.$ext"
@@ -495,24 +496,27 @@ load_zpmod() {
   done
 
   if [[ -z "$module_file" ]]; then
-    echo -e "${RED}ERROR${NC}: zpmod shared object not found in $module_dir" >&2
-    ls -al "$module_dir" 2>/dev/null || true
+    echo -e "${RED}ERROR${NC}: zpmod shared object not found in '$module_dir'" >&2
+    # Show directory contents for easier debugging in CI
+    ls -al "$module_dir" >&2
     exit 1
   fi
 
   test_debug "Loading module from: $module_file"
 
-  # Load module using absolute path to bypass module_path issues in CI
-  if ! zmodload -i "$module_file" 2>err.txt; then
-    echo -e "${RED}ERROR${NC}: zmodload failed:" >&2
-    cat err.txt >&2
-    rm -f err.txt
+  # Load module using absolute path to bypass module_path issues.
+  # This is the most reliable method in CI environments.
+  # The `||` block provides a clear, immediate failure message.
+  zmodload -i "$module_file" || {
+    echo -e "${RED}FATAL${NC}: zmodload -i failed for '$module_file'" >&2
     exit 1
-  fi
-  rm -f err.txt
+  }
 
-  # Ensure builtins are enabled (handle feature-gating)
-  zmodload -F zpmod b:zpmod b:custom_dot b:zpreadfile 2>/dev/null || true
+  # After successful loading, enable features required by tests.
+  # The `-e` flag is critical here to prevent a second, implicit load attempt,
+  # which was the cause of the previous CI failure. It ensures we are only
+  # managing features of the *already loaded* module.
+  zmodload -e -F zpmod b:zpmod b:custom_dot b:zpreadfile b:source-study 2>/dev/null || true
 
   test_debug "zpmod loaded successfully"
 }
