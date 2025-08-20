@@ -485,27 +485,25 @@ test_debug() {
 load_zpmod() {
   local module_dir="${ZPMOD_STAGE_MODULE_DIR:?ZPMOD_STAGE_MODULE_DIR is required}"
 
-  # Prepend staged module dir to module_path
-  module_path=("$module_dir" $module_path)
-  test_debug "module_path: $module_path"
-
-  # Quick sanity: module file should exist in staged dir
-  local module_found=false
+  # Find the actual module file
+  local module_file=""
   for ext in so bundle dylib dll; do
     if [[ -e "$module_dir/zpmod.$ext" ]]; then
-      module_found=true
+      module_file="$module_dir/zpmod.$ext"
       break
     fi
   done
 
-  if ! $module_found; then
+  if [[ -z "$module_file" ]]; then
     echo -e "${RED}ERROR${NC}: zpmod shared object not found in $module_dir" >&2
     ls -al "$module_dir" 2>/dev/null || true
     exit 1
   fi
 
-  # Load module
-  if ! zmodload -i zpmod 2>err.txt; then
+  test_debug "Loading module from: $module_file"
+
+  # Load module using absolute path to bypass module_path issues in CI
+  if ! zmodload -i "$module_file" 2>err.txt; then
     echo -e "${RED}ERROR${NC}: zmodload failed:" >&2
     cat err.txt >&2
     rm -f err.txt
