@@ -6,6 +6,7 @@
 #include "zpmod.mdh"
 #include "zpmod.pro"
 #include "zpmod_fs.h"
+#include "zpmod_emoji.h"
 
 /** zppathstat builtin entrypoint */
 int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
@@ -16,7 +17,7 @@ int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
     fields = OPT_ARG(ops, 'f');
   }
   if (!argv || !argv[0] || !argv[1]) {
-    zwarnnam(nam, "usage: %s [-L] [-f fields] out_array in_array", nam);
+    zwarnnam(nam, "%s %susage: %s [-L] [-f fields] out_array in_array", zp_icon("⚠️ "), nam, nam);
     return 1;
   }
   return zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
@@ -29,7 +30,7 @@ int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
   int only_dirs = OPT_ISSET(ops, 'd');
   int only_files = OPT_ISSET(ops, 'f');
   if (!argv || !argv[0] || !argv[1]) {
-    zwarnnam(nam, "usage: %s [-a] [-d] [-f] out_array dir", nam);
+    zwarnnam(nam, "%s %susage: %s [-a] [-d] [-f] out_array dir", zp_icon("⚠️ "), nam, nam);
     return 1;
   }
   return zp_dirlist_core(nam, argv[0], argv[1], inc_all, only_dirs, only_files);
@@ -76,7 +77,7 @@ int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
     }
   }
   if (!argv || !argv[0] || !argv[1]) {
-    zwarnnam(nam, "usage: %s [-m] [-d delim|-0] out file", nam);
+    zwarnnam(nam, "%s %susage: %s [-m] [-d delim|-0] out file", zp_icon("⚠️ "), nam, nam);
     return 1;
   }
   return zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);
