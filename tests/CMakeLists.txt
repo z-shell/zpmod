@@ -52,6 +52,20 @@ function(add_zpmod_test TEST_NAME TEST_FILE)
   endif()
 endfunction()
 
+# Minimal ztst adapter runner (optional)
+function(add_zpmod_ztst TEST_NAME ZTST_FILE)
+  # Use zsh to run our minimal adapter with the ztst script as argument
+  add_test(NAME ${TEST_NAME}
+    COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ztst/ztst_mini.zsh ${CMAKE_CURRENT_SOURCE_DIR}/ztst/${ZTST_FILE})
+
+  # Pass stage dir
+  set_tests_properties(${TEST_NAME} PROPERTIES
+    ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+
+  # Reasonable timeout and label as 'ztst'
+  set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30 LABELS "ztst;compat")
+endfunction()
+
 # Core functionality tests
 add_zpmod_test(zpmod_smoke core/smoke.zsh
   CATEGORY "core" LABELS "smoke;essential")
@@ -144,6 +158,12 @@ add_zpmod_test(zpmod_zpreadfile_zero file_io/zpreadfile_zero.zsh
 # Platform-specific tests
 add_zpmod_test(zpmod_macos_suffix platform/macos_suffix.zsh
   CATEGORY "platform" LABELS "macos;suffix;loader" TIMEOUT 15)
+
+# Optional: small ztst suite for internals-heavy checks
+add_zpmod_ztst(zpmod_ztst_options_mapping options_mapping.ztst)
+add_zpmod_ztst(zpmod_ztst_param_hash param_hash_semantics.ztst)
+add_zpmod_ztst(zpmod_ztst_sigcount sigcount_shim.ztst)
+add_zpmod_ztst(zpmod_ztst_emulate_matrix emulate_setopt_matrix.ztst)
 
 # Test summary and organization
 message(STATUS "zpmod test suite configured:")
