@@ -44,3 +44,18 @@ char *my_ztrdup_glen(const char *s, unsigned *len_ret);
  * @return 1 if present, 0 otherwise.
  */
 int zp_has_option(char **argv, char opt);
+
+/**
+ * @brief Consume a short option that requires an argument from argv.
+ *
+ * Recognizes patterns "-oARG" (attached) and "-o ARG" (separate).
+ * When matched, advances the argv pointer and writes the argument to out_arg.
+ *
+ * @param argvp   In/out pointer to argv cursor (modified on consumption).
+ * @param opt     Short option character to match (e.g., 'd').
+ * @param out_arg Out parameter set to the option argument on success.
+ * @return 1 if option was present and consumed successfully,
+ *         0 if the current argv element does not match the option,
+ *        -1 if the option matched but the argument was missing.
+ */
+int zp_take_opt_with_arg(char ***argvp, char opt, char **out_arg);

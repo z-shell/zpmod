@@ -27,6 +27,37 @@ int zp_has_option(char **argv, char opt) {
   return 0;
 }
 
+/**
+ * Consume a short option with required argument from argv.
+ * Supports both attached (-oARG) and separate (-o ARG) forms.
+ */
+int zp_take_opt_with_arg(char ***argvp, char opt, char **out_arg) {
+  char **argv = *argvp;
+  char *cur = *argv;
+  if (!cur || cur[0] != '-' || !cur[1]) {
+    return 0; /* not an option */
+  }
+  if (cur[1] == '-' && cur[2] == '\0') {
+    return 0; /* end of options marker */
+  }
+  if (cur[1] != opt) {
+    return 0; /* different option */
+  }
+  /* attached case: -oARG */
+  if (cur[2] != '\0') {
+    *out_arg = cur + 2;
+    *argvp = argv + 1;
+    return 1;
+  }
+  /* separate case: -o ARG */
+  if (!argv[1]) {
+    return -1; /* missing argument */
+  }
+  *out_arg = argv[1];
+  *argvp = argv + 2;
+  return 1;
+}
+
 /** zalloc-backed strdup with length out parameter. */
 char *my_ztrdup_glen(const char *s, unsigned *len_ret) {
   char *t;
