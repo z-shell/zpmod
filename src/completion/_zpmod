@@ -3,7 +3,7 @@
 _arguments \
   '-h[show help]' \
   '-V[show version]' \
-  '1:subcommand:(report-append source-study dirlist pathstat readfile)' \
+  '1:subcommand:(report-append source-study dir-list path-stat read-file path-warmup)' \
   '*::args:->args'
 
 case $state in
@@ -15,17 +15,20 @@ case $state in
       source-study)
         _arguments '-l[show full paths]'
         ;;
-      dirlist)
+      dir-list)
         _arguments '-a[include dotfiles]' '-d[only directories]' '-f[only files]' \
           '2:out-array:_parameters -g "*"' '3:dir:_directories'
         ;;
-      pathstat)
+      path-stat)
         _arguments '-L[follow symlinks]' '-f+[fields (comma-separated)]' \
           '2:out-array:_parameters -g "*"' '3:in-array:_parameters -g "*"'
         ;;
-      readfile)
+      read-file)
         _arguments '-m[use mmap]' '-0[NUL delimiter]' '-d+[delimiter]' \
           '2:var name:_parameters -g "*"' '3:file:_files'
+        ;;
+      path-warmup)
+  _arguments '-q[quiet]' '--prune-missing[prune missing PATH entries]' '--dry-run[show what would be pruned without changing $path]'
         ;;
     esac
   ;;

@@ -3,14 +3,16 @@
  * @file fs_builtins.c
  * @brief Builtins: zppathstat, zpdirlist, zpreadfile.
  */
+/* Canonical module header ordering */
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
+#include <stddef.h>
 #include "zpmod_fs.h"
 #include "zpmod_emoji.h"
 
 /** zppathstat builtin entrypoint */
-int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
-                   UNUSED(int func)) {
+int bin_zppathstat(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
   int follow = OPT_ISSET(ops, 'L');
   char *fields = NULL;
   if (OPT_ISSET(ops, 'f')) {
@@ -24,8 +26,7 @@ int bin_zppathstat(char *nam, char **argv, UNUSED(Options ops),
 }
 
 /** zpdirlist builtin entrypoint */
-int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
-                  UNUSED(int func)) {
+int bin_zpdirlist(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
   int inc_all = OPT_ISSET(ops, 'a');
   int only_dirs = OPT_ISSET(ops, 'd');
   int only_files = OPT_ISSET(ops, 'f');
@@ -37,8 +38,7 @@ int bin_zpdirlist(char *nam, char **argv, UNUSED(Options ops),
 }
 
 /** zpreadfile builtin entrypoint */
-int bin_zpreadfile(char *nam, char **argv, UNUSED(Options ops),
-                   UNUSED(int func)) {
+int bin_zpreadfile(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
   int use_mmap = OPT_ISSET(ops, 'm');
   int delim = '\n';
   int split = 0;

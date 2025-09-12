@@ -5,6 +5,7 @@
  */
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
 #include "zpmod_builtins.h"
 #include "zpmod_version.h"
 
@@ -12,6 +13,7 @@
 int bin_zppathstat(char *nam, char **argv, Options ops, int func);
 int bin_zpdirlist(char *nam, char **argv, Options ops, int func);
 int bin_zpreadfile(char *nam, char **argv, Options ops, int func);
+
 
 /* Unified builtin table (static, like original) */
 static struct builtin bintab[] = {

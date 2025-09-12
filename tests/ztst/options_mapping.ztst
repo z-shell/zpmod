@@ -1,0 +1,30 @@
+#!/usr/bin/env zsh
+# ztst-style checks for options mapping and emulate interaction
+
+set -euo pipefail
+emulate -L zsh
+
+# Ensure module can be loaded from stage
+: ${ZPMOD_STAGE_MODULE_DIR:?ZPMOD_STAGE_MODULE_DIR required}
+module_path=("$ZPMOD_STAGE_MODULE_DIR" ${module_path[@]:-})
+if ! zmodload -i zpmod; then
+  print -u2 -- "failed to load module"
+  exit 1
+fi
+
+ztst_suite "compat-options"
+
+# 1) Toggling an option (PATH_DIRS) doesn't crash; stdout is empty
+ztst_it "toggle PATH_DIRS safely" \
+  --cmd $'setopt path_dirs; unsetopt path_dirs; print -r -- ""' \
+  --stdout $'' --status 0
+
+# 2) SOURCE_TRACE off, run source-study; only assert it succeeds (suite doesn't pre-populate events)
+ztst_it "source-study runs without crash" \
+  --cmd $'setopt no_source_trace; zpmod source-study' \
+  --stdout $'' --status 0
+
+# 3) Emulate can flip option semantics; ensure no crash when switching
+ztst_it "emulate sh; restore; no crash" \
+  --cmd $'emulate -L sh; true; emulate -L zsh; print -r -- ""' \
+  --stdout $'' --status 0

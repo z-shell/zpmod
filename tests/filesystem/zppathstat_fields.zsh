@@ -25,7 +25,7 @@ esac
 
 # Subcommand parity
 local -a OUT2
-zpmod pathstat -f gid,ino OUT2 IN
+zpmod path-stat -f gid,ino OUT2 IN
 (( ${#OUT2} == 1 ))
 [[ ${OUT2[1]} == ${OUT[1]} ]]
 

@@ -42,7 +42,7 @@ print -rn -- c >> "$f"
 
 local -a A
 # Use explicit NUL delimiter via -d '\0' to avoid any edge cases with -0 parsing
-zpmod readfile -d '\0' A "$f"
+zpmod read-file -d '\0' A "$f"
 (( ${#A} == 3 ))
 [[ $A[1] == a && $A[2] == b && $A[3] == c ]]
 

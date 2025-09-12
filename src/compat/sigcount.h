@@ -1,3 +1,4 @@
+#pragma once
 /* Lightweight shim to provide SIGCOUNT for builds that include signames.epro
  * and signals.h. Prefer the vendored zsh header if available; otherwise, use
  * a conservative fallback consistent with upstream defaults. */

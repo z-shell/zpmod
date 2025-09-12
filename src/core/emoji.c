@@ -3,8 +3,12 @@
  * @file emoji.c
  * @brief Emoji/icon rendering helpers based on terminal/locale detection.
  */
+/* Canonical module header ordering */
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
+/* System headers after gateway */
+#include <string.h>
 #include <locale.h>
 #include <unistd.h>
 #if defined(__has_include)

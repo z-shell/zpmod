@@ -30,26 +30,39 @@ Notes:
 - By default, only basenames are printed (e.g., `init.zsh`).
 - Pass `-l` to print full absolute paths (e.g., `/home/user/.zshrc.d/init.zsh`).
 
-## dirlist
+## dir-list
 
 ```zsh
-zpmod dirlist [-a] [-d|-f] array dir
+zpmod dir-list [-a] [-d|-f] array dir
 ```
 
 List entries in `dir` into `array`.
 
-## pathstat
+## path-stat
 
 ```zsh
-zpmod pathstat [-L] [-f fields] out_array in_array
+zpmod path-stat [-L] [-f fields] out_array in_array
 ```
 
 Stat each path from `in_array` and write per-path records to `out_array`.
 
-## readfile
+## path-warmup
 
 ```zsh
-zpmod readfile [-m] [-d delim|-0] var file
+zpmod path-warmup [-q] [--prune-missing]
+```
+
+Scan `$PATH` directories and touch executable entries to warm filesystem caches.
+
+Notes:
+
+- `-q` runs quietly (recommended for startup hooks).
+- `--prune-missing` is reserved for future behavior; currently a no-op.
+
+## read-file
+
+```zsh
+zpmod read-file [-m] [-d delim|-0] var file
 ```
 
 Read file into scalar `var` or split into array using delimiter.

@@ -8,8 +8,8 @@ _Pragma("GCC diagnostic push")
 
 #if defined(__has_include)
 # if __has_include("zsh.mdh")
-#  include "zsh.mdh"
 #  define ZSH_MDH_INCLUDED 1
+#  include "zsh.mdh"
 # endif
 #endif
 
@@ -24,6 +24,7 @@ _Pragma("GCC diagnostic push")
 # include "zsh_system.h"
 # include "zsh.h"
 # include "sigcount.h"
+# include "zpmod_internals.h" /* fallback externs when zsh.mdh unavailable */
 # ifndef mod_import_variable
 #  define mod_import_variable
 # endif

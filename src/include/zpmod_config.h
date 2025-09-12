@@ -1,3 +1,4 @@
+#pragma once
 /**
  * \file src/include/zpmod_config.h
  * \brief Minimal configuration header for out-of-tree builds without autoconf.

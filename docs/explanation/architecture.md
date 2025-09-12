@@ -12,10 +12,10 @@ The codebase is split into clear layers:
 - `src/core/` — core facilities used across commands
   - `utils.c`: unmetafy/dup helpers and argv scanning
   - `emoji.c`: terminal/locale detection and icon helpers
-  - `fs.c`: filesystem primitives (pathstat, dirlist, readfile)
+  - `fs.c`: filesystem primitives (path-stat, dir-list, read-file)
   - `source.c`: custom dot/source override and source-study implementation
 - `src/builtins/` — thin wrappers that expose functionality as builtins
-  - `zpmod_builtin.c`: the `zpmod` command (subcommands: report-append, source-study, dirlist, pathstat, readfile)
+  - `zpmod_builtin.c`: the `zpmod` command (subcommands: report-append, source-study, dir-list, path-stat, read-file)
   - `fs_builtins.c`: `zppathstat`, `zpdirlist`, `zpreadfile`
   - `readarray.c`: `readarray` builtin
 - `src/compat/` — cross-version shims

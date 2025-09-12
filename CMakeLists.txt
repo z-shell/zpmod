@@ -121,23 +121,29 @@ else()
   endif()
 endif()
 
-set(ZPMOD_SOURCES
+add_library(zpmod MODULE
   src/module/module.c
-  src/core/utils.c
-  src/core/emoji.c
   src/core/fs.c
-  src/compat/options.c
+  src/core/utils.c
+  src/core/source.c
+  src/core/emoji.c
+  src/core/fpath.c
+  src/core/source_hot.c
+  src/core/source_study_stub.c
+  src/core/compaudit_cache.c
+  src/core/rehash_diff.c
+  src/core/bundle_build.c
+  src/builtins/zpmod_builtin.c
   src/builtins/fs_builtins.c
   src/builtins/readarray.c
-  src/builtins/zpmod_builtin.c
+  src/compat/options.c
 )
 
-# Add source.c only if we have full zsh headers (for in-tree builds)
-if(EXISTS "${ZSH_HEADERS_DIR}/zsh.mdh")
-  list(APPEND ZPMOD_SOURCES src/core/source.c)
-endif()
-
-add_library(zpmod MODULE ${ZPMOD_SOURCES})
+# Include ordering checker (opt-in target)
+add_custom_target(include-order-check
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/check_include_order.zsh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  COMMENT "Running include order checker" VERBATIM)
 
 # Define ZPMOD_HAVE_SOURCE_STUDY if source.c is included
 if(EXISTS "${ZSH_HEADERS_DIR}/zsh.mdh")

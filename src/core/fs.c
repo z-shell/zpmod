@@ -3,14 +3,18 @@
  * @file fs.c
  * @brief Core filesystem routines used by builtins and subcommands.
  */
+/* Canonical include order: module mdh/pro provide vendor + config context */
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #if defined(__has_include)
 #if __has_include(<sys/mman.h>)
 #include <sys/mman.h>
@@ -18,7 +22,13 @@
 #endif
 #endif
 #include "zpmod_fs.h"
-#include "zpmod_utils.h"
+
+/**/
+#if defined(ZSH_VERSION) && defined(HAVE_GETAPARAM)
+# define get_zpmod_config(K) getaparam("ZPMOD", (K))
+#else
+# define GET_ZPMOD_CONFIG(K) getsparam("ZPMOD_" #K)
+#endif
 
 /** See zpmod_fs.h for contract. */
 /* (nam, outname, inname, follow, fields) — see header for parameter intent */
@@ -114,8 +124,8 @@ int zp_pathstat_core(char *nam /* builtin name */,
     }
     buf[sizeof(buf) - 1] = '\0';
     /* Make 'off' observable to silence static analyzer dead store warnings. */
-    volatile int _zpmod_sink_off = off;
-    (void)_zpmod_sink_off;
+    volatile int zpmod_sink_off = off;
+    (void)zpmod_sink_off;
     int used = (int)strlen(buf);
     char *outstr = metafy(buf, used, META_DUP);
     char indexed[256];
@@ -124,6 +134,228 @@ int zp_pathstat_core(char *nam /* builtin name */,
     zfree(p_in, p_len + 1);
   }
   return 0;
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+/* ---------------------- optional lightweight caches ---------------------- */
+/* Very small, conservative caches guarded by env toggles. Intent is to avoid
+ * repeated stat/dir-list work during startup, not a general purpose cache. */
+
+static int zp_fs_cache_enabled(void) {
+  const char *e = GET_ZPMOD_CONFIG(FS_CACHE);
+  return e && *e && (*e != '0');
+}
+
+typedef struct {
+  dev_t dev; ino_t ino; time_t mtime; off_t size; /* identity */
+  int is_dir; /* for dir-list */
+  char *dir_entries; /* serialized names, metafied; NULL if not cached */
+} zp_fs_cache_entry;
+
+#define ZP_FS_CACHE_MAX 64
+static zp_fs_cache_entry zp_fs_cache[ZP_FS_CACHE_MAX];
+static int zp_fs_cache_count = 0;
+
+static int zp_fs_cache_lookup(const char *dir, struct stat *st, int *out_idx) {
+  (void)dir;
+  for (int i = 0; i < zp_fs_cache_count; ++i) {
+    zp_fs_cache_entry *e = &zp_fs_cache[i];
+    if (!e->is_dir) {
+      continue;
+    }
+    if (e->dev == st->st_dev && e->ino == st->st_ino &&
+        e->mtime == st->st_mtime && e->size == st->st_size) {
+      *out_idx = i;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int zp_fs_cache_insert_dir(const char *dir, const struct stat *st, char *serialized) {
+  (void)dir;
+  if (zp_fs_cache_count < ZP_FS_CACHE_MAX) {
+    zp_fs_cache_entry *e = &zp_fs_cache[zp_fs_cache_count++];
+    e->dev = st->st_dev;
+    e->ino = st->st_ino;
+    e->mtime = st->st_mtime;
+    e->size = st->st_size;
+    e->is_dir = 1;
+    e->dir_entries = serialized;
+    return zp_fs_cache_count - 1;
+  }
+  /* Simple FIFO eviction */
+  zp_fs_cache_entry *ev = &zp_fs_cache[0];
+  if (ev->dir_entries) {
+    zsfree(ev->dir_entries);
+  }
+  for (int i = 1; i < ZP_FS_CACHE_MAX; ++i) {
+    zp_fs_cache[i - 1] = zp_fs_cache[i];
+  }
+  zp_fs_cache_entry *e = &zp_fs_cache[ZP_FS_CACHE_MAX - 1];
+  e->dev = st->st_dev;
+  e->ino = st->st_ino;
+  e->mtime = st->st_mtime;
+  e->size = st->st_size;
+  e->is_dir = 1;
+  e->dir_entries = serialized;
+  return ZP_FS_CACHE_MAX - 1;
+}
+
+/* Hook dirlist_core to consult/emit cache. */
+/* We inject minimal logic by wrapping the parameter setting path. */
+
+/* Redefine function with caching logic by providing a weak alias if toolchain
+ * allows; otherwise inline the logic near the end. Simpler: append a helper
+ * to be called by callers; however, we can’t change public API now. */
+
+/* ----------------------------- path warmup ------------------------------ */
+
+/**
+ * @brief Implements path-warmup functionality for executable discovery and path pruning.
+ *
+ * This function provides two main features:
+ * 1. **Executable Discovery**: Scans all directories in $PATH and touches executable files
+ *    to warm filesystem caches and improve command lookup performance.
+ * 2. **Path Pruning**: Safely removes non-existent directories from $PATH to reduce
+ *    lookup overhead and eliminate stale entries.
+ *
+ * ## Memory Safety Design
+ *
+ * The prune functionality was redesigned to avoid memory corruption issues that occurred
+ * when mixing `getaparam("path")` results with `setaparam("path")` calls. The original
+ * implementation caused double-free errors due to zsh's parameter management internals.
+ *
+ * **Solution**: Use a two-pass approach with separate array construction:
+ * - Pass 1: Count valid directories without modifying the original array
+ * - Pass 2: Build a new array using `ztrdup()` for proper string ownership
+ * - Safe update: Use `setaparam("path", new_array)` without dependency on `getaparam()` result
+ *
+ * @param nam    Builtin name for error reporting
+ * @param quiet  Suppress progress messages if true
+ * @param prune_missing  Remove non-existent directories from path if true
+ * @param dry_run  Report what would be pruned without making changes if true
+ * @return Number of executable files discovered, or negative on error
+ *
+ * @note This function follows zpmod's memory management patterns using zsh allocators
+ *       (zalloc, ztrdup, zfree) to ensure compatibility with zsh's garbage collection.
+ */
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+int zp_path_warmup_core(const char *nam, int quiet, int prune_missing, int dry_run) {
+  (void)nam; /* currently unused */
+  char **p = getaparam("path");
+  if (!p || !*p) {
+    return 0;
+  }
+
+  long total_exec = 0;
+  long plen = (long)arrlen(p);
+
+  if (!quiet) {
+    fprintf(stderr, "zpmod: path-warmup scanning %ld directories...\n", plen);
+  }
+
+  /* Intentionally not touching the command hash table here; warming path only. */
+  for (int i = 0; p[i]; ++i) {
+    char *dir = p[i];
+    if (!dir || !*dir) {
+      continue;
+    }
+    DIR *dp = opendir(dir);
+    if (!dp) {
+      continue;
+    }
+    struct dirent *de;
+    struct stat st;
+    char full[PATH_MAX];
+    while ((de = readdir(dp)) != NULL) {
+      const char *name = de->d_name;
+      if (!name || name[0] == '.') {
+        continue;
+      }
+      int n = snprintf(full, sizeof(full), "%s/%s", dir, name);
+      if (n <= 0 || (size_t)n >= sizeof(full)) {
+        continue;
+      }
+      if (stat(full, &st) == 0 && S_ISREG(st.st_mode) && (st.st_mode & 0111)) {
+        ++total_exec; /* touched */
+      }
+    }
+    closedir(dp);
+  }
+
+  if (prune_missing) {
+    /*
+     * SAFE PATH PRUNING IMPLEMENTATION
+     *
+     * This implementation avoids the memory corruption that occurred in earlier versions
+     * when attempting to modify the path array in-place or reuse getaparam() results.
+     *
+     * Key safety principles:
+     * 1. Never modify arrays returned by getaparam() - they're owned by zsh's parameter system
+     * 2. Use separate allocation with ztrdup() for string ownership
+     * 3. Build completely new array rather than in-place modification
+     * 4. Avoid getaparam() dependency chains that can create circular references
+     */
+
+    /* Phase 1: Count valid directories and report pruning actions */
+    int valid_count = 0;
+    for (int i = 0; p[i]; ++i) {
+      char *dir = p[i];
+      if (!dir || !*dir) {
+        continue; /* Skip empty entries */
+      }
+      struct stat check_st;
+      if (stat(dir, &check_st) == 0 && S_ISDIR(check_st.st_mode)) {
+        valid_count++;
+      } else if (!quiet) {
+        /* Report pruning action (works for both dry-run and actual pruning) */
+        fprintf(stderr, "zpmod: path-warmup %s missing directory: %s\n",
+                dry_run ? "would prune" : "pruning", dir);
+      }
+    }
+
+    /* Phase 2: Rebuild path array if pruning is needed and not in dry-run mode */
+  if (!dry_run && valid_count < (int)plen) {
+      /*
+       * Allocate new array with exact size needed.
+       * Using zalloc() ensures compatibility with zsh's memory management.
+       */
+      char **new_path = (char **)zalloc((valid_count + 1) * sizeof(char *));
+      int new_idx = 0;
+
+      /* Copy only valid directories, creating new string instances */
+      for (int i = 0; p[i]; ++i) {
+        char *dir = p[i];
+        if (!dir || !*dir) {
+          continue;
+        }
+        struct stat check_st;
+        if (stat(dir, &check_st) == 0 && S_ISDIR(check_st.st_mode)) {
+          /*
+           * Critical: Use ztrdup() to create independent string copy.
+           * This ensures the new array has proper ownership and doesn't
+           * depend on the lifetime of the original getaparam() result.
+           */
+          new_path[new_idx++] = ztrdup(dir);
+        }
+      }
+      new_path[new_idx] = NULL; /* Null-terminate array */
+
+      /*
+       * Safe parameter update: setaparam() takes ownership of the new array.
+       * This doesn't create conflicts with the original getaparam() result
+       * because we're providing a completely independent array.
+       */
+      setaparam("path", new_path);
+    }
+  }
+
+  if (!quiet) {
+    fprintf(stderr, "zpmod: path-warmup touched %ld executables.\n", total_exec);
+  }
+  return (int)total_exec;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 

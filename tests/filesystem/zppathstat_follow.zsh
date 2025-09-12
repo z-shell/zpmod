@@ -29,7 +29,7 @@ case ${B[1]} in
 
 # Subcommand parity for -L
 local -a C
-zpmod pathstat -L C IN
+zpmod path-stat -L C IN
 case ${C[1]} in
 	(*type=f*) ;;
 	(*) print -u2 -- "subcommand -L mismatch: ${C[1]}"; exit 1;;

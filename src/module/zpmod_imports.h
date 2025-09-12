@@ -1,3 +1,4 @@
+#pragma once
 /* SPDX-License-Identifier: MIT */
 /* Centralized imports for zsh-generated .epro prototypes and externs.
  * Maintenance:

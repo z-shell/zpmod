@@ -11,6 +11,12 @@ set(ZPMOD_STAGE_MODULE_DIR "${ZPMOD_STAGE_DIR}/${ZPMOD_ZSH_MODDIR}")
 # Test categories for organization
 set(ZPMOD_TEST_LABELS "")
 
+# Ensure the staged module exists before running any tests when invoking ctest directly.
+# We create a CTest fixture that builds the 'stage' target once and have tests require it.
+add_test(NAME stage_fixture
+  COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target stage)
+set_tests_properties(stage_fixture PROPERTIES FIXTURES_SETUP "StageReady" TIMEOUT 120)
+
 # Helper function to add zpmod tests with consistent properties
 function(add_zpmod_test TEST_NAME TEST_FILE)
   set(options SLOW)
@@ -24,7 +30,8 @@ function(add_zpmod_test TEST_NAME TEST_FILE)
 
   # Set standard properties
   set_tests_properties(${TEST_NAME} PROPERTIES
-    ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}"
+  FIXTURES_REQUIRED "StageReady")
 
   # Set timeout (default 30 seconds, 60 for slow tests)
   if(ARG_SLOW)
@@ -60,7 +67,8 @@ function(add_zpmod_ztst TEST_NAME ZTST_FILE)
 
   # Pass stage dir
   set_tests_properties(${TEST_NAME} PROPERTIES
-    ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}")
+  ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}"
+  FIXTURES_REQUIRED "StageReady")
 
   # Reasonable timeout and label as 'ztst'
   set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30 LABELS "ztst;compat")
@@ -109,6 +117,17 @@ add_zpmod_test(zpmod_options command/options.zsh
 
 add_zpmod_test(zpmod_subcommands command/zpmod_subcommands.zsh
   CATEGORY "command" LABELS "subcommands;cli")
+
+# PATH warmup subcommand (performance helper)
+add_zpmod_test(zpmod_path_warmup command/zpmod_path_warmup.zsh
+  CATEGORY "command" LABELS "performance;path")
+
+add_zpmod_test(zpmod_path_warmup_prune command/zpmod_path_warmup_prune.zsh
+  CATEGORY "command" LABELS "performance;path")
+
+# FPATH index generation & preload behavior
+add_zpmod_test(zpmod_fpath_index command/zpmod_fpath_index.zsh
+  CATEGORY "command" LABELS "fpath;indexing")
 
 # Compat: options mapping sentinel and basics
 add_zpmod_test(zpmod_options_mapping compat/options_mapping.zsh

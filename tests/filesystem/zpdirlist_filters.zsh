@@ -33,8 +33,8 @@ done
 
 # Subcommand parity
 local -a D2 F2
-zpmod dirlist -d D2 $tdir
-zpmod dirlist -f F2 $tdir
+zpmod dir-list -d D2 $tdir
+zpmod dir-list -f F2 $tdir
 (( ${#D2} == ${#D} ))
 (( ${#F2} == ${#F} ))
 

@@ -52,6 +52,7 @@ Options:
   --test                     Run a runtime smoke test in zsh after build
   --ctest                    Run the full CTest suite after build/stage
   --ctest-label <LABEL>      Filter CTest by label (repeatable; OR'ed)
+  --ctest-ztst-only          Shorthand for '--ctest --ctest-label ztst'
   --ctest-regex <REGEX>      Filter CTest by test name regex (-R)
   --ctest-jobs <N>           Parallel CTest jobs (default: same as -j/--jobs)
   --ctest-color              Enable test color output (sets ZPMOD_TEST_COLOR=1)
@@ -63,6 +64,23 @@ Behavior:
 - If vendor/zsh/config.h is missing and vendor build isn't disabled, the script
   builds vendor/zsh to generate headers/prototypes expected by zpmod.
 - CMake build directory: ./build-cmake
+
+Notes:
+- A tiny ztst-style adapter is included under tests/ztst. To run only these
+  upstream-aligned internals checks via CTest labels, pass: --ctest --ctest-label ztst
+
+Examples:
+  # Full suite
+  scripts/cmake.configure.zsh --ctest
+
+  # Only ztst checks
+  scripts/cmake.configure.zsh --ctest --ctest-label ztst
+
+  # Only ztst checks (convenience flag)
+  scripts/cmake.configure.zsh --ctest-ztst-only
+
+  # Filter by name regex
+  scripts/cmake.configure.zsh --ctest --ctest-regex zpmod_zpdirlist
 USAGE
 }
 
@@ -124,6 +142,7 @@ while (( $# > 0 )); do
   --docs)            DO_DOCS=true ;;
     --test)            RUN_TEST=true ;;
   --ctest)           DO_CTEST=true ;;
+  --ctest-ztst-only) DO_CTEST=true; CTEST_LABELS+=( ztst ) ;;
   --ctest-label)     shift; CTEST_LABELS+=(${1:-}) ;;
   --ctest-regex)     shift; CTEST_REGEX=${1:-} ;;
   --ctest-jobs)      shift; CTEST_JOBS=${1:-} ;;

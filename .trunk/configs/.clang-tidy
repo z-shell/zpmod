@@ -41,6 +41,23 @@ CheckOptions:
     value: 'i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e'
   - key: readability-identifier-length.IgnoredParameterNames
     value: 'i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e'
+  # Only analyze project sources (exclude vendored zsh and build artifacts)
+  - key: HeaderFilterRegex
+    value: '^(src|tests)/'
+  # Provide a lightweight guard against drifting complexity (still permissive)
+  - key: readability-function-cognitive-complexity.WarnThreshold
+    value: 60
+  # Silence warnings for functions intentionally large due to switch tables
+  - key: readability-function-cognitive-complexity.IgnoredFunctions
+    value: 'cmd_fpath_index|custom_source'
+  # Prevent diagnostic noise from vendor-like underscore prefixed identifiers
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: true
+
+# NOTE:
+# - Vendor headers are already trunk-ignored, but HeaderFilterRegex further constrains clang-tidy when run manually.
+# - Consider periodically lowering cognitive complexity threshold once large legacy functions are refactored.
+# - Additional disables (e.g., -clang-analyzer-core.NullDereference) can be revisited; kept disabled due to zsh macro heavy control flow.
   # Set naming conventions for your style below (there are dozens of naming settings possible):
   # See https://clang.llvm.org/extra/clang-tidy/checks/readability/identifier-naming.html
   # - key: readability-identifier-naming.ClassCase

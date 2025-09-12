@@ -9,16 +9,12 @@
  * POSIX_BUILTINS, SHIN_STDIN, and SOURCE_TRACE through the stable option
  * mapping helpers.
  */
-#if defined(__has_include)
-# if __has_include("zsh.mdh")
-#  include "zpmod.mdh"
-#  include "zpmod.pro"
-# else
-#  include "zpmod_analysis_stubs.h"
-# endif
-#else
+#ifndef ZPMOD_ANALYSIS
 # include "zpmod.mdh"
 # include "zpmod.pro"
+# include "zpmod_vendor_shims.h"
+#else
+# include "zpmod_analysis_stubs.h"
 #endif
 #include <errno.h>
 #include <fcntl.h>
@@ -38,7 +34,7 @@
 #include "zpmod_utils.h"
 
 /* State */
-static HandlerFunc originalDot = NULL, originalSource = NULL;
+static HandlerFunc original_dot = NULL, original_source = NULL;
 static HashTable zp_source_events = NULL;
 static int zp_sevent_count = 0;
 
@@ -154,21 +150,21 @@ struct fdhead {
   wordcode hlen;
   wordcode flags;
 };
-#define fdheaderlen(f) (((Wordcode)(f))[FD_PRELEN])
-#define fdmagic(f) (((Wordcode)(f))[0])
-#define fdsetbyte(f, i, v)                                                     \
+#define FDHEADERLEN(f) (((Wordcode)(f))[FD_PRELEN])
+#define FDMAGIC(f) (((Wordcode)(f))[0])
+#define FDSETBYTE(f, i, v)                                                     \
   ((((unsigned char *)(((Wordcode)(f)) + 1))[i]) = ((unsigned char)(v)))
 #define fdbyte(f, i) ((wordcode)(((unsigned char *)(((Wordcode)(f)) + 1))[i]))
-#define fdflags(f) fdbyte(f, 0)
-#define fdother(f) (fdbyte(f, 1) + (fdbyte(f, 2) << 8) + (fdbyte(f, 3) << 16))
-#define fdversion(f) ((char *)((f) + 2))
-#define firstfdhead(f) ((FDHead)(((Wordcode)(f)) + FD_PRELEN))
-#define nextfdhead(f) ((FDHead)(((Wordcode)(f)) + (f)->hlen))
-#define fdhflags(f) (((FDHead)(f))->flags)
-#define fdhtail(f) (((FDHead)(f))->flags >> 2)
+#define FDFLAGS(f) fdbyte(f, 0)
+#define FDOTHER(f) (fdbyte(f, 1) + (fdbyte(f, 2) << 8) + (fdbyte(f, 3) << 16))
+#define FDVERSION(f) ((char *)((f) + 2))
+#define FIRSTFDHEAD(f) ((FDHead)(((Wordcode)(f)) + FD_PRELEN))
+#define NEXTFDHEAD(f) ((FDHead)(((Wordcode)(f)) + (f)->hlen))
+#define FDHFLAGS(f) (((FDHead)(f))->flags)
+#define FDHTAIL(f) (((FDHead)(f))->flags >> 2)
 #define FDHF_KSHLOAD 1
 #define FDHF_ZSHLOAD 2
-#define fdname(f) ((char *)(((FDHead)(f)) + 1))
+#define FDNAME(f) ((char *)(((FDHead)(f)) + 1))
 
 #ifdef USE_MMAP
 static FuncDump dumps;
@@ -194,9 +190,9 @@ static int custom_zwcstat(char *filename, struct stat *buf) {
 
 static FDHead custom_dump_find_func(Wordcode h, char *name) {
   FDHead n;
-  FDHead e = (FDHead)(h + fdheaderlen(h));
-  for (n = firstfdhead(h); n < e; n = nextfdhead(n)) {
-    if (!strcmp(name, fdname(n) + fdhtail(n))) {
+  FDHead e = (FDHead)(h + FDHEADERLEN(h));
+  for (n = FIRSTFDHEAD(h); n < e; n = NEXTFDHEAD(n)) {
+    if (!strcmp(name, FDNAME(n) + FDHTAIL(n))) {
       return n;
     }
   }
@@ -215,12 +211,12 @@ static Wordcode custom_load_dump_header(char *nam, char *name, int err) {
   }
   if (read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
           ((FD_PRELEN + 1) * sizeof(wordcode)) ||
-      (v = (fdmagic(buf) != FD_MAGIC && fdmagic(buf) != FD_OMAGIC)) ||
-      strcmp(fdversion(buf), getsparam("ZSH_VERSION")) != 0) {
+      (v = (FDMAGIC(buf) != FD_MAGIC && FDMAGIC(buf) != FD_OMAGIC)) ||
+      strcmp(FDVERSION(buf), getsparam("ZSH_VERSION")) != 0) {
     if (err) {
       if (!v) {
         zwarnnam(nam, "%d: zwc file has wrong version (zsh-%s): %s", __LINE__,
-                 fdversion(buf), name);
+                 FDVERSION(buf), name);
       } else {
         zwarnnam(nam, "%d: invalid zwc file: %s", __LINE__, name);
       }
@@ -230,11 +226,11 @@ static Wordcode custom_load_dump_header(char *nam, char *name, int err) {
   }
   int len;
   Wordcode head;
-  if (fdmagic(buf) == FD_MAGIC) {
-    len = fdheaderlen(buf) * sizeof(wordcode);
+  if (FDMAGIC(buf) == FD_MAGIC) {
+    len = FDHEADERLEN(buf) * sizeof(wordcode);
     head = (Wordcode)zhalloc(len);
   } else {
-    int o = fdother(buf);
+    int o = FDOTHER(buf);
     if (lseek(fd, o, 0) == -1 ||
         read(fd, buf, (FD_PRELEN + 1) * sizeof(wordcode)) !=
             ((FD_PRELEN + 1) * sizeof(wordcode))) {
@@ -242,7 +238,7 @@ static Wordcode custom_load_dump_header(char *nam, char *name, int err) {
       close(fd);
       return NULL;
     }
-    len = fdheaderlen(buf) * sizeof(wordcode);
+    len = FDHEADERLEN(buf) * sizeof(wordcode);
     head = (Wordcode)zhalloc(len);
   }
   memcpy(head, buf, (FD_PRELEN + 1) * sizeof(wordcode));
@@ -441,14 +437,14 @@ rec:
         *pp++ = dummy_patprog1;
       }
       if (ksh) {
-        *ksh = ((fdhflags(h) & FDHF_KSHLOAD)
+        *ksh = ((FDHFLAGS(h) & FDHF_KSHLOAD)
                     ? 2
-                    : ((fdhflags(h) & FDHF_ZSHLOAD) ? 0 : 1));
+                    : ((FDHFLAGS(h) & FDHF_ZSHLOAD) ? 0 : 1));
       }
       return prog;
     }
-    if (fdflags(d) & FDF_MAP) {
-      custom_load_dump_file(file, sbuf, (fdflags(d) & FDF_OTHER), fdother(d));
+    if (FDFLAGS(d) & FDF_MAP) {
+      custom_load_dump_file(file, sbuf, (FDFLAGS(d) & FDF_OTHER), FDOTHER(d));
       isrec = 1;
       goto rec;
     }
@@ -462,7 +458,7 @@ rec:
       if ((fd = open(file, O_RDONLY)) < 0 ||
           lseek(fd,
                 ((h->start * sizeof(wordcode)) +
-                 ((fdflags(d) & FDF_OTHER) ? fdother(d) : 0)),
+                 ((FDFLAGS(d) & FDF_OTHER) ? FDOTHER(d) : 0)),
                 0) < 0) {
         if (fd >= 0) {
           close(fd);
@@ -490,9 +486,9 @@ rec:
         *pp++ = dummy_patprog1;
       }
       if (ksh) {
-        *ksh = ((fdhflags(h) & FDHF_KSHLOAD)
+        *ksh = ((FDHFLAGS(h) & FDHF_KSHLOAD)
                     ? 2
-                    : ((fdhflags(h) & FDHF_ZSHLOAD) ? 0 : 1));
+                    : ((FDHFLAGS(h) & FDHF_ZSHLOAD) ? 0 : 1));
       }
       return prog;
     }
@@ -542,7 +538,7 @@ mod_export enum source_return custom_source(char *s) {
   cj = thisjob;
   oldlineno = lineno;
   oloops = loops;
-  oldshst = opts[zp_conv_opt(SHINSTDIN__)];
+  oldshst = opts[zp_conv_opt(SHINSTDIN__)]; /* unchanged; explicit suffix */
   ocs = cmdstack;
   ocsp = cmdsp;
   cmdstack = (unsigned char *)zalloc(CMDSTACKSZ);
@@ -554,7 +550,7 @@ mod_export enum source_return custom_source(char *s) {
   subsh = 0;
   lineno = 1;
   loops = 0;
-  dosetopt(zp_conv_opt(SHINSTDIN__), 0, 1, opts);
+  dosetopt(zp_conv_opt(SHINSTDIN__), 0, 1, opts); /* ensure suffixed enum */
   scriptname = s;
   scriptfilename = s;
   if (isset(zp_conv_opt(SOURCETRACE__))) {
@@ -609,7 +605,7 @@ mod_export enum source_return custom_source(char *s) {
   thisjob = cj;
   lineno = oldlineno;
   loops = oloops;
-  dosetopt(zp_conv_opt(SHINSTDIN__), oldshst, 1, opts);
+  dosetopt(zp_conv_opt(SHINSTDIN__), oldshst, 1, opts); /* ensure suffixed enum */
   errflag &= ~ERRFLAG_ERROR;
   if (!exit_pending) {
     retflag = 0;
@@ -682,13 +678,13 @@ char *zp_build_source_report(int no_paths, int *rep_size) {
   current_size = 127;
   current_end = 0;
   report = (char *)zalloc(sizeof(char) * (current_size + 1));
-  space_left = 127;
-  report[current_end] = '\0';
-  *rep_size = current_size + 1;
   if (!report) {
     *rep_size = 0;
     return ztrdup("ERROR: couldn't allocate initial buffer, aborted\n");
   }
+  space_left = 127;
+  report[current_end] = '\0';
+  *rep_size = current_size + 1;
   for (idx = 1; idx <= zp_sevent_count; ++idx) {
     snprintf(zp_tmp, sizeof(zp_tmp), "%d", idx);
     zp_tmp[sizeof(zp_tmp) - 1] = '\0';
@@ -702,16 +698,15 @@ char *zp_build_source_report(int no_paths, int *rep_size) {
                    no_paths ? node->event.file_name : node->event.full_path);
     }
     if (space_left < printed) {
-      char *report_;
       current_size += printed - space_left + 25;
       space_left += printed - space_left + 25;
-      report_ = zrealloc(report, sizeof(char) * (current_size + 1));
-      if (!report_) {
+      char *new_report = (char *)zrealloc(report, sizeof(char) * (current_size + 1));
+      if (!new_report) {
         zfree(report, *rep_size);
         *rep_size = 0;
         return ztrdup("ERROR: Couldn't realloc buffer, aborted\n");
       }
-      report = report_;
+      report = new_report;
       *rep_size = current_size + 1;
     }
     {
@@ -740,12 +735,12 @@ void zp_free_sevent_node(HashNode hn) {
 void zp_source_setup_overrides(void) {
   Builtin bn = (Builtin)builtintab->getnode2(builtintab, ".");
   if (bn) {
-    originalDot = bn->handlerfunc;
+    original_dot = bn->handlerfunc;
     bn->handlerfunc = bin_custom_dot;
   }
   bn = (Builtin)builtintab->getnode2(builtintab, "source");
   if (bn) {
-    originalSource = bn->handlerfunc;
+    original_source = bn->handlerfunc;
     bn->handlerfunc = bin_custom_dot;
   }
   if (!(zp_source_events = newhashtable(8, "zp_source_events", NULL))) {
@@ -765,11 +760,11 @@ void zp_source_setup_overrides(void) {
 void zp_source_restore_overrides(void) {
   Builtin bn = (Builtin)builtintab->getnode2(builtintab, ".");
   if (bn) {
-    bn->handlerfunc = originalDot;
+    bn->handlerfunc = original_dot;
   }
   bn = (Builtin)builtintab->getnode2(builtintab, "source");
   if (bn) {
-    bn->handlerfunc = originalSource;
+    bn->handlerfunc = original_source;
   }
   if (zp_source_events) {
     deletehashtable(zp_source_events);

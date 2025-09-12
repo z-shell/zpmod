@@ -3,8 +3,14 @@
  * @file readarray.c
  * @brief readarray builtin: read records from stdin or fd into an array.
  */
+/* Canonical module header ordering */
 #include "zpmod.mdh"
 #include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
+/* System headers after gateway */
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "zpmod_emoji.h"
 
 static void readarray_usage(void) {
@@ -17,8 +23,7 @@ static void readarray_usage(void) {
 }
 
 /** readarray builtin entrypoint */
-int bin_readarray(char *nam, char **argv, UNUSED(Options ops),
-                  UNUSED(int func)) {
+int bin_readarray(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
   int srcfd = 0;
   char *callback = NULL;
   char *oarr_name = NULL;
