@@ -49,6 +49,19 @@ runtimes:
 actions:
   enabled:
     - trunk-announce
+    # Ensure compile_commands.json is (re)generated before formatting/checks
+    - zpm-gen-compile-commands-pre-commit
+    - zpm-gen-compile-commands-pre-push
     - trunk-check-pre-push
     - trunk-fmt-pre-commit
     - trunk-upgrade-available
+  # Custom actions to regenerate compile_commands.json before trunk hooks
+  definitions:
+    - id: zpm-gen-compile-commands-pre-commit
+      triggers:
+        - git_hooks: [pre-commit]
+      run: scripts/gen-compile-commands.zsh
+    - id: zpm-gen-compile-commands-pre-push
+      triggers:
+        - git_hooks: [pre-push]
+      run: scripts/gen-compile-commands.zsh
