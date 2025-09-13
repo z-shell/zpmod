@@ -23,21 +23,25 @@
  * PrintTableStats: zsh.h already typedefs it (void (*)(HashTable)) and we
  * include zsh.h before this fallback. Redefinition caused CI failures. */
 typedef struct eprog *Eprog;
-struct patprog; typedef struct patprog *Patprog;            /* Patprog */
-struct hashtable; typedef struct hashtable *HashTable; /* HashTable */
-struct hashnode; typedef struct hashnode *HashNode;    /* HashNode */
-struct builtin;  typedef struct builtin *Builtin;      /* Builtin */
-typedef struct funcstack *Funcstack;                   /* Funcstack */
-typedef struct features *Features;                     /* Features */
-typedef struct module *Module;                         /* Module (single typedef; duplicate removed) */
+struct patprog;
+typedef struct patprog *Patprog; /* Patprog */
+struct hashtable;
+typedef struct hashtable *HashTable; /* HashTable */
+struct hashnode;
+typedef struct hashnode *HashNode; /* HashNode */
+struct builtin;
+typedef struct builtin *Builtin;     /* Builtin */
+typedef struct funcstack *Funcstack; /* Funcstack */
+typedef struct features *Features;   /* Features */
+typedef struct module *Module; /* Module (single typedef; duplicate removed) */
 
 /* Core global variables (match volatile & types) */
-extern volatile long lastval;          /* zlong lastval (assume long when unknown) */
+extern volatile long lastval; /* zlong lastval (assume long when unknown) */
 extern volatile int retflag;
 extern volatile int errflag;
 extern volatile int exit_pending;
-extern volatile int trap_state;        /* enum trap_state bits */
-extern char opts[];                    /* options bitmap */
+extern volatile int trap_state; /* enum trap_state bits */
+extern char opts[];             /* options bitmap */
 extern char **pparams;
 extern char *argzero;
 extern char **path;
@@ -48,7 +52,7 @@ extern int SHIN;
 extern int subsh;
 extern int thisjob;
 extern int loops;
-extern void *cmdstack;                 /* treat opaque */
+extern void *cmdstack; /* treat opaque */
 extern int cmdsp;
 extern int sourcelevel;
 extern Funcstack funcstack;
@@ -92,7 +96,7 @@ extern int dosetopt(int, int, int, unsigned char *);
 /* Missing prototype when .epro exports absent */
 extern int arrlen(char **);
 /* Additional internals referenced by source.c when generated exports absent */
-extern struct eprog dummy_eprog;      /* placeholder Eprog */
+extern struct eprog dummy_eprog; /* placeholder Eprog */
 /* NOTE: dummy_patprog1 is a macro (#define dummy_patprog1 ((Patprog) 1)) in
  * upstream zsh headers; do NOT declare it here or it expands inside an extern
  * and breaks the build (seen in Docker CI). We rely on the macro provided by
@@ -100,9 +104,9 @@ extern struct eprog dummy_eprog;      /* placeholder Eprog */
 extern void printprompt4(void);
 extern void execode(Eprog, int, int, char *);
 extern char *dyncat(const char *, const char *);
-extern char *pwd;                     /* current working directory */
-extern FILE *xtrerr;                  /* trace/error file */
-extern zlong lineno;                  /* current line number */
+extern char *pwd;    /* current working directory */
+extern FILE *xtrerr; /* trace/error file */
+extern zlong lineno; /* current line number */
 
 #endif /* !ZSH_MDH_INCLUDED */
 

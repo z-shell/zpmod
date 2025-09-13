@@ -8,7 +8,8 @@
  *
  * Phase 2 (scaffolding): Provides entrypoint for `zpmod compaudit-cache`.
  * Future implementation goals:
- *  - Cache directory ownership+permission verdicts equivalent to native compaudit
+ *  - Cache directory ownership+permission verdicts equivalent to native
+ * compaudit
  *  - Invalidate on metadata changes (mtime/ctime, uid/gid, mode)
  *  - Store cache in XDG cache dir (~/.cache/zpmod) with permission checks
  *  - Provide `--rebuild` to force regeneration, `--show` to print current cache

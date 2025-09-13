@@ -8,10 +8,10 @@
 #include "zpmod.pro"
 #include "zpmod_vendor_shims.h"
 /* System headers after gateway */
+#include "zpmod_emoji.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "zpmod_emoji.h"
 
 static void readarray_usage(void) {
   fprintf(stdout,
@@ -23,7 +23,8 @@ static void readarray_usage(void) {
 }
 
 /** readarray builtin entrypoint */
-int bin_readarray(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
+int bin_readarray(char *nam, char **argv, Options ops, int func) {
+  (void)func; /* unused */
   int srcfd = 0;
   char *callback = NULL;
   char *oarr_name = NULL;

@@ -46,8 +46,12 @@ Eprog custom_try_source_file(char *file);
  * Declare weak so that we can test for presence at runtime and fail gracefully
  * instead of producing an unresolved symbol error in edge staging scenarios.
  */
-int zp_source_study_core(const char *nam, int report_count, int threshold_ms, int clear_history)
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+int zp_source_study_core(const char *nam, int report_count, int threshold_ms,
+                         int clear_history)
+// — API kept as (count, ms, flag)
 #if defined(__GNUC__)
-  __attribute__((weak))
+    __attribute__((weak))
 #endif
-  ;
+    ;
+// NOLINTEND(bugprone-easily-swappable-parameters)

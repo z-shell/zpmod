@@ -4,29 +4,35 @@
 #include "zpmod.pro"
 #include "zpmod_vendor_shims.h"
 /* System headers after gateway */
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <limits.h>
-#include "zpmod_utils.h"
-#include "zpmod_fs.h"
-#include "zpmod_source.h"
-#include "zpmod_emoji.h"
-#include "zpmod_compaudit.h"
-#include "zpmod_rehash.h"
 #include "zpmod_bundle.h"
+#include "zpmod_compaudit.h"
+#include "zpmod_emoji.h"
+#include "zpmod_fs.h"
+#include "zpmod_rehash.h"
+#include "zpmod_source.h"
+#include "zpmod_utils.h"
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Parse escaped delimiter specifications like \n, \t, \0, \r */
 static int parse_delim(const char *a) {
-  if (!a || !*a) { return '\n';
-}
+  if (!a || !*a) {
+    return '\n';
+  }
   if (a[0] == '\\') {
     switch (a[1]) {
-    case 'n': return '\n';
-    case 't': return '\t';
-    case '0': return '\0';
-    case 'r': return '\r';
-    default:  return (unsigned char)a[1];
+    case 'n':
+      return '\n';
+    case 't':
+      return '\t';
+    case '0':
+      return '\0';
+    case 'r':
+      return '\r';
+    default:
+      return (unsigned char)a[1];
     }
   }
   return (unsigned char)a[0];
@@ -39,15 +45,18 @@ static int parse_delim(const char *a) {
  * - Emits user-facing diagnostics via zwarnnam (emoji inside function)
  */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-static int zp_append_report(const char *nam /* reporting name */, const char *target,
-                            const char *body, int body_len) {
-  if (!body_len) { return 0; /* noop */
-}
+static int zp_append_report(const char *nam /* reporting name */,
+                            const char *target, const char *body,
+                            int body_len) {
+  if (!body_len) {
+    return 0; /* noop */
+  }
 
   /* Lookup associative array parameter */
   Param pm = (Param)paramtab->getnode(paramtab, "ZI_REPORTS");
   if (!pm) {
-    zwarnnam(nam, "%s$ZI_REPORTS is not declared (zpmod not loaded?).", zp_icon("❌ "));
+    zwarnnam(nam, "%s$ZI_REPORTS is not declared (zpmod not loaded?).",
+             zp_icon("❌ "));
     return 1;
   }
   HashTable ht = pm->u.hash;
@@ -67,14 +76,17 @@ static int zp_append_report(const char *nam /* reporting name */, const char *ta
     zwarnnam(nam, "%sout of memory", zp_icon("❌ "));
     return 1;
   }
-  if (target_len) { memcpy(newbuf, target_string, (size_t)target_len);
-}
-  if (body_len) { memcpy(newbuf + target_len, body, (size_t)body_len);
-}
+  if (target_len) {
+    memcpy(newbuf, target_string, (size_t)target_len);
+  }
+  if (body_len) {
+    memcpy(newbuf + target_len, body, (size_t)body_len);
+  }
   newbuf[new_len] = '\0';
 
-  if (val_pm->u.str) { zsfree(val_pm->u.str);
-}
+  if (val_pm->u.str) {
+    zsfree(val_pm->u.str);
+  }
   val_pm->u.str = newbuf;
   return 0;
 }
@@ -82,7 +94,8 @@ static int zp_append_report(const char *nam /* reporting name */, const char *ta
 
 /** Print usage for the `zpmod` builtin. */
 void zpmod_usage(void) {
-  /* Section headings use emojis; lines use a consistent indent and columns for alignment. */
+  /* Section headings use emojis; lines use a consistent indent and columns for
+   * alignment. */
   fprintf(stdout, "%s Usage:\n", zp_icon("📘 "));
   fprintf(stdout, "  zpmod [--help|-h] [--version|-V]\n");
   fprintf(stdout, "  zpmod report-append <plugin-id> <text>\n");
@@ -97,12 +110,18 @@ void zpmod_usage(void) {
 
   fprintf(stdout, "%s Subcommands:\n", zp_icon("🧰 "));
   /* Fixed-width label column for readability (max subcommand length ~12). */
-  fprintf(stdout, "  %-14s %s\n", "report-append", "Append <text> to $ZI_REPORTS[<plugin-id>].");
-  fprintf(stdout, "  %-14s %s\n", "source-study",  "Show sourced files with durations (ms).");
-  fprintf(stdout, "  %-14s %s\n", "dir-list",        "List entries in directory into array.");
-  fprintf(stdout, "  %-14s %s\n", "path-stat",       "Batch stat for input array into output array.");
-  fprintf(stdout, "  %-14s %s\n", "path-warmup",    "Touch PATH dirs to warm kernel VFS caches.");
-  fprintf(stdout, "  %-14s %s\n\n", "read-file",       "Read file into scalar or split into array.");
+  fprintf(stdout, "  %-14s %s\n", "report-append",
+          "Append <text> to $ZI_REPORTS[<plugin-id>].");
+  fprintf(stdout, "  %-14s %s\n", "source-study",
+          "Show sourced files with durations (ms).");
+  fprintf(stdout, "  %-14s %s\n", "dir-list",
+          "List entries in directory into array.");
+  fprintf(stdout, "  %-14s %s\n", "path-stat",
+          "Batch stat for input array into output array.");
+  fprintf(stdout, "  %-14s %s\n", "path-warmup",
+          "Touch PATH dirs to warm kernel VFS caches.");
+  fprintf(stdout, "  %-14s %s\n\n", "read-file",
+          "Read file into scalar or split into array.");
 
   fprintf(stdout, "%s Options:\n", zp_icon("⚙️ "));
   fflush(stdout);
@@ -140,7 +159,8 @@ static int cmd_report_append(char *nam, char **argv) {
   }
 }
 
-int bin_zpmod(char *nam, char **argv, Options ops, int func) { (void)func; /* unused */
+int bin_zpmod(char *nam, char **argv, Options ops, int func) {
+  (void)func; /* unused */
   char *subcmd = NULL;
   int ret = 0;
   if (OPT_ISSET(ops, 'V') ||
@@ -167,12 +187,29 @@ int bin_zpmod(char *nam, char **argv, Options ops, int func) { (void)func; /* un
   } else if (0 == strcmp(subcmd, "source-hot")) {
     ret = cmd_source_hot(nam, argv);
   } else if (0 == strcmp(subcmd, "path-warmup")) {
-    int quiet = 0; int prune_missing = 0; int dry_run = 0;
+    int quiet = 0;
+    int prune_missing = 0;
+    int dry_run = 0;
     while (*argv && argv[0][0] == '-') {
-      if (strcmp(argv[0], "-q") == 0 || strcmp(argv[0], "--quiet") == 0) { quiet = 1; argv++; continue; }
-      if (strcmp(argv[0], "--prune-missing") == 0) { prune_missing = 1; argv++; continue; }
-      if (strcmp(argv[0], "--dry-run") == 0) { dry_run = 1; argv++; continue; }
-      if (strcmp(argv[0], "--") == 0) { argv++; break; }
+      if (strcmp(argv[0], "-q") == 0 || strcmp(argv[0], "--quiet") == 0) {
+        quiet = 1;
+        argv++;
+        continue;
+      }
+      if (strcmp(argv[0], "--prune-missing") == 0) {
+        prune_missing = 1;
+        argv++;
+        continue;
+      }
+      if (strcmp(argv[0], "--dry-run") == 0) {
+        dry_run = 1;
+        argv++;
+        continue;
+      }
+      if (strcmp(argv[0], "--") == 0) {
+        argv++;
+        break;
+      }
       break;
     }
     (void)argv; /* no trailing args */
@@ -182,28 +219,85 @@ int bin_zpmod(char *nam, char **argv, Options ops, int func) { (void)func; /* un
   } else if (0 == strcmp(subcmd, "fpath-index")) {
     ret = cmd_fpath_index(nam, argv);
   } else if (0 == strcmp(subcmd, "compaudit-cache")) {
-    int rebuild = 0; int show = 0; int json = 0;
+    int rebuild = 0;
+    int show = 0;
+    int json = 0;
     while (*argv && argv[0][0] == '-') {
-      if (!strcmp(argv[0], "--rebuild")) { rebuild = 1; argv++; continue; }
-      if (!strcmp(argv[0], "--show")) { show = 1; argv++; continue; }
-      if (!strcmp(argv[0], "--json")) { json = 1; argv++; continue; }
-      if (!strcmp(argv[0], "--")) { argv++; break; }
+      if (!strcmp(argv[0], "--rebuild")) {
+        rebuild = 1;
+        argv++;
+        continue;
+      }
+      if (!strcmp(argv[0], "--show")) {
+        show = 1;
+        argv++;
+        continue;
+      }
+      if (!strcmp(argv[0], "--json")) {
+        json = 1;
+        argv++;
+        continue;
+      }
+      if (!strcmp(argv[0], "--")) {
+        argv++;
+        break;
+      }
       break;
     }
     ret = zp_compaudit_cache_core(nam, rebuild, show, json);
   } else if (0 == strcmp(subcmd, "rehash-diff")) {
     ret = zp_rehash_diff_core(nam);
   } else if (0 == strcmp(subcmd, "bundle-build")) {
-    const char *from_dir = NULL; const char *out_path = NULL; long max_kb = 0;
+    const char *from_dir = NULL;
+    const char *out_path = NULL;
+    long max_kb = 0;
     while (*argv) {
-      if (!strcmp(argv[0], "--from")) { if (argv[1]) { from_dir = argv[1]; argv += 2; continue; } zwarnnam(nam, "bundle-build: --from requires value"); ret = 1; break; }
-      if (!strcmp(argv[0], "--out")) { if (argv[1]) { out_path = argv[1]; argv += 2; continue; } zwarnnam(nam, "bundle-build: --out requires value"); ret = 1; break; }
-      if (!strcmp(argv[0], "--max")) { if (argv[1]) { char *end=NULL; long v=strtol(argv[1], &end, 10); if (*end=='\0' && v>=0) { max_kb = v; } else { zwarnnam(nam, "bundle-build: invalid --max value: %s", argv[1]); ret = 1; } argv += 2; continue; } zwarnnam(nam, "bundle-build: --max requires value"); ret = 1; break; }
-      if (!strcmp(argv[0], "--")) { argv++; break; }
+      if (!strcmp(argv[0], "--from")) {
+        if (argv[1]) {
+          from_dir = argv[1];
+          argv += 2;
+          continue;
+        }
+        zwarnnam(nam, "bundle-build: --from requires value");
+        ret = 1;
+        break;
+      }
+      if (!strcmp(argv[0], "--out")) {
+        if (argv[1]) {
+          out_path = argv[1];
+          argv += 2;
+          continue;
+        }
+        zwarnnam(nam, "bundle-build: --out requires value");
+        ret = 1;
+        break;
+      }
+      if (!strcmp(argv[0], "--max")) {
+        if (argv[1]) {
+          char *end = NULL;
+          long v = strtol(argv[1], &end, 10);
+          if (*end == '\0' && v >= 0) {
+            max_kb = v;
+          } else {
+            zwarnnam(nam, "bundle-build: invalid --max value: %s", argv[1]);
+            ret = 1;
+          }
+          argv += 2;
+          continue;
+        }
+        zwarnnam(nam, "bundle-build: --max requires value");
+        ret = 1;
+        break;
+      }
+      if (!strcmp(argv[0], "--")) {
+        argv++;
+        break;
+      }
       break;
     }
-    if (ret == 0) { ret = zp_bundle_build_core(nam, from_dir, out_path, max_kb);
-}
+    if (ret == 0) {
+      ret = zp_bundle_build_core(nam, from_dir, out_path, max_kb);
+    }
   } else if (0 == strcmp(subcmd, "dir-list")) {
     ret = cmd_dirlist(nam, argv);
   } else if (0 == strcmp(subcmd, "path-stat")) {
@@ -256,10 +350,25 @@ int cmd_dirlist(char *nam, char **argv) {
   int only_dirs = 0;
   int only_files = 0;
   while (*argv && argv[0][0] == '-') {
-    if (!strcmp(argv[0], "-a")) { inc_all = 1; argv++; continue; }
-    if (!strcmp(argv[0], "-d")) { only_dirs = 1; argv++; continue; }
-    if (!strcmp(argv[0], "-f")) { only_files = 1; argv++; continue; }
-    if (!strcmp(argv[0], "--")) { argv++; break; }
+    if (!strcmp(argv[0], "-a")) {
+      inc_all = 1;
+      argv++;
+      continue;
+    }
+    if (!strcmp(argv[0], "-d")) {
+      only_dirs = 1;
+      argv++;
+      continue;
+    }
+    if (!strcmp(argv[0], "-f")) {
+      only_files = 1;
+      argv++;
+      continue;
+    }
+    if (!strcmp(argv[0], "--")) {
+      argv++;
+      break;
+    }
     break;
   }
   if (!argv[0] || !argv[1]) {
@@ -285,13 +394,22 @@ int cmd_pathstat(char *nam, char **argv) {
     if (argv[0][1] == 'f') {
       char **cursor = &argv[0];
       int tk = zp_take_opt_with_arg(&cursor, 'f', &fields);
-      if (tk == -1) { zwarnnam(nam, "%spathstat: -f requires fields", zp_icon("❌ ")); return 1; }
-      if (tk == 1) { argv = cursor; continue; }
+      if (tk == -1) {
+        zwarnnam(nam, "%spathstat: -f requires fields", zp_icon("❌ "));
+        return 1;
+      }
+      if (tk == 1) {
+        argv = cursor;
+        continue;
+      }
     }
     break;
   }
   if (!argv[0] || !argv[1]) {
-    zwarnnam(nam, "%spathstat: usage: zpmod path-stat [-L] [-f fields] out_array in_array", zp_icon("❌ "));
+    zwarnnam(nam,
+             "%spathstat: usage: zpmod path-stat [-L] [-f fields] out_array "
+             "in_array",
+             zp_icon("❌ "));
     return 1;
   }
   return zp_pathstat_core(nam, argv[0], argv[1], follow, fields);
@@ -302,39 +420,90 @@ int cmd_readfile(char *nam, char **argv) {
   int split = 0;
   int delim = '\n';
   while (*argv && argv[0][0] == '-') {
-    if (strcmp(argv[0], "--mmap") == 0) { use_mmap = 1; argv++; continue; }
-    if (strcmp(argv[0], "-0") == 0) { split = 1; delim = '\0'; argv++; continue; }
-    if (strcmp(argv[0], "--") == 0) { argv++; break; }
+    if (strcmp(argv[0], "--mmap") == 0) {
+      use_mmap = 1;
+      argv++;
+      continue;
+    }
+    if (strcmp(argv[0], "-0") == 0) {
+      split = 1;
+      delim = '\0';
+      argv++;
+      continue;
+    }
+    if (strcmp(argv[0], "--") == 0) {
+      argv++;
+      break;
+    }
     if (argv[0][1] == 'd') {
       /* Allow forms: -d X  or -dX */
       if (argv[0][2]) {
         const char *a = argv[0] + 2;
         split = 1;
         if (a[0] == '\\' && a[1]) {
-          switch (a[1]) { case 'n': delim='\n'; break; case 't': delim='\t'; break; case '0': delim='\0'; break; case 'r': delim='\r'; break; default: delim=(unsigned char)a[1]; break; }
-        } else { delim = (unsigned char)a[0]; }
+          switch (a[1]) {
+          case 'n':
+            delim = '\n';
+            break;
+          case 't':
+            delim = '\t';
+            break;
+          case '0':
+            delim = '\0';
+            break;
+          case 'r':
+            delim = '\r';
+            break;
+          default:
+            delim = (unsigned char)a[1];
+            break;
+          }
+        } else {
+          delim = (unsigned char)a[0];
+        }
         argv++;
         continue;
-      } if (argv[1]) {
+      }
+      if (argv[1]) {
         const char *a = argv[1];
         split = 1;
         if (a[0] == '\\') {
           if (a[1]) {
-            switch (a[1]) { case 'n': delim='\n'; break; case 't': delim='\t'; break; case '0': delim='\0'; break; case 'r': delim='\r'; break; default: delim=(unsigned char)a[1]; break; }
+            switch (a[1]) {
+            case 'n':
+              delim = '\n';
+              break;
+            case 't':
+              delim = '\t';
+              break;
+            case '0':
+              delim = '\0';
+              break;
+            case 'r':
+              delim = '\r';
+              break;
+            default:
+              delim = (unsigned char)a[1];
+              break;
+            }
           } else {
             delim = '\\';
           }
-        } else { delim = (unsigned char)a[0]; }
+        } else {
+          delim = (unsigned char)a[0];
+        }
         argv += 2; /* consume -d and arg */
         continue;
-      }         zwarnnam(nam, "read-file: -d requires delimiter");
-        return 1;
-
+      }
+      zwarnnam(nam, "read-file: -d requires delimiter");
+      return 1;
     }
     break; /* unknown option */
   }
   if (!argv[0] || !argv[1]) {
-    zwarnnam(nam, "read-file: usage: zpmod read-file [-m|--mmap] [-0|-d delim] var file");
+    zwarnnam(
+        nam,
+        "read-file: usage: zpmod read-file [-m|--mmap] [-0|-d delim] var file");
     return 1;
   }
   return zp_readfile_core(nam, argv[0], argv[1], use_mmap, split, delim);

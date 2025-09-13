@@ -7,7 +7,8 @@
 typedef void *Module;
 /* Provide minimal declarations to avoid parser errors when analyzers scan
  * files out-of-context. */
-int bin_custom_dot(char *UNUSED(name), char **UNUSED(argv), UNUSED(void *ops), UNUSED(int func));
+int bin_custom_dot(char *UNUSED(name), char **UNUSED(argv), UNUSED(void *ops),
+                   UNUSED(int func));
 int setup_(UNUSED(Module m));
 int enables_(UNUSED(Module m), int **UNUSED(enables));
 int boot_(UNUSED(Module m));

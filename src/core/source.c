@@ -10,11 +10,11 @@
  * mapping helpers.
  */
 #ifndef ZPMOD_ANALYSIS
-# include "zpmod.mdh"
-# include "zpmod.pro"
-# include "zpmod_vendor_shims.h"
+#include "zpmod.mdh"
+#include "zpmod.pro"
+#include "zpmod_vendor_shims.h"
 #else
-# include "zpmod_analysis_stubs.h"
+#include "zpmod_analysis_stubs.h"
 #endif
 #include <errno.h>
 #include <fcntl.h>
@@ -605,7 +605,8 @@ mod_export enum source_return custom_source(char *s) {
   thisjob = cj;
   lineno = oldlineno;
   loops = oloops;
-  dosetopt(zp_conv_opt(SHINSTDIN__), oldshst, 1, opts); /* ensure suffixed enum */
+  dosetopt(zp_conv_opt(SHINSTDIN__), oldshst, 1,
+           opts); /* ensure suffixed enum */
   errflag &= ~ERRFLAG_ERROR;
   if (!exit_pending) {
     retflag = 0;
@@ -700,7 +701,8 @@ char *zp_build_source_report(int no_paths, int *rep_size) {
     if (space_left < printed) {
       current_size += printed - space_left + 25;
       space_left += printed - space_left + 25;
-      char *new_report = (char *)zrealloc(report, sizeof(char) * (current_size + 1));
+      char *new_report =
+          (char *)zrealloc(report, sizeof(char) * (current_size + 1));
       if (!new_report) {
         zfree(report, *rep_size);
         *rep_size = 0;

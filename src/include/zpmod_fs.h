@@ -67,7 +67,8 @@ int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
                      int split, int delim);
 
 /**
- * @brief Scan $PATH directories to warm filesystem caches and prepare command lookup.
+ * @brief Scan $PATH directories to warm filesystem caches and prepare command
+ * lookup.
  *
  * Prototype implementation: walks each entry in the shell's $path, opens the
  * directory and stats executable entries. This warms kernel VFS caches and can
@@ -78,4 +79,5 @@ int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
  * @param prune_missing Reserved for future integration (currently no-op).
  * @return number of executables observed (>=0) on success; negative on error.
  */
-int zp_path_warmup_core(const char *nam, int quiet, int prune_missing, int dry_run);
+int zp_path_warmup_core(const char *nam, int quiet, int prune_missing,
+                        int dry_run);

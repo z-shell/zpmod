@@ -8,8 +8,8 @@
 #include "zpmod.pro"
 #include "zpmod_vendor_shims.h"
 /* System headers after gateway */
-#include <string.h>
 #include <locale.h>
+#include <string.h>
 #include <unistd.h>
 #if defined(__has_include)
 #if __has_include(<langinfo.h>)

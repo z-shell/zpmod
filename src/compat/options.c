@@ -9,8 +9,8 @@
  */
 #include "zpmod.mdh"
 #include "zpmod.pro"
-#include <stddef.h>
 #include "zpmod_compat.h"
+#include <stddef.h>
 
 static int zp_opt_for_zsh_version[64] = {0};
 
@@ -24,14 +24,14 @@ struct zp_option_name {
  * Keep this list terminated with a NULL name sentinel.
  */
 static struct zp_option_name zp_options[] = {
-  /* Only map the options we actually use from C code. */
-  {"function_argzero", FUNCTIONARGZERO__},
-  {"path_dirs", PATHDIRS__},
-  {"posix_builtins", POSIXBUILTINS__},
-  {"shin_stdin", SHINSTDIN__},
-  {"source_trace", SOURCETRACE__},
-  /* Sentinel terminator (required) */
-  {NULL, 0}};
+    /* Only map the options we actually use from C code. */
+    {"function_argzero", FUNCTIONARGZERO__},
+    {"path_dirs", PATHDIRS__},
+    {"posix_builtins", POSIXBUILTINS__},
+    {"shin_stdin", SHINSTDIN__},
+    {"source_trace", SOURCETRACE__},
+    /* Sentinel terminator (required) */
+    {NULL, 0}};
 
 /** Populate runtime option indices for the stable enum table. */
 void zp_setup_options_table(void) {

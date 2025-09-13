@@ -5,8 +5,8 @@
  */
 #include "zpmod.mdh"
 #include "zpmod.pro"
-#include "zpmod_vendor_shims.h"
 #include "zpmod_utils.h"
+#include "zpmod_vendor_shims.h"
 #include <string.h>
 
 /** Lightweight argv short-option scanner (stops at "--"). */
