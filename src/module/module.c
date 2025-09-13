@@ -5,8 +5,8 @@
  */
 #include "zpmod.mdh"
 #include "zpmod.pro"
-#include "zpmod_vendor_shims.h"
 #include "zpmod_builtins.h"
+#include "zpmod_vendor_shims.h"
 #include "zpmod_version.h"
 
 /* Declare builtin handlers implemented in other TUs */
@@ -14,17 +14,16 @@ int bin_zppathstat(char *nam, char **argv, Options ops, int func);
 int bin_zpdirlist(char *nam, char **argv, Options ops, int func);
 int bin_zpreadfile(char *nam, char **argv, Options ops, int func);
 
-
 /* Unified builtin table (static, like original) */
 static struct builtin bintab[] = {
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
-  BUILTIN("custom_dot", 0, bin_custom_dot, 1, -1, 0, NULL, NULL),
+    BUILTIN("custom_dot", 0, bin_custom_dot, 1, -1, 0, NULL, NULL),
 #endif
-  BUILTIN("readarray", 0, bin_readarray, 1, 1, 0, "d:n:O:s:tu:C:c:h", NULL),
-  BUILTIN("zppathstat", 0, bin_zppathstat, 2, 2, 0, "Lf:", NULL),
-  BUILTIN("zpdirlist", 0, bin_zpdirlist, 2, 2, 0, "adf", NULL),
-  BUILTIN("zpreadfile", 0, bin_zpreadfile, 2, 2, 0, "md:0", NULL),
-  BUILTIN("zpmod", 0, bin_zpmod, 0, -1, 0, "hV", NULL),
+    BUILTIN("readarray", 0, bin_readarray, 1, 1, 0, "d:n:O:s:tu:C:c:h", NULL),
+    BUILTIN("zppathstat", 0, bin_zppathstat, 2, 2, 0, "Lf:", NULL),
+    BUILTIN("zpdirlist", 0, bin_zpdirlist, 2, 2, 0, "adf", NULL),
+    BUILTIN("zpreadfile", 0, bin_zpreadfile, 2, 2, 0, "md:0", NULL),
+    BUILTIN("zpmod", 0, bin_zpmod, 0, -1, 0, "hV", NULL),
 };
 
 static struct features module_features = {

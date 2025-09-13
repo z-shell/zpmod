@@ -4,6 +4,12 @@ Checks: >-
   misc-* ,
   portability-* ,
   readability-* ,
+  # Prevent include flapping on generated/indirect headers (e.g., params.epro)
+  -misc-include-cleaner ,
+  # Swappable-parameters is noisy for C/QSort-style APIs; disable globally
+  -bugprone-easily-swappable-parameters ,
+  # Recursion is acceptable for some traversals; disable blanket ban
+  -misc-no-recursion ,
   # Disable C++-only rule suites for this C project
   -cppcoreguidelines-* ,
   -google-* ,
@@ -49,7 +55,7 @@ CheckOptions:
     value: 60
   # Silence warnings for functions intentionally large due to switch tables
   - key: readability-function-cognitive-complexity.IgnoredFunctions
-    value: 'cmd_fpath_index|custom_source'
+    value: 'cmd_fpath_index|custom_source|zp_compaudit_cache_core'
   # Prevent diagnostic noise from vendor-like underscore prefixed identifiers
   - key: readability-identifier-naming.IgnoreMainLikeFunctions
     value: true

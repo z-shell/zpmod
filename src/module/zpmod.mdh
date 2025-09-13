@@ -25,6 +25,7 @@ _Pragma("GCC diagnostic push")
 # include "zsh.h"
 # include "sigcount.h"
 # include "zpmod_internals.h" /* fallback externs when zsh.mdh unavailable */
+/* Provide import macros if building out-of-tree and zsh.mdh didn't set them */
 # ifndef mod_import_variable
 #  define mod_import_variable
 # endif

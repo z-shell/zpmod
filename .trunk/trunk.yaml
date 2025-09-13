@@ -7,13 +7,20 @@ plugins:
       ref: v1.7.2
       uri: https://github.com/trunk-io/plugins
 lint:
+  # Avoid failing the first pass if compile_commands.json isn't present yet; our
+  # linter-level prepare_command will generate it before clang-tidy actually runs.
+  skip_missing_compile_command: true
+  # Where Trunk should look for compile commands once generated.
+  compile_commands_roots:
+    - build-cmake
+    - .
   disabled:
     - checkov
     - trufflehog
     - include-what-you-use
   enabled:
     - pragma-once
-    - hadolint@2.12.1-beta
+    - hadolint@2.13.1
     - clang-tidy@16.0.3
     - clang-format@16.0.3
     - gitleaks@8.28.0
@@ -24,6 +31,44 @@ lint:
     - git-diff-check
     - shfmt@3.6.0
     - shellcheck@0.11.0
+  # Ensure compile_commands.json exists before clang-tidy runs by adding a
+  # lightweight prepare step to its lint command. This keeps generation inside
+  # trunk runs (CLI/CI/IDE) instead of relying only on git hooks.
+  definitions:
+    - name: clang-tidy
+      # Ensure compile_commands.json is generated before Trunk scans it.
+      prepare_command:
+        - /bin/sh
+        - -lc
+        - /bin/sh ./scripts/gen-compile-commands.sh
+      # Force clang-tidy to read our pinned config
+      direct_configs:
+        - .trunk/configs/.clang-tidy
+      commands:
+        - name: lint
+          output: llvm
+          run: clang-tidy --export-fixes=${tmpfile} --config-file=./.trunk/configs/.clang-tidy ${target} -p ${compile_commands_dir}
+          success_codes: [0, 1]
+          read_output_from: tmp_file
+          run_from: workspace
+          run_when: [cli, monitor, ci]
+          max_concurrency: 4
+      environment:
+        # Ensure clang-tidy runs with both its tool bin and the existing PATH so cmake is resolvable
+        - name: PATH
+          list: ["${path}", "${linter}/bin"]
+    - name: clang-format
+      # Force clang-format to use the pinned config under .trunk/configs
+      direct_configs:
+        - .trunk/configs/.clang-format
+      commands:
+        - name: format
+          output: rewrite
+          run: clang-format -i -style=file -assume-filename=./.trunk/configs/.clang-format "${target}"
+          formatter: true
+          in_place: true
+          success_codes: [0]
+          run_from: workspace
   ignore:
     # Exclude vendor and build outputs across all linters
     - linters: [ALL]
@@ -49,19 +94,5 @@ runtimes:
 actions:
   enabled:
     - trunk-announce
-    # Ensure compile_commands.json is (re)generated before formatting/checks
-    - zpm-gen-compile-commands-pre-commit
-    - zpm-gen-compile-commands-pre-push
-    - trunk-check-pre-push
     - trunk-fmt-pre-commit
     - trunk-upgrade-available
-  # Custom actions to regenerate compile_commands.json before trunk hooks
-  definitions:
-    - id: zpm-gen-compile-commands-pre-commit
-      triggers:
-        - git_hooks: [pre-commit]
-      run: scripts/gen-compile-commands.zsh
-    - id: zpm-gen-compile-commands-pre-push
-      triggers:
-        - git_hooks: [pre-push]
-      run: scripts/gen-compile-commands.zsh

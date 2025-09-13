@@ -184,6 +184,13 @@ add_zpmod_ztst(zpmod_ztst_param_hash param_hash_semantics.ztst)
 add_zpmod_ztst(zpmod_ztst_sigcount sigcount_shim.ztst)
 add_zpmod_ztst(zpmod_ztst_emulate_matrix emulate_setopt_matrix.ztst)
 
+# Include-order enforcement as a CTest (lint-style check)
+add_test(NAME include_order_check
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_SOURCE_DIR}/scripts/check_include_order.zsh)
+set_tests_properties(include_order_check PROPERTIES
+  TIMEOUT 20
+  LABELS "lint;include-order;essential")
+
 # Test summary and organization
 message(STATUS "zpmod test suite configured:")
 message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform")
