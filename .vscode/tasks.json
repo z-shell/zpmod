@@ -76,6 +76,11 @@
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake -L performance --output-on-failure",
       "group": "test",
       "problemMatcher": []
+    },
+    {
+      "label": "CMake: build",
+      "type": "shell",
+      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
     }
   ]
 }
