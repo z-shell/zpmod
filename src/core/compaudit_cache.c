@@ -25,7 +25,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +32,12 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+/* Portable fallback for platforms that don't define PATH_MAX in <limits.h>
+ * (e.g., certain SDK configurations). Use a conservative default. */
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 #define ZP_COMPAUDIT_CACHE_SUBDIR "zpmod"
 #define ZP_COMPAUDIT_CACHE_FILE "compaudit_v3.zcache"
