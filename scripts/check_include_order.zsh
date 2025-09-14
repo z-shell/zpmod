@@ -37,20 +37,22 @@ for f in $(git ls-files 'src/**/*.c'); do
     # Stop scanning early after first 60 lines (header region)
     (( line_no > 60 )) && break
     [[ $line == \#*include* ]] || continue
-    # Normalize whitespace
-  norm=${${line##*include }//[[:space:]]/}
+    # Normalize whitespace after the word 'include' using tr (portable)
+  norm=$(print -r -- "${line#*include}" | tr -d ' \t')
+    # Track first two include lines as they appear (before any early continues)
+    if [[ -z $first_include ]]; then
+      first_include=${norm}
+    elif [[ -z $second_include ]]; then
+      second_include=${norm}
+    fi
   if [[ $norm == "\"zpmod.mdh\"" ]]; then
       if (( have_gateway & 1 )); then duplicate_gateway=1; fi
       (( have_gateway |= 1 ))
-      if [[ -z $first_include ]]; then first_include="zpmod.mdh";
-      elif [[ -z $second_include ]]; then second_include="zpmod.mdh"; fi
       continue
     fi
   if [[ $norm == "\"zpmod.pro\"" ]]; then
       if (( have_gateway & 2 )); then duplicate_gateway=1; fi
       (( have_gateway |= 2 ))
-      if [[ -z $first_include ]]; then second_include="zpmod.pro"; first_include=${first_include:-};
-      elif [[ -z $second_include ]]; then second_include="zpmod.pro"; fi
       continue
     fi
     # If a system include (#include <...>) or quoted include (#include "...")
@@ -67,28 +69,17 @@ for f in $(git ls-files 'src/**/*.c'); do
         break
       fi
     fi
-
-    # Enforce first-two-include rule: first include must be zpmod.mdh, second must be zpmod.pro
-    if [[ -z $first_include ]]; then
-      first_include=${norm}
-      if [[ $first_include != '"zpmod.mdh"' ]]; then
-        print -u2 "[include-order] $f: first include must be \"zpmod.mdh\" (found $first_include)"
-        err=1
-        break
-      fi
-      continue
-    elif [[ -z $second_include ]]; then
-      second_include=${norm}
-      if [[ $second_include != '"zpmod.pro"' ]]; then
-        print -u2 "[include-order] $f: second include must be \"zpmod.pro\" (found $second_include)"
-        err=1
-        break
-      fi
-      continue
-    fi
   done < $f
+  # Validate gateway presence within first 60 lines
   if (( have_gateway != 3 )); then
     print -u2 "[include-order] $f: missing gateway pair (zpmod.mdh + zpmod.pro) in first 60 lines"; err=1
+  fi
+  # Enforce the first-two-include policy after scanning
+  if [[ -n $first_include && $first_include != '"zpmod.mdh"' ]]; then
+    print -u2 "[include-order] $f: first include must be \"zpmod.mdh\" (found $first_include)"; err=1
+  fi
+  if [[ -n $second_include && $second_include != '"zpmod.pro"' ]]; then
+    print -u2 "[include-order] $f: second include must be \"zpmod.pro\" (found $second_include)"; err=1
   fi
   if (( duplicate_gateway )); then
     print -u2 "[include-order] $f: duplicate gateway include lines"; err=1
