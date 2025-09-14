@@ -7,9 +7,9 @@ plugins:
       ref: v1.7.2
       uri: https://github.com/trunk-io/plugins
 lint:
-  # Avoid failing the first pass if compile_commands.json isn't present yet; our
-  # linter-level prepare_command will generate it before clang-tidy actually runs.
-  skip_missing_compile_command: true
+  # Don't skip clang tools just because compile_commands.json is missing;
+  # this ensures the linter's prepare_command runs to generate it first.
+  skip_missing_compile_command: false
   # Where Trunk should look for compile commands once generated.
   compile_commands_roots:
     - build-cmake
@@ -17,6 +17,7 @@ lint:
   disabled:
     - checkov
     - trufflehog
+    # IWYU conflicts with our gateway include pattern (zpmod.mdh/pro)
     - include-what-you-use
   enabled:
     - pragma-once
@@ -47,9 +48,9 @@ lint:
       commands:
         - name: lint
           output: llvm
-          run: clang-tidy --export-fixes=${tmpfile} --config-file=./.trunk/configs/.clang-tidy ${target} -p ${compile_commands_dir}
+          run: clang-tidy --config-file=./.trunk/configs/.clang-tidy ${target} -p ${compile_commands_dir}
           success_codes: [0, 1]
-          read_output_from: tmp_file
+          read_output_from: stdout
           run_from: workspace
           run_when: [cli, monitor, ci]
           max_concurrency: 4
@@ -58,6 +59,13 @@ lint:
         - name: PATH
           list: ["${path}", "${linter}/bin"]
     - name: clang-format
+      # Ensure compile_commands.json is generated on trunk check even if
+      # clang-tidy is skipped; clang-format doesn't require the DB but we
+      # piggyback its prepare step to keep the DB fresh.
+      prepare_command:
+        - /bin/sh
+        - -lc
+        - /bin/sh ./scripts/gen-compile-commands.sh
       # Force clang-format to use the pinned config under .trunk/configs
       direct_configs:
         - .trunk/configs/.clang-format
@@ -81,18 +89,32 @@ lint:
         - "**/out/**"
         - "**/stage/**"
         - ".trunk/out/**"
+        - "compile_commands.json"
     # Avoid running shellcheck & shfmt on zsh/ztst files (not supported and risky)
     - linters: [shellcheck, shfmt]
       paths:
         - "**/*.zsh"
         - "**/*.ztst"
+    - linters: [clang-tidy, clang-format]
+      paths:
+        - ".github/**"
+    # Keep clang-format/clang-tidy on our C sources/headers and exclude unrelated dirs
+    - linters: [clang-tidy, clang-format]
+      paths:
+        - "docs/**"
+        - "tests/**"
+        - "scripts/**"
+        - "docker/**"
+        - "cmake/**"
+        - "src/completion/**"
 runtimes:
   enabled:
-    - python@3.10.8
+    - python@3.11.1
     - go@1.21.0
-    - node@22.16.0
+    - node@24.8.0
 actions:
   enabled:
+    - trunk-check-pre-push
     - trunk-announce
     - trunk-fmt-pre-commit
     - trunk-upgrade-available

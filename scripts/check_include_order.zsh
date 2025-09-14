@@ -53,17 +53,19 @@ for f in $(git ls-files 'src/**/*.c'); do
       elif [[ -z $second_include ]]; then second_include="zpmod.pro"; fi
       continue
     fi
-    # If system include (#include <...>) appears before both gateway bits set, flag
-    if [[ $line =~ '^# *include <' ]] && (( have_gateway != 3 )); then
-      print -u2 "[include-order] $f: system include appears before gateway (line $line_no)"
-      err=1
-      break
-    fi
-    # If any other quoted include appears before gateway pair, flag
-    if [[ $line =~ '^# *include "' ]] && (( have_gateway != 3 )); then
-      print -u2 "[include-order] $f: project include appears before gateway (line $line_no)"
-      err=1
-      break
+    # If a system include (#include <...>) or quoted include (#include "...")
+    # appears before the gateway pair is complete, flag it. Avoid zsh/regex module.
+    if (( have_gateway != 3 )); then
+      if print -r -- "$line" | grep -Eq '^# *include <'; then
+        print -u2 "[include-order] $f: system include appears before gateway (line $line_no)"
+        err=1
+        break
+      fi
+      if print -r -- "$line" | grep -Eq '^# *include "'; then
+        print -u2 "[include-order] $f: project include appears before gateway (line $line_no)"
+        err=1
+        break
+      fi
     fi
 
     # Enforce first-two-include rule: first include must be zpmod.mdh, second must be zpmod.pro
