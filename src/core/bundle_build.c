@@ -168,3 +168,5 @@ static int bb_cmp(const void *a, const void *b) {
   return strcmp(ea->rel, eb->rel);
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
+
+// NOLINTEND(misc-include-cleaner)

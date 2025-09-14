@@ -3,44 +3,45 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "CMake: configure",
+      "label": "ZPMOD: CMake configure",
       "type": "shell",
       "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build-cmake -DCMAKE_BUILD_TYPE=Release",
       "problemMatcher": []
     },
     {
-      "label": "CMake: build",
+      "label": "ZPMOD: CMake build",
       "type": "shell",
       "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2",
+      "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "CMake: stage",
+      "label": "ZPMOD: CMake stage",
       "type": "shell",
       "command": "cmake --build ${workspaceFolder}/build-cmake --target stage",
       "problemMatcher": []
     },
     {
-      "label": "CTest: all",
+      "label": "ZPMOD: CTest all",
       "type": "shell",
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake --output-on-failure -j 2",
       "problemMatcher": []
     },
     {
-      "label": "CTest: smoke",
+      "label": "ZPMOD: CTest smoke",
       "type": "shell",
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake -R zpmod_smoke --output-on-failure",
       "problemMatcher": []
     },
     {
-      "label": "CTest: ztst only",
+      "label": "ZPMOD: CTest ztst only",
       "type": "shell",
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake -L ztst --output-on-failure",
       "group": "test",
       "problemMatcher": []
     },
     {
-      "label": "Docs: container build (clean)",
+      "label": "ZPMOD: Docs build (clean, container)",
       "type": "shell",
       "command": "docker compose -f ${workspaceFolder}/docker/docker-compose.yml run --rm build-docs-clean",
       "problemMatcher": [],
@@ -52,7 +53,7 @@
       }
     },
     {
-      "label": "Release: container stage (clean)",
+      "label": "ZPMOD: Release stage (clean, container)",
       "type": "shell",
       "command": "docker compose -f ${workspaceFolder}/docker/docker-compose.yml run --rm build-release-clean",
       "problemMatcher": [],
@@ -64,23 +65,18 @@
       }
     },
     {
-      "label": "Docker: test-minimal (one-shot)",
+      "label": "ZPMOD: Docker test-minimal (one-shot)",
       "type": "shell",
       "command": "docker compose -f docker/docker-compose.yml build test-minimal && docker compose -f docker/docker-compose.yml run --rm test-minimal",
       "group": "build",
       "problemMatcher": []
     },
     {
-      "label": "CTest: performance",
+      "label": "ZPMOD: CTest performance",
       "type": "shell",
       "command": "ctest --test-dir ${workspaceFolder}/build-cmake -L performance --output-on-failure",
       "group": "test",
       "problemMatcher": []
-    },
-    {
-      "label": "CMake: build",
-      "type": "shell",
-      "command": "cmake --build ${workspaceFolder}/build-cmake -j ${config:cmake.parallelJobs} || cmake --build ${workspaceFolder}/build-cmake -j 2"
     }
   ]
 }
