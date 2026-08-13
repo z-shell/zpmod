@@ -2,6 +2,7 @@ Makefile
 tags
 TAGS
 COMPILED_AT
+RECOMPILE_REQUEST
 *.o
 *.o.c
 *.orig
