@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       commit: ${{ steps.release.outputs.commit }}
+      tag_object: ${{ steps.release.outputs.tag_object }}
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Check out tagged commit
@@ -45,6 +46,7 @@ jobs:
           fi
 
           release_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          tag_object="$(git rev-parse "refs/tags/$RELEASE_TAG")"
           if [[ "$(git rev-parse HEAD)" != "$release_commit" ]]; then
             printf 'Checkout does not match release tag commit\n' >&2
             exit 1
@@ -58,6 +60,7 @@ jobs:
           fi
 
           printf 'commit=%s\n' "$release_commit" >> "$GITHUB_OUTPUT"
+          printf 'tag_object=%s\n' "$tag_object" >> "$GITHUB_OUTPUT"
           printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
   functional:
@@ -111,6 +114,8 @@ jobs:
           candidate_remote="$zi_test_home/zpmod-candidate.git"
 
           git clone --depth 1 https://github.com/z-shell/zi.git "$zi_root/bin"
+          printf 'Using Zi %s from its default branch\n' \
+            "$(git -C "$zi_root/bin" rev-parse HEAD)"
           git init --bare --quiet "$candidate_remote"
           git push --quiet "$candidate_remote" \
             "$RELEASE_COMMIT:refs/heads/release-candidate"
@@ -139,6 +144,117 @@ jobs:
             exit 1
           fi
           zsh Test/ci-module.zsh "$module_root/Src"
+
+  minimum-zsh:
+    name: Functional (Zsh 5.8.1, Linux)
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Verify minimum Zsh version
+        run: |
+          set -euo pipefail
+          actual_version="$(zsh -fc 'print -r -- "$ZSH_VERSION"')"
+          if [[ "$actual_version" != "5.8.1" ]]; then
+            printf 'Expected Zsh 5.8.1, found %s\n' "$actual_version" >&2
+            exit 1
+          fi
+
+      - name: Test standalone module
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          source_dir="$(mktemp -d "$RUNNER_TEMP/zpmod-zsh-5.8.1.XXXXXX")"
+          git archive "$RELEASE_COMMIT" | tar -x -C "$source_dir"
+          sh "$source_dir/Scripts/install.sh" \
+            --no-git \
+            --target="$source_dir" \
+            --build-only \
+            --jobs=2
+          zsh Test/ci-module.zsh "$source_dir/Src"
+
+      - name: Prepare Zi-managed module
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          zi_test_home="$(mktemp -d "$RUNNER_TEMP/zi-zsh-5.8.1.XXXXXX")"
+          zi_root="$zi_test_home/.zi"
+          candidate_remote="$zi_test_home/zpmod-candidate.git"
+
+          git clone --depth 1 https://github.com/z-shell/zi.git "$zi_root/bin"
+          printf 'Using Zi %s from its default branch\n' \
+            "$(git -C "$zi_root/bin" rev-parse HEAD)"
+          git init --bare --quiet "$candidate_remote"
+          git push --quiet "$candidate_remote" \
+            "$RELEASE_COMMIT:refs/heads/release-candidate"
+          git --git-dir="$candidate_remote" symbolic-ref \
+            HEAD refs/heads/release-candidate
+          mkdir -p "$zi_root/zmodules"
+          git clone --quiet "$candidate_remote" "$zi_root/zmodules/zpmod"
+
+          printf 'ZI_TEST_HOME=%s\n' "$zi_test_home" >> "$GITHUB_ENV"
+          printf 'ZPMOD_EXPECTED_REVISION=%s\n' \
+            "$RELEASE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Build and test Zi-managed module
+        run: |
+          set -euo pipefail
+          HOME="$ZI_TEST_HOME" zsh -f -c '
+            source "$HOME/.zi/bin/zi.zsh"
+            zi module build
+          '
+          module_root="$ZI_TEST_HOME/.zi/zmodules/zpmod"
+          actual_revision="$(git -C "$module_root" rev-parse HEAD)"
+          if [[ "$actual_revision" != "$ZPMOD_EXPECTED_REVISION" ]]; then
+            printf 'Zi built revision %s instead of %s\n' \
+              "$actual_revision" "$ZPMOD_EXPECTED_REVISION" >&2
+            exit 1
+          fi
+          zsh Test/ci-module.zsh "$module_root/Src"
+
+  system-install:
+    name: System install (${{ matrix.os }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Test staged system installation
+        run: |
+          set -euo pipefail
+          zsh Test/ci-system-install.zsh
 
   codeql:
     name: CodeQL
@@ -173,7 +289,7 @@ jobs:
           set -euo pipefail
           sh Scripts/install.sh \
             --no-git \
-            --target="$RUNNER_TEMP/zpmod-codeql" \
+            --target="$GITHUB_WORKSPACE" \
             --build-only \
             --jobs=2
 
@@ -182,7 +298,7 @@ jobs:
 
   publish:
     name: Publish GitHub release
-    needs: [prepare, functional, codeql]
+    needs: [prepare, functional, minimum-zsh, system-install, codeql]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -197,6 +313,7 @@ jobs:
 
       - name: Build and verify source artifacts
         env:
+          EXPECTED_TAG_OBJECT: ${{ needs.prepare.outputs.tag_object }}
           RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
@@ -205,6 +322,8 @@ jobs:
           git fetch --force origin \
             "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           if [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != tag ]] ||
+             [[ "$(git rev-parse "refs/tags/$RELEASE_TAG")" \
+                != "$EXPECTED_TAG_OBJECT" ]] ||
              [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" \
                 != "$RELEASE_COMMIT" ]]; then
             printf 'Release tag changed after validation\n' >&2
@@ -248,7 +367,10 @@ jobs:
           \`\`\`sh
           tar -xzf zpmod-$RELEASE_VERSION.tar.gz
           cd zpmod-$RELEASE_VERSION
-          sh Scripts/install.sh --no-git --target="\$PWD" --build-only
+          ./configure --prefix=/usr --disable-gdbm --without-tcsetpgrp
+          make
+          zsh_module_dir=\$(zsh -fc 'print -r -- \$module_path[1]')
+          sudo make MODDIR="\$zsh_module_dir" install
           \`\`\`
           EOF
           gh release create "$RELEASE_TAG" dist/* \

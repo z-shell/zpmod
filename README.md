@@ -177,7 +177,10 @@ gh release download vX.Y.Z --repo z-shell/zpmod \
 sha256sum --check SHA256SUMS
 tar -xzf zpmod-X.Y.Z.tar.gz
 cd zpmod-X.Y.Z
-sh Scripts/install.sh --no-git --target="$PWD" --build-only
+./configure --prefix=/usr --disable-gdbm --without-tcsetpgrp
+make
+zsh_module_dir=$(zsh -fc 'print -r -- $module_path[1]')
+sudo make MODDIR="$zsh_module_dir" install
 ```
 
 ## Troubleshooting
