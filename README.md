@@ -58,7 +58,8 @@ make DESTDIR="$pkgdir" MODDIR="$zsh_module_dir" uninstall
 packaging root without changing installed paths; `MODDIR` selects the exact Zsh
 module directory. Package recipes should set `MODDIR` explicitly because the
 bundled build metadata cannot infer the target distribution's Zsh layout,
-especially for cross builds.
+especially for cross builds. Cross-build recipes should use the target
+distribution's known module path instead of querying the build host's Zsh.
 
 Do not use `Scripts/install.sh` or `build.sh` in package builds. Those are
 interactive convenience entry points and can clone or update a checkout unless
