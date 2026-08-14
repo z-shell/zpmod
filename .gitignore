@@ -3,6 +3,7 @@ tags
 TAGS
 COMPILED_AT
 compile_commands.json
+RECOMPILE_REQUEST
 *.o
 *.o.c
 *.orig
