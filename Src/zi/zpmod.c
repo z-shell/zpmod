@@ -886,6 +886,7 @@ Eprog custom_try_source_file(char *file)
 	}
 	/* If there is no zwc file, or if it is less recent than script file */
 	if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
+            S_ISREG(stn.st_mode) &&
 	    (access(file_dup, W_OK) == 0 || 0 == strcmp(
 						     getsparam("ZI_MOD_DEBUG") ? getsparam("ZI_MOD_DEBUG") : "0",
 						     "1")))
