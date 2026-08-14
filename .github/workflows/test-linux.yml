@@ -6,6 +6,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -99,6 +101,87 @@ jobs:
         run: |
           set -euo pipefail
           zi_test_home="$(mktemp -d "$RUNNER_TEMP/zi-managed.XXXXXX")"
+          zi_root="$zi_test_home/.zi"
+          candidate_remote="$zi_test_home/zpmod-candidate.git"
+
+          git clone --depth 1 https://github.com/z-shell/zi.git "$zi_root/bin"
+          printf 'Using Zi %s from its default branch\n' \
+            "$(git -C "$zi_root/bin" rev-parse HEAD)"
+
+          git init --bare --quiet "$candidate_remote"
+          git push --quiet "$candidate_remote" HEAD:refs/heads/ci-candidate
+          git --git-dir="$candidate_remote" symbolic-ref \
+            HEAD refs/heads/ci-candidate
+          mkdir -p "$zi_root/zmodules"
+          git clone --quiet "$candidate_remote" "$zi_root/zmodules/zpmod"
+
+          printf 'ZI_TEST_HOME=%s\n' "$zi_test_home" >> "$GITHUB_ENV"
+          printf 'ZPMOD_EXPECTED_REVISION=%s\n' \
+            "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Build module through Zi
+        run: |
+          set -euo pipefail
+          HOME="$ZI_TEST_HOME" zsh -f -c '
+            source "$HOME/.zi/bin/zi.zsh"
+            zi module build
+          '
+
+      - name: Test Zi-managed module
+        run: |
+          set -euo pipefail
+          module_root="$ZI_TEST_HOME/.zi/zmodules/zpmod"
+          actual_revision="$(git -C "$module_root" rev-parse HEAD)"
+          if [[ "$actual_revision" != "$ZPMOD_EXPECTED_REVISION" ]]; then
+            printf 'Zi built revision %s instead of %s\n' \
+              "$actual_revision" "$ZPMOD_EXPECTED_REVISION" >&2
+            exit 1
+          fi
+          zsh Test/ci-module.zsh "$module_root/Src"
+
+  minimum-zsh:
+    name: Test minimum Zsh 5.8.1 on Linux
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Verify minimum Zsh version
+        run: |
+          set -euo pipefail
+          actual_version="$(zsh -fc 'print -r -- "$ZSH_VERSION"')"
+          if [[ "$actual_version" != "5.8.1" ]]; then
+            printf 'Expected Zsh 5.8.1, found %s\n' "$actual_version" >&2
+            exit 1
+          fi
+          printf 'Using minimum supported Zsh %s\n' "$actual_version"
+
+      - name: Build and test standalone module
+        run: |
+          set -euo pipefail
+          source_dir="$(mktemp -d "$RUNNER_TEMP/zpmod-zsh-5.8.1.XXXXXX")"
+          git archive HEAD | tar -x -C "$source_dir"
+          sh "$source_dir/Scripts/install.sh" \
+            --no-git \
+            --target="$source_dir" \
+            --build-only \
+            --jobs=2
+          zsh Test/ci-module.zsh "$source_dir/Src"
+
+      - name: Prepare latest Zi
+        run: |
+          set -euo pipefail
+          zi_test_home="$(mktemp -d "$RUNNER_TEMP/zi-zsh-5.8.1.XXXXXX")"
           zi_root="$zi_test_home/.zi"
           candidate_remote="$zi_test_home/zpmod-candidate.git"
 
