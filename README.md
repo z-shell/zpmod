@@ -13,27 +13,65 @@ The module is a binary Zsh module (think about `zmodload` Zsh command, it's that
 
 ### Without [Zi](https://github.com/z-shell/zi)
 
-#### Quick Install (Recommended)
+#### Traditional system or package installation
 
-Install just the **standalone** binary which can be used with any other plugin manager.
-
-> **Note**
-> This script can be used with most plugin managers and [Zi](https://github.com/z-shell/zi) is not required.
+The traditional build is the recommended path for system administrators and
+package maintainers. It does not clone, update, or download anything during the
+build:
 
 ```sh
-sh <(curl -fsSL https://raw.githubusercontent.com/z-shell/zpmod/main/Scripts/install.sh)
+./configure --prefix=/usr \
+  --enable-cflags="-g -Wall -Wextra -O3" \
+  --disable-gdbm \
+  --without-tcsetpgrp
+make
 ```
 
-This script will display what to add to `~/.zshrc` (2 lines) and show usage instructions.
+Zsh modules are versioned and may use a distribution-specific or multiarch
+directory. Resolve the target using the Zsh that will load `zpmod`:
 
-#### Manual Install with Advanced Options
+```sh
+zsh_module_dir=$(zsh -fc 'print -r -- $module_path[1]')
+```
 
-You can also clone the repository and use the included build.sh script with various configuration options:
+For a direct system installation:
+
+```sh
+sudo make MODDIR="$zsh_module_dir" install
+```
+
+For a package build, stage files with `DESTDIR`:
+
+```sh
+pkgdir=$PWD/pkg
+make DESTDIR="$pkgdir" MODDIR="$zsh_module_dir" install
+```
+
+This installs one namespaced module at
+`$MODDIR/zi/zpmod.<platform-extension>`. Use the same variables to remove it:
+
+```sh
+make DESTDIR="$pkgdir" MODDIR="$zsh_module_dir" uninstall
+```
+
+`--prefix` controls Autotools defaults such as `libdir`; `DESTDIR` adds a
+packaging root without changing installed paths; `MODDIR` selects the exact Zsh
+module directory. Package recipes should set `MODDIR` explicitly because the
+bundled build metadata cannot infer the target distribution's Zsh layout,
+especially for cross builds.
+
+Do not use `Scripts/install.sh` or `build.sh` in package builds. Those are
+interactive convenience entry points and can clone or update a checkout unless
+`--no-git` is supplied.
+
+#### Convenience build
+
+For an interactive per-user build, clone the repository and run `build.sh`:
 
 ```sh
 git clone https://github.com/z-shell/zpmod.git
 cd zpmod
-./build.sh [OPTIONS]
+./build.sh --no-git
 ```
 
 The build script supports these options:
@@ -51,7 +89,7 @@ The build script supports these options:
 | `--branch=NAME`                | Use specific git branch (default: main)                           |
 | `--zsh-path=PATH`              | Use specific Zsh executable                                       |
 | `--jobs=N`, `-jN`              | Set number of parallel make jobs                                  |
-| `--prefix=DIR`                 | Set installation prefix (for system installs)                     |
+| `--prefix=DIR`                 | Set convenience target root (`DIR/share/zsh/zpmod`)               |
 | `--no-install`                 | Skip installation after building                                  |
 | `--help`, `-h`                 | Show help message                                                 |
 
@@ -64,14 +102,8 @@ The build script supports these options:
 # Build with specific compiler optimizations
 ./build.sh --cflags="-O3 -march=native"
 
-# System installation
-sudo ./build.sh --prefix=/usr/local
-
 # Quiet installation with 8 parallel jobs
 ./build.sh --quiet --jobs=8
-
-# Development build from a specific branch
-./build.sh --branch=develop --verbose
 ```
 
 ### With [Zi](https://github.com/z-shell/zi)
@@ -87,21 +119,33 @@ This command will compile the module and display instructions on what to add to 
 
 ## Loading the Module
 
-After installation, add these lines at the top of your `~/.zshrc`:
+After a traditional installation, ensure the selected module directory is in
+`module_path`, then load and verify the module:
 
 ```zsh
-# Adjust the path if you installed to a custom location
+module_path+=( /usr/lib/zsh/5.9 ) # Use your resolved $zsh_module_dir.
+zmodload zi/zpmod
+(( ${+builtins[zpmod]} ))
+zpmod -h
+```
+
+The convenience build prints its module directory. Its default can be loaded
+with:
+
+```zsh
 module_path+=( "${HOME}/.zi/zmodules/zpmod/Src" )
 zmodload zi/zpmod
 ```
 
 ## Measuring Time of Sources
 
-Besides the compilation-feature, the module also measures **duration** of each script sourcing.
-Issue `zpmod source-study` after loading the module at top of `~/.zshrc` to see a list of all sourced files with the time the
-sourcing took in milliseconds on the left.
-This feature allows you to profile the shell startup. Also, no script can pass through that check and you will obtain a complete list of all loaded scripts,
-like if Zshell itself was investigating this. The list can be surprising.
+Besides compilation, the module measures the **duration** of each sourced
+script. Compiled files are written as adjacent `*.zwc` files when the source is
+a writable regular file.
+
+Run `zpmod source-study` after loading the module near the top of `~/.zshrc` to
+list sourced files and their load times in milliseconds. This report is a
+timing profile, not an indication that every listed source was compiled.
 
 ## Debugging
 
