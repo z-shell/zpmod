@@ -1,0 +1,259 @@
+---
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*.[0-9]*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check out tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate annotated semantic-version tag
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            printf 'Release tag must have the form vX.Y.Z: %s\n' \
+              "$RELEASE_TAG" >&2
+            exit 1
+          fi
+          if [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != tag ]]; then
+            printf 'Release tag must be annotated: %s\n' "$RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          release_commit="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          if [[ "$(git rev-parse HEAD)" != "$release_commit" ]]; then
+            printf 'Checkout does not match release tag commit\n' >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$release_commit" origin/main; then
+            printf 'Release commit must be reachable from main: %s\n' \
+              "$release_commit" >&2
+            exit 1
+          fi
+
+          printf 'commit=%s\n' "$release_commit" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+
+  functional:
+    name: Functional (${{ matrix.mode }}, ${{ matrix.os }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        mode: [standalone, zi-managed]
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Test standalone module
+        if: matrix.mode == 'standalone'
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          source_dir="$(mktemp -d "$RUNNER_TEMP/zpmod-release.XXXXXX")"
+          git archive "$RELEASE_COMMIT" | tar -x -C "$source_dir"
+          sh "$source_dir/Scripts/install.sh" \
+            --no-git \
+            --target="$source_dir" \
+            --build-only \
+            --jobs=2
+          zsh Test/ci-module.zsh "$source_dir/Src"
+
+      - name: Prepare Zi-managed module
+        if: matrix.mode == 'zi-managed'
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          zi_test_home="$(mktemp -d "$RUNNER_TEMP/zi-release.XXXXXX")"
+          zi_root="$zi_test_home/.zi"
+          candidate_remote="$zi_test_home/zpmod-candidate.git"
+
+          git clone --depth 1 https://github.com/z-shell/zi.git "$zi_root/bin"
+          git init --bare --quiet "$candidate_remote"
+          git push --quiet "$candidate_remote" \
+            "$RELEASE_COMMIT:refs/heads/release-candidate"
+          git --git-dir="$candidate_remote" symbolic-ref \
+            HEAD refs/heads/release-candidate
+          mkdir -p "$zi_root/zmodules"
+          git clone --quiet "$candidate_remote" "$zi_root/zmodules/zpmod"
+
+          printf 'ZI_TEST_HOME=%s\n' "$zi_test_home" >> "$GITHUB_ENV"
+          printf 'ZPMOD_EXPECTED_REVISION=%s\n' \
+            "$RELEASE_COMMIT" >> "$GITHUB_ENV"
+
+      - name: Build and test Zi-managed module
+        if: matrix.mode == 'zi-managed'
+        run: |
+          set -euo pipefail
+          HOME="$ZI_TEST_HOME" zsh -f -c '
+            source "$HOME/.zi/bin/zi.zsh"
+            zi module build
+          '
+          module_root="$ZI_TEST_HOME/.zi/zmodules/zpmod"
+          actual_revision="$(git -C "$module_root" rev-parse HEAD)"
+          if [[ "$actual_revision" != "$ZPMOD_EXPECTED_REVISION" ]]; then
+            printf 'Zi built revision %s instead of %s\n' \
+              "$actual_revision" "$ZPMOD_EXPECTED_REVISION" >&2
+            exit 1
+          fi
+          zsh Test/ci-module.zsh "$module_root/Src"
+
+  codeql:
+    name: CodeQL
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        with:
+          languages: c-cpp
+          build-mode: manual
+
+      - name: Build release commit
+        run: |
+          set -euo pipefail
+          sh Scripts/install.sh \
+            --no-git \
+            --target="$RUNNER_TEMP/zpmod-codeql" \
+            --build-only \
+            --jobs=2
+
+      - name: Analyze release commit
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+
+  publish:
+    name: Publish GitHub release
+    needs: [prepare, functional, codeql]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build and verify source artifacts
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --force origin \
+            "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          if [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != tag ]] ||
+             [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" \
+                != "$RELEASE_COMMIT" ]]; then
+            printf 'Release tag changed after validation\n' >&2
+            exit 1
+          fi
+
+          mkdir dist
+          prefix="zpmod-$RELEASE_VERSION/"
+          git archive --format=tar --prefix="$prefix" "$RELEASE_COMMIT" |
+            gzip -n > "dist/zpmod-$RELEASE_VERSION.tar.gz"
+          git archive --format=zip --prefix="$prefix" "$RELEASE_COMMIT" \
+            > "dist/zpmod-$RELEASE_VERSION.zip"
+          (
+            cd dist
+            sha256sum "zpmod-$RELEASE_VERSION.tar.gz" \
+              "zpmod-$RELEASE_VERSION.zip" > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Tested commit: \`$RELEASE_COMMIT\`
+
+          Download and verify both source archives:
+
+          \`\`\`sh
+          gh release download $RELEASE_TAG --repo z-shell/zpmod \\
+            --pattern 'zpmod-$RELEASE_VERSION.*' --pattern SHA256SUMS
+          sha256sum --check SHA256SUMS
+          \`\`\`
+
+          Build the verified source:
+
+          \`\`\`sh
+          tar -xzf zpmod-$RELEASE_VERSION.tar.gz
+          cd zpmod-$RELEASE_VERSION
+          sh Scripts/install.sh --no-git --target="\$PWD" --build-only
+          \`\`\`
+          EOF
+          gh release create "$RELEASE_TAG" dist/* \
+            --generate-notes \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --target "$RELEASE_COMMIT" \
+            --title "zpmod $RELEASE_VERSION" \
+            --verify-tag

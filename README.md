@@ -163,6 +163,23 @@ typeset -g ZI_MOD_DEBUG=1
 - Make
 - Git (optional, can be skipped with `--no-git`)
 
+## Release artifacts
+
+Release versions come from annotated tags named `vX.Y.Z`. Each release
+contains source archives generated from that tag's tested `main` commit and a
+`SHA256SUMS` file covering both archives.
+
+Download and verify a release before building it:
+
+```sh
+gh release download vX.Y.Z --repo z-shell/zpmod \
+  --pattern 'zpmod-X.Y.Z.*' --pattern SHA256SUMS
+sha256sum --check SHA256SUMS
+tar -xzf zpmod-X.Y.Z.tar.gz
+cd zpmod-X.Y.Z
+sh Scripts/install.sh --no-git --target="$PWD" --build-only
+```
+
 ## Troubleshooting
 
 If you encounter build issues:
