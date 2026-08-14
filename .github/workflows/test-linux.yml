@@ -219,3 +219,25 @@ jobs:
             exit 1
           fi
           zsh Test/ci-module.zsh "$module_root/Src"
+
+  system-install:
+    name: Test staged system install on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential zsh
+
+      - name: Test staged system installation
+        run: |
+          set -euo pipefail
+          zsh Test/ci-system-install.zsh

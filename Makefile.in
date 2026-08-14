@@ -48,6 +48,16 @@ all: config.h config.modules
 prep:
 	@cd Src && $(MAKE) $(MAKEDEFS) $@
 
+# ========== DEPENDENCIES FOR INSTALLING ==========
+
+install: install.modules
+uninstall: uninstall.modules
+.PHONY: install uninstall
+
+install.modules uninstall.modules:
+	@cd Src && $(MAKE) $(MAKEDEFS) $@
+.PHONY: install.modules uninstall.modules
+
 # ========== DEPENDENCIES FOR CLEANUP ==========
 
 @CLEAN_MK@
