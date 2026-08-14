@@ -1,5 +1,6 @@
 ---
-name: 🍎 Build (MacOS)
+name: macOS CI
+
 on:
   push:
     branches: [main]
@@ -11,54 +12,87 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      - name: ☑️ ShellCheck
-        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38
-        with:
-          scandir: "./Scripts/install.sh"
-
-  build:
+  standalone-build:
+    name: Build standalone module on macOS
     runs-on: macos-latest
     timeout-minutes: 30
-    needs: [shellcheck]
     steps:
-      - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      - name: ⚙️ Determine Branch
-        id: branch
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          REF_NAME: ${{ github.ref_name }}
-          EVENT_NAME: ${{ github.event_name }}
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Build standalone module
         run: |
-          # For PR events, use HEAD_REF; for push events, use REF_NAME
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "branch=$HEAD_REF" >> $GITHUB_OUTPUT
-          else
-            echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          source_dir="$(mktemp -d "$RUNNER_TEMP/zpmod-standalone.XXXXXX")"
+          git archive HEAD | tar -x -C "$source_dir"
+          sh "$source_dir/Scripts/install.sh" \
+            --no-git \
+            --target="$source_dir" \
+            --build-only \
+            --jobs=2
+          printf 'ZPMOD_MODULE_DIR=%s\n' "$source_dir/Src" >> "$GITHUB_ENV"
+
+      - name: Test standalone module
+        run: |
+          set -euo pipefail
+          zsh Test/ci-module.zsh "$ZPMOD_MODULE_DIR"
+
+  zi-managed-build:
+    name: Build Zi-managed module on macOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare latest Zi
+        run: |
+          set -euo pipefail
+          zi_test_home="$(mktemp -d "$RUNNER_TEMP/zi-managed.XXXXXX")"
+          zi_root="$zi_test_home/.zi"
+          candidate_remote="$zi_test_home/zpmod-candidate.git"
+
+          git clone --depth 1 https://github.com/z-shell/zi.git "$zi_root/bin"
+          printf 'Using Zi %s from its default branch\n' \
+            "$(git -C "$zi_root/bin" rev-parse HEAD)"
+
+          git init --bare --quiet "$candidate_remote"
+          git push --quiet "$candidate_remote" HEAD:refs/heads/ci-candidate
+          git --git-dir="$candidate_remote" symbolic-ref \
+            HEAD refs/heads/ci-candidate
+          mkdir -p "$zi_root/zmodules"
+          git clone --quiet "$candidate_remote" "$zi_root/zmodules/zpmod"
+
+          printf 'ZI_TEST_HOME=%s\n' "$zi_test_home" >> "$GITHUB_ENV"
+          printf 'ZPMOD_EXPECTED_REVISION=%s\n' \
+            "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Build module through Zi
+        run: |
+          set -euo pipefail
+          HOME="$ZI_TEST_HOME" zsh -f -c '
+            source "$HOME/.zi/bin/zi.zsh"
+            zi module build
+          '
+
+      - name: Test Zi-managed module
+        run: |
+          set -euo pipefail
+          module_root="$ZI_TEST_HOME/.zi/zmodules/zpmod"
+          actual_revision="$(git -C "$module_root" rev-parse HEAD)"
+          if [[ "$actual_revision" != "$ZPMOD_EXPECTED_REVISION" ]]; then
+            printf 'Zi built revision %s instead of %s\n' \
+              "$actual_revision" "$ZPMOD_EXPECTED_REVISION" >&2
+            exit 1
           fi
-      - name: ⚙️ Prepare
-        run: |
-          brew install zsh
-      - name: ⚙️ Build
-        env:
-          BRANCH_NAME: ${{ steps.branch.outputs.branch }}
-        run: |
-          # Use --no-git to prevent cloning and use the checked out code
-          # Use --target to build in the current directory
-          sh ./Scripts/install.sh --no-git --target=$(pwd) --branch="$BRANCH_NAME"
-          ls -la ./Src/zi
-      - name: ⚙️ Load
-        run: |
-          module_path+=( "$PWD/Src" )
-          zmodload zi/zpmod
-          zpmod source-study -l
-        shell: zsh {0}
+          zsh Test/ci-module.zsh "$module_root/Src"
