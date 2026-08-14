@@ -77,9 +77,18 @@ jobs:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify checked-out release commit
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]]; then
+            printf 'Checkout does not match validated release commit\n' >&2
+            exit 1
+          fi
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -154,9 +163,18 @@ jobs:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify checked-out release commit
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]]; then
+            printf 'Checkout does not match validated release commit\n' >&2
+            exit 1
+          fi
 
       - name: Install build dependencies
         run: |
@@ -240,9 +258,18 @@ jobs:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify checked-out release commit
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]]; then
+            printf 'Checkout does not match validated release commit\n' >&2
+            exit 1
+          fi
 
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
@@ -268,9 +295,18 @@ jobs:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify checked-out release commit
+        env:
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]]; then
+            printf 'Checkout does not match validated release commit\n' >&2
+            exit 1
+          fi
 
       - name: Install build dependencies
         run: |
@@ -307,7 +343,6 @@ jobs:
       - name: Check out release commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -321,7 +356,8 @@ jobs:
           set -euo pipefail
           git fetch --force origin \
             "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          if [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != tag ]] ||
+          if [[ "$(git rev-parse HEAD)" != "$RELEASE_COMMIT" ]] ||
+             [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != tag ]] ||
              [[ "$(git rev-parse "refs/tags/$RELEASE_TAG")" \
                 != "$EXPECTED_TAG_OBJECT" ]] ||
              [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" \
