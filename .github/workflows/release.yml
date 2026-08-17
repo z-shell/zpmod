@@ -37,21 +37,25 @@ jobs:
             platform: macos
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+
       - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@9b2ae05d39eaab2f0676b251ce72cfbb7eb142b9 # v2.0.2
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.20"
+
       - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@8b297075da4cd442f1fa33748881240360a87679 # v5
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@ed74d11c0734a1e4dcb65f74043273d749e0f930 # v1.2.14
+        uses: hendrikmuhs/ccache-action@v1
         with:
           key: ${{ matrix.os }}-release
           max-size: 500M
+
       - name: Install build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -69,14 +73,18 @@ jobs:
             libpcre3-dev \
             libgdbm-dev \
             zsh
+
       - name: Install build dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
+          brew update
           brew install autoconf automake libtool ncurses pcre gdbm texinfo
+
       - name: Configure project
         run: |
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
           ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
+
       - name: Build and package
         run: |
           export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
@@ -87,8 +95,9 @@ jobs:
             GEN="TGZ;TXZ"
           fi
           ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test --cpack-generators "$GEN"
+
       - name: Upload package artifacts
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf658c970d64b22e1189 # v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.platform }}
           path: |
@@ -110,10 +119,11 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e0059719ce73915bbc # v4.1.8
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
@@ -125,8 +135,9 @@ jobs:
             sha256sum --check SHA256SUMS
           fi
           ls -la
+
       - name: Create Release
-        uses: softprops/action-gh-release@c062e496a79854747eb68b376d8b9487c6742a0d # v2.2.1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             release-assets/*
