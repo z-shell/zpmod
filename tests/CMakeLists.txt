@@ -184,6 +184,28 @@ add_zpmod_ztst(zpmod_ztst_param_hash param_hash_semantics.ztst)
 add_zpmod_ztst(zpmod_ztst_sigcount sigcount_shim.ztst)
 add_zpmod_ztst(zpmod_ztst_emulate_matrix emulate_setopt_matrix.ztst)
 
+# Parameterized adversarial-inputs matrix test suite
+set(ADVERSARIAL_TARGETS
+  zpdirlist
+  zppathstat
+  zpreadfile
+  zpreadarray
+  zpmod_report_append
+  zpmod_dir_list
+  zpmod_path_stat
+  zpmod_read_file
+)
+
+foreach(TARGET_NAME ${ADVERSARIAL_TARGETS})
+  add_test(NAME "zpmod_adversarial_${TARGET_NAME}"
+    COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/adversarial/adversarial_matrix.zsh ${TARGET_NAME})
+  set_tests_properties("zpmod_adversarial_${TARGET_NAME}" PROPERTIES
+    ENVIRONMENT "ZPMOD_STAGE_MODULE_DIR=${ZPMOD_STAGE_MODULE_DIR}"
+    FIXTURES_REQUIRED "StageReady"
+    TIMEOUT 30
+    LABELS "adversarial;matrix;robustness")
+endforeach()
+
 # Include-order enforcement as a CTest (lint-style check)
 add_test(NAME include_order_check
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_SOURCE_DIR}/scripts/check_include_order.zsh)
