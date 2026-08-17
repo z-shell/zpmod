@@ -9,7 +9,20 @@ TEST_NAME="command/zpmod_report_append"
 load_zpmod
 
 typeset -gA ZI_REPORTS
+
+# A declared associative parameter has no hash table until it is initialized.
+# report-append must reject that state without dereferencing a null table.
+if zpmod report-append z-shell/not-registered '+first'; then
+  print -u2 -- 'report-append accepted an uninitialized ZI_REPORTS hash'
+  exit 1
+fi
+
 ZI_REPORTS=()
+
+# An explicit empty entry is valid and must be appendable.
+ZI_REPORTS['z-shell/empty']=''
+zpmod report-append z-shell/empty '+one'
+[[ ${ZI_REPORTS['z-shell/empty']} == '+one' ]]
 
 # Seed
 ZI_REPORTS["z-shell/zbrowse"]='seed'

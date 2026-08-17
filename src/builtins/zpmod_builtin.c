@@ -60,6 +60,10 @@ static int zp_append_report(const char *nam /* reporting name */,
     return 1;
   }
   HashTable ht = pm->u.hash;
+  if (!ht) {
+    zwarnnam(nam, "%sunknown plugin: %s", zp_icon("❌ "), target);
+    return 1;
+  }
   HashNode hn = gethashnode2(ht, target);
   Param val_pm = (Param)hn;
   if (!val_pm) {
