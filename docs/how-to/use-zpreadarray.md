@@ -1,11 +1,11 @@
-# Use the readarray Builtin
+# Use the zpreadarray Builtin
 
-zpmod provides a `readarray` builtin (bash-like) to read records into an indexed array.
+zpmod provides a `zpreadarray` builtin to read records into an indexed array.
 
 Basic usage:
 
 ```zsh
-print -r -- $'a\nb\nc' | readarray A
+print -r -- $'a\nb\nc' | zpreadarray A
 print -r -- ${#A[@]}  # => 3
 ```
 
@@ -26,17 +26,17 @@ Examples:
 
 ```zsh
 # Custom delimiter, keep delimiters
-print -nr -- 'x,y,z,' | readarray -d , B
+print -nr -- 'x,y,z,' | zpreadarray -d , B
 print -r -- ${B[@]}   # 'x,' 'y,' 'z,' ''
 
 # Custom delimiter, trim (-t)
-print -nr -- 'x,y,z,' | readarray -t -d , B
+print -nr -- 'x,y,z,' | zpreadarray -t -d , B
 print -r -- ${B[@]}   # x y z ''
 
 # Start at index 5
 B=(1 2 3 4)
-print -r -- $'a\nb' | readarray -O 5 B
+print -r -- $'a\nb' | zpreadarray -O 5 B
 # B -> (1 2 3 4 a b)
 ```
 
-See full details in [Reference › Builtins](../reference/builtins.md#readarray).
+See full details in [Reference > Builtins](../reference/builtins.md#zpreadarray).

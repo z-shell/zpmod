@@ -23,7 +23,7 @@ All tests are under `tests/`:
 
 ### Naming
 
-- Descriptive names: `readarray.zsh`, `zpdirlist.zsh`, etc.
+- Descriptive names: `zpreadarray.zsh`, `zpdirlist.zsh`, etc.
 - Lowercase with underscores
 - `.zsh` extension
 - Shebang: `#!/usr/bin/env zsh`
@@ -31,7 +31,7 @@ All tests are under `tests/`:
 ### Categories
 
 - `core/` — Smoke and core availability
-- `builtin/` — Builtins like readarray, custom_dot
+- `builtin/` — Builtins like zpreadarray, custom_dot
 - `command/` — `zpmod` CLI and subcommands
 - `filesystem/` — Directory listing and path stat helpers
 - `file_io/` — File reading and parsing
@@ -140,7 +140,7 @@ ctest --test-dir build-cmake -R zpmod_my_new_test --output-on-failure
 zsh tests/core/smoke.zsh
 
 # With debug output
-ZPMOD_TEST_DEBUG=1 zsh tests/builtin/readarray.zsh
+ZPMOD_TEST_DEBUG=1 zsh tests/builtin/zpreadarray.zsh
 ```
 
 ### All tests via CMake/CTest

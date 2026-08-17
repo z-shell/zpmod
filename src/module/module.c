@@ -19,7 +19,7 @@ static struct builtin bintab[] = {
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
     BUILTIN("custom_dot", 0, bin_custom_dot, 1, -1, 0, NULL, NULL),
 #endif
-    BUILTIN("readarray", 0, bin_readarray, 1, 1, 0, "d:n:O:s:tu:C:c:h", NULL),
+    BUILTIN("zpreadarray", 0, bin_zpreadarray, 1, 1, 0, "d:n:O:s:tu:C:c:h", NULL),
     BUILTIN("zppathstat", 0, bin_zppathstat, 2, 2, 0, "Lf:", NULL),
     BUILTIN("zpdirlist", 0, bin_zpdirlist, 2, 2, 0, "adf", NULL),
     BUILTIN("zpreadfile", 0, bin_zpreadfile, 2, 2, 0, "md:0", NULL),

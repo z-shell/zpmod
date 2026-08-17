@@ -34,17 +34,17 @@ Return codes:
 - 0 success
 - 1 usage / parameter errors
 
-## readarray
+## zpreadarray
 
-Bash-like record reader into indexed arrays.
+Record reader into indexed arrays.
 
 Synopsis:
 
 ```zsh
-readarray [-d delim] [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] array
+zpreadarray [-d delim] [-n count] [-O origin] [-s count] [-t] [-u fd] [-C callback] [-c quantum] array
 ```
 
-See: [How-to › Use readarray](../how-to/use-readarray.md)
+See: [How-to > Use zpreadarray](../how-to/use-zpreadarray.md)
 
 ## zppathstat
 
