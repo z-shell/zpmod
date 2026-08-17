@@ -3,7 +3,7 @@
 This directory contains the zpmod module sources organized by layer:
 
 - core: cross-cutting logic and overrides (e.g., `source.c`, `fs.c`, `utils.c`, `emoji.c`)
-- builtins: builtin entrypoints (e.g., `zpmod_builtin.c`, `readarray.c`, `fs_builtins.c`)
+- builtins: builtin entrypoints (e.g., `zpmod_builtin.c`, `zpreadarray.c`, `fs_builtins.c`)
 - compat: compatibility shims and stable mappings across zsh versions (e.g., `options.c`, `sigcount.h`)
 - include: public cross-unit headers (`zpmod_*.h`) — do not include internal zsh headers here
 - module: zsh module glue (static builtin table in `module.c`, `zpmod.mdh/.pro` stubs and imports)

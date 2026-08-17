@@ -17,7 +17,7 @@ The codebase is split into clear layers:
 - `src/builtins/` — thin wrappers that expose functionality as builtins
   - `zpmod_builtin.c`: the `zpmod` command (subcommands: report-append, source-study, dir-list, path-stat, read-file)
   - `fs_builtins.c`: `zppathstat`, `zpdirlist`, `zpreadfile`
-  - `readarray.c`: `readarray` builtin
+  - `zpreadarray.c`: `zpreadarray` builtin
 - `src/compat/` — cross-version shims
   - `options.c`: stable-to-runtime option mapping for varying zsh versions
 - `src/include/` — public headers wiring modules together

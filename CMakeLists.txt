@@ -135,7 +135,7 @@ add_library(zpmod MODULE
   src/core/bundle_build.c
   src/builtins/zpmod_builtin.c
   src/builtins/fs_builtins.c
-  src/builtins/readarray.c
+  src/builtins/zpreadarray.c
   src/compat/options.c
 )
 

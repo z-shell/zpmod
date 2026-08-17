@@ -13,8 +13,8 @@
 
 /* Builtin handlers */
 int bin_custom_dot(char *name, char **argv, Options ops, int func);
-/* readarray builtin (implemented in builtins/readarray.c) */
-int bin_readarray(char *nam, char **argv, Options ops, int func);
+/* zpreadarray builtin (implemented in builtins/zpreadarray.c) */
+int bin_zpreadarray(char *nam, char **argv, Options ops, int func);
 
 /* zpmod command */
 void zpmod_usage(void);

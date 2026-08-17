@@ -8,6 +8,6 @@ Task‑oriented guides for common zpmod scenarios.
 - [Force a rebuild](force-rebuild.md)
 - [Profile shell startup](profile-startup.md)
 - [Enable debug logging](enable-debug.md)
-- [Use readarray builtin](use-readarray.md)
+- [Use zpreadarray builtin](use-zpreadarray.md)
 - [Append to plugin report](append-report.md)
 - [Build documentation with containers](build-docs-container.md)

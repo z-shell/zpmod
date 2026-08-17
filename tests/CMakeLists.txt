@@ -89,24 +89,24 @@ add_zpmod_test(zpmod_custom_dot builtin/custom_dot.zsh
 add_zpmod_test(zpmod_source_study core/source_study.zsh
   CATEGORY "core" LABELS "source-study")
 
-# readarray builtin tests
-add_zpmod_test(zpmod_readarray builtin/readarray.zsh
-  CATEGORY "builtin" LABELS "readarray;comprehensive")
+# zpreadarray builtin tests
+add_zpmod_test(zpmod_zpreadarray builtin/zpreadarray.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;comprehensive")
 
-add_zpmod_test(zpmod_readarray_delim builtin/readarray_delim.zsh
-  CATEGORY "builtin" LABELS "readarray;edge_cases")
+add_zpmod_test(zpmod_zpreadarray_delim builtin/zpreadarray_delim.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;edge_cases")
 
-add_zpmod_test(zpmod_readarray_fd builtin/readarray_fd.zsh
-  CATEGORY "builtin" LABELS "readarray;file_descriptor")
+add_zpmod_test(zpmod_zpreadarray_fd builtin/zpreadarray_fd.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;file_descriptor")
 
-add_zpmod_test(zpmod_readarray_clear builtin/readarray_clear.zsh
-  CATEGORY "builtin" LABELS "readarray;behavior")
+add_zpmod_test(zpmod_zpreadarray_clear builtin/zpreadarray_clear.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;behavior")
 
-add_zpmod_test(zpmod_readarray_large builtin/readarray_large.zsh
-  CATEGORY "builtin" LABELS "readarray;stress" SLOW)
+add_zpmod_test(zpmod_zpreadarray_large builtin/zpreadarray_large.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;stress" SLOW)
 
-add_zpmod_test(zpmod_readarray_fd_t builtin/readarray_fd_t.zsh
-  CATEGORY "builtin" LABELS "readarray;file_descriptor;trim")
+add_zpmod_test(zpmod_zpreadarray_fd_t builtin/zpreadarray_fd_t.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;file_descriptor;trim")
 
 # zpmod command and subcommand tests
 add_zpmod_test(zpmod_report_append command/zpmod_report_append.zsh

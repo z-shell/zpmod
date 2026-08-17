@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /**
- * @file readarray.c
- * @brief readarray builtin: read records from stdin or fd into an array.
+ * @file zpreadarray.c
+ * @brief zpreadarray builtin: read records from stdin or fd into an array.
  */
 /* Canonical module header ordering */
 #include "zpmod.mdh"
@@ -13,17 +13,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void readarray_usage(void) {
+static void zpreadarray_usage(void) {
   fprintf(stdout,
-          "%sUsage:%s readarray [-d delim] [-n count] [-O origin] [-s count] "
+          "%sUsage:%s zpreadarray [-d delim] [-n count] [-O origin] [-s count] "
           "[-t] [-u fd] [-C callback] [-c quantum] array\n"
           "Read records from standard input (or -u fd) into the named array.\n",
           zp_icon("📥 "), "");
   fflush(stdout);
 }
 
-/** readarray builtin entrypoint */
-int bin_readarray(char *nam, char **argv, Options ops, int func) {
+/** zpreadarray builtin entrypoint */
+int bin_zpreadarray(char *nam, char **argv, Options ops, int func) {
   (void)func; /* unused */
   int srcfd = 0;
   char *callback = NULL;
