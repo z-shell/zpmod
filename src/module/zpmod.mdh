@@ -1,0 +1,54 @@
+/**
+ * \file src/module/zpmod.mdh
+ * \brief Module declaration header (mdh) for zpmod.
+ */
+_Pragma("GCC diagnostic push")
+#ifndef have_zpmod_module
+#define have_zpmod_module
+
+#if defined(__has_include)
+# if __has_include("zsh.mdh")
+#  define ZSH_MDH_INCLUDED 1
+#  include "zsh.mdh"
+# endif
+#endif
+
+#ifndef ZSH_MDH_INCLUDED
+# ifdef HAVE_CONFIG_H
+#  include "config.h"
+# else
+#  include "zpmod_config.h"
+#  define HAVE_CONFIG_H 1
+#  define ZSH_OOT_MODULE 1
+# endif
+# include "zsh_system.h"
+# include "zsh.h"
+# include "sigcount.h"
+# include "zpmod_internals.h" /* fallback externs when zsh.mdh unavailable */
+/* Provide import macros if building out-of-tree and zsh.mdh didn't set them */
+# ifndef mod_import_variable
+#  define mod_import_variable
+# endif
+# ifndef mod_import_function
+#  define mod_import_function
+# endif
+# include "zpmod_imports.h"
+#endif
+
+#ifndef mod_export
+# define mod_export
+#endif
+
+#ifndef IMPORTING_MODULE_zpmod
+# ifndef MODULE
+#  define boot_ boot_zpmod
+#  define cleanup_ cleanup_zpmod
+#  define features_ features_zpmod
+#  define enables_ enables_zpmod
+#  define setup_ setup_zpmod
+#  define finish_ finish_zpmod
+# endif
+#endif
+
+#endif /* !have_zpmod_module */
+_Pragma("GCC diagnostic pop")

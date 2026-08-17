@@ -1,0 +1,33 @@
+{
+  "$schema": "vscode://schemas/launch",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug zsh with zpmod",
+      "type": "lldb",
+      "request": "launch",
+      "program": "/usr/bin/zsh",
+      "args": ["-f", "-i"],
+      "env": {
+        "ZPMOD_STAGE_MODULE_DIR": "${workspaceFolder}/build-cmake/stage/lib/zsh/site-modules"
+      },
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "CMake: stage",
+      // Use integrated terminal so zsh is interactive under the debugger
+      "console": "integratedTerminal",
+      // For CodeLLDB users, ensure we get an interactive terminal
+      "terminal": "integrated"
+    },
+    {
+      "name": "Debug zsh with zpmod (no LD_PRELOAD)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "/usr/bin/zsh",
+      "args": ["-f", "-i"],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "CMake: stage",
+      "console": "integratedTerminal",
+      "terminal": "integrated"
+    }
+  ]
+}

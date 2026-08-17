@@ -1,7 +1,25 @@
+# ZPMod ShellCheck Configuration
+# Optimized for Zsh scripts and ZPMod build system
+
+# Enable most checks but disable problematic ones for ZPMod
 enable=all
 source-path=SCRIPTDIR
-disable=SC2154
 
-# If you're having issues with shellcheck following source, disable the errors via:
-# disable=SC1090
-# disable=SC1091
+# Disabled checks for ZPMod-specific patterns:
+# SC2154: Referenced but not assigned (common in Zsh parameter expansion)
+# SC1090: Can't follow dynamic source/include paths
+# SC1091: Not following sourced files (build-time dependencies)
+# SC2034: Unused variables (common in config/template files)
+# SC2016: Expressions don't expand in single quotes (intentional for templates)
+# SC2086: Double quote to prevent globbing (sometimes intentional in Zsh)
+# SC2048: Use "$@" instead of $* (Zsh-specific usage patterns)
+# SC2128: Expanding array without index (Zsh handles this differently)
+# SC2206: Quote to prevent word splitting (Zsh array assignment patterns)
+# SC1087: Use braces when expanding arrays (Zsh-specific syntax)
+disable=SC2154,SC1090,SC1091,SC2034,SC2016,SC2086,SC2048,SC2128,SC2206,SC1087
+
+# ZPMod-specific shell configuration
+shell=bash  # Default to bash, override with Zsh in specific files
+
+# External source handling for ZPMod modules
+external-sources=true

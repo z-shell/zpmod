@@ -1,0 +1,3 @@
+[submodule "vendor/zsh"]
+	path = vendor/zsh
+	url = https://github.com/zsh-users/zsh.git

@@ -1,0 +1,27 @@
+# Build artifacts
+build-cmake/
+build-*/
+*.o
+*.so
+*.a
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+
+# Temporary files
+*.tmp
+*.temp
+build-results/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log

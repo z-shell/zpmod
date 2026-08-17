@@ -1,0 +1,76 @@
+Checks: >-
+  clang-analyzer-* ,
+  bugprone-* ,
+  misc-* ,
+  portability-* ,
+  readability-* ,
+  # Prevent include flapping on generated/indirect headers (e.g., params.epro)
+  -misc-include-cleaner ,
+  # Swappable-parameters is noisy for C/QSort-style APIs; disable globally
+  -bugprone-easily-swappable-parameters ,
+  # Recursion is acceptable for some traversals; disable blanket ban
+  -misc-no-recursion ,
+  # Disable C++-only rule suites for this C project
+  -cppcoreguidelines-* ,
+  -google-* ,
+  -modernize-* ,
+  -performance-* ,
+  # Disable noisy or style-mismatched checks for zsh C modules
+  -readability-identifier-length ,
+  -bugprone-assignment-in-if-condition ,
+  -bugprone-narrowing-conversions ,
+  -bugprone-implicit-widening-of-multiplication-result ,
+  -bugprone-signed-char-misuse ,
+  -clang-analyzer-security.insecureAPI.strcpy ,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeFunctions ,
+  -clang-analyzer-core.NullDereference ,
+  # Specific disables that don't fit zsh module style or are too noisy
+  -bugprone-lambda-function-name ,
+  -bugprone-reserved-identifier ,
+  -readability-magic-numbers ,
+
+CheckOptions:
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 100
+  - key: readability-function-cognitive-complexity.IgnoreMacros
+    value: true
+  - key: bugprone-suspicious-string-compare.WarnOnLogicalNotComparison
+    value: false
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: true
+  # Relax identifier length for zsh-style short names
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: 1
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: 1
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: 'i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e'
+  - key: readability-identifier-length.IgnoredParameterNames
+    value: 'i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e'
+  # Only analyze project sources (exclude vendored zsh and build artifacts)
+  - key: HeaderFilterRegex
+    value: '^(src|tests)/'
+  # Provide a lightweight guard against drifting complexity (still permissive)
+  - key: readability-function-cognitive-complexity.WarnThreshold
+    value: 60
+  # Silence warnings for functions intentionally large due to switch tables
+  - key: readability-function-cognitive-complexity.IgnoredFunctions
+    value: 'cmd_fpath_index|custom_source|zp_compaudit_cache_core'
+  # Prevent diagnostic noise from vendor-like underscore prefixed identifiers
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: true
+
+# NOTE:
+# - Vendor headers are already trunk-ignored, but HeaderFilterRegex further constrains clang-tidy when run manually.
+# - Consider periodically lowering cognitive complexity threshold once large legacy functions are refactored.
+# - Additional disables (e.g., -clang-analyzer-core.NullDereference) can be revisited; kept disabled due to zsh macro heavy control flow.
+  # Set naming conventions for your style below (there are dozens of naming settings possible):
+  # See https://clang.llvm.org/extra/clang-tidy/checks/readability/identifier-naming.html
+  # - key: readability-identifier-naming.ClassCase
+  #   value: CamelCase
+  # - key: readability-identifier-naming.NamespaceCase
+  #   value: lower_case
+  # - key: readability-identifier-naming.PrivateMemberSuffix
+  #   value: _
+  # - key: readability-identifier-naming.StructCase
+  #   value: CamelCase

@@ -1,0 +1,5 @@
+# Keep only CTest-based zpmod tests here
+Makefile.in
+README
+comptest
+Testing

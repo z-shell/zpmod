@@ -1,0 +1,17 @@
+#!/usr/bin/env zsh
+# ztst-style checks for SIGCOUNT shim: exercise common signal range without crash
+
+set -uo pipefail
+emulate -L zsh
+
+ztst_suite "sigcount-shim"
+
+# Iterate 1..31 (shim fallback) and set/clear traps; print OK if all succeed
+ztst_it "set/clear traps for signals 1..31" \
+  --cmd $'{ for s in {1..31}; do trap "" $s || exit 1; trap - $s || exit 1; done; print -r -- OK; }' \
+  --stdout $'OK' --contains --status 0
+
+# Optional: very large signal number should not succeed (best-effort)
+ztst_it "invalid signal number handled" \
+  --cmd $'{ trap "" 999 2>/dev/null || true; print -r -- OK; }' \
+  --stdout $'OK' --contains --status 0

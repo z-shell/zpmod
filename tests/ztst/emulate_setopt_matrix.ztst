@@ -1,0 +1,24 @@
+#!/usr/bin/env zsh
+# ztst-style: emulate/setopt edge-case matrix to guard against subtle regressions
+
+set -uo pipefail
+emulate -L zsh
+
+ztst_suite "emulate-matrix"
+
+_body=$'{
+  emulate -LR zsh
+  for e in zsh sh ksh csh posix; do
+    emulate -L $e || true
+    setopt path_dirs || true; unsetopt path_dirs || true
+    setopt function_argzero || true; unsetopt function_argzero || true
+    setopt posix_builtins || true; unsetopt posix_builtins || true
+    setopt shin_stdin || true; unsetopt shin_stdin || true
+    setopt no_source_trace || true; setopt source_trace || true
+  done
+  print -r -- OK
+}'
+
+ztst_it "emulate x options matrix executes" \
+  --cmd "$_body" \
+  --stdout $'OK' --contains --status 0

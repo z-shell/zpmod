@@ -1,7 +1,14 @@
 rules:
-  quoted-strings:
-    required: only-when-needed
-    extra-allowed: ["{|}"]
+  quoted-strings: disable
   key-duplicates: {}
   octal-values:
     forbid-implicit-octal: true
+  document-start: disable
+  line-length:
+    max: 140
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  truthy: disable
