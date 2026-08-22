@@ -54,6 +54,7 @@ jobs:
   deploy:
     name: Deploy to Pages
     needs: build-docs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
