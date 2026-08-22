@@ -85,6 +85,10 @@ add_zpmod_test(zpmod_builtin_present core/builtin_present.zsh
 add_zpmod_test(zpmod_custom_dot builtin/custom_dot.zsh
   CATEGORY "builtin" LABELS "custom_dot")
 
+# Regression test for #31: process substitution must not be ZWC-compiled
+add_zpmod_test(zpmod_process_substitution_source builtin/process_substitution_source.zsh
+  CATEGORY "builtin" LABELS "custom_dot;regression")
+
 # Source-study formatting and options
 add_zpmod_test(zpmod_source_study core/source_study.zsh
   CATEGORY "core" LABELS "source-study")
