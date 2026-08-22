@@ -355,7 +355,7 @@ Eprog custom_try_source_file(char *file) {
   if (faltered) {
     *tail++ = '/';
   }
-  if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) &&
+  if ((!rn && (rc || (stc.st_mtime < stn.st_mtime))) && S_ISREG(stn.st_mode) &&
       (access(file_dup, W_OK) == 0 || debug_enabled)) {
     char *args[] = {file, NULL};
     struct options ops;
