@@ -1,0 +1,31 @@
+changelog:
+  exclude:
+    authors:
+      - dependabot
+      - dependabot[bot]
+      - renovate
+      - renovate[bot]
+      - copilot-swe-agent[bot]
+  categories:
+    - title: Features
+      labels:
+        - type:feature
+    - title: Fixes
+      labels:
+        - type:bug
+        - bug
+        - regression
+    - title: Documentation
+      labels:
+        - type:docs
+        - area:docs
+    - title: Maintenance
+      labels:
+        - type:maintenance
+        - chore
+        - refactor
+        - ci
+        - area:ci
+    - title: Other Changes
+      labels:
+        - "*"
