@@ -15,6 +15,7 @@
 #include "zpmod.pro"
 #include "zpmod_emoji.h"
 #include "zpmod_rehash.h"
+#include "zpmod_utils.h"
 #include "zpmod_vendor_shims.h"
 #include <errno.h>
 #include <stdio.h>
@@ -192,7 +193,7 @@ static int rh_load(const char *nam, const char *file, struct rh_vec *out) {
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 static int rh_write(char *nam, const char *file, struct rh_vec *paths) {
-  FILE *fp = fopen(file, "w");
+  FILE *fp = zp_fopen_write_nofollow(file, 0600, 1);
   if (!fp) {
     zwarnnam(nam, "%srehash-diff: cannot write %s: %s", zp_icon("❌ "), file,
              strerror(errno));

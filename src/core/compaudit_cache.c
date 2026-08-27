@@ -21,6 +21,7 @@
 /* System headers after gateway */
 #include "zpmod_compaudit.h"
 #include "zpmod_emoji.h"
+#include "zpmod_utils.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -412,13 +413,12 @@ static int zp_cc_incremental_update(char *nam, char *cache_path,
   }
   int insecure = 0;
   int secure = 0;
-  FILE *fp = fopen(cache_path, "w");
+  FILE *fp = zp_fopen_write_nofollow(cache_path, 0600, 1);
   if (!fp) {
     zwarnnam(nam, "%scompaudit-cache: cannot update %s: %s", zp_icon("❌ "),
              cache_path, strerror(errno));
     return 1;
   }
-  fchmod(fileno(fp), 0600);
   fprintf(fp, "version:3\n");
   for (size_t i = 0; i < entries->size; i++) {
     struct stat st;
@@ -516,13 +516,12 @@ static int zp_cc_rebuild(char *nam, const char *file_path,
   uid_t self = geteuid();
   int insecure = 0;
   int secure = 0;
-  FILE *fp = fopen(file_path, "w");
+  FILE *fp = zp_fopen_write_nofollow(file_path, 0600, 1);
   if (!fp) {
     zwarnnam(nam, "%scompaudit-cache: cannot write %s: %s", zp_icon("❌ "),
              file_path, strerror(errno));
     return 1;
   }
-  fchmod(fileno(fp), 0600);
   fprintf(fp, "version:3\n");
   for (size_t i = 0; i < targets->size; i++) {
     struct stat st;
@@ -602,10 +601,12 @@ int zp_compaudit_cache_core(char *nam, int rebuild, int show, int json) {
         if (v2path) {
           memcpy(v2path, cache_path, prefix);
           strcpy(v2path + prefix, rep);
-          struct stat st_old;
-          if (stat(v2path, &st_old) == 0) {
+          if (unlink(v2path) == 0) {
             rebuild = 1;
-            unlink(v2path); /* best-effort removal */
+          } else if (errno != ENOENT) {
+            /* A legacy path exists but cannot be removed. Rebuild the current
+             * cache without a separate check/use window. */
+            rebuild = 1;
           }
           zsfree(v2path);
         }

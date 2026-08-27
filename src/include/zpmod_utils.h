@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 #pragma once
 
+#include <stdio.h>
+#include <sys/types.h>
+
 /**
  * @file zpmod_utils.h
  * @brief Utility helpers shared across module components.
@@ -59,3 +62,19 @@ int zp_has_option(char **argv, char opt);
  *        -1 if the option matched but the argument was missing.
  */
 int zp_take_opt_with_arg(char ***argvp, char opt, char **out_arg);
+
+/**
+ * @brief Open a file for truncating writes without following symlinks.
+ *
+ * The file receives `create_mode` at creation time, independent of a permissive
+ * process umask. Existing file permissions are preserved unless
+ * `enforce_mode` is non-zero, in which case the opened descriptor is restricted
+ * to `create_mode` before a stream is returned.
+ *
+ * @param path         Output path.
+ * @param create_mode  Permissions used when creating the file.
+ * @param enforce_mode Whether to apply create_mode to an existing file too.
+ * @return Writable stream, or NULL with errno preserved on failure.
+ */
+FILE *zp_fopen_write_nofollow(const char *path, mode_t create_mode,
+                              int enforce_mode);

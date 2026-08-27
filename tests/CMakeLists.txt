@@ -133,6 +133,9 @@ add_zpmod_test(zpmod_path_warmup_prune command/zpmod_path_warmup_prune.zsh
 add_zpmod_test(zpmod_fpath_index command/zpmod_fpath_index.zsh
   CATEGORY "command" LABELS "fpath;indexing")
 
+add_zpmod_test(zpmod_secure_files command/zpmod_secure_files.zsh
+  CATEGORY "command" LABELS "security;filesystem;regression")
+
 # Compat: options mapping sentinel and basics
 add_zpmod_test(zpmod_options_mapping compat/options_mapping.zsh
   CATEGORY "core" LABELS "compat;options;loader")

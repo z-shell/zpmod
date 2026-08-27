@@ -7,7 +7,66 @@
 #include "zpmod.pro"
 #include "zpmod_utils.h"
 #include "zpmod_vendor_shims.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+FILE *zp_fopen_write_nofollow(const char *path, mode_t create_mode,
+                              int enforce_mode) {
+#ifndef O_NOFOLLOW
+  (void)path;
+  (void)create_mode;
+  (void)enforce_mode;
+  errno = ENOTSUP;
+  return NULL;
+#else
+  int flags = O_WRONLY | O_CREAT;
+#ifdef O_CLOEXEC
+  flags |= O_CLOEXEC;
+#endif
+  flags |= O_NOFOLLOW;
+
+  int fd = open(path, flags, create_mode);
+  if (fd < 0) {
+    return NULL;
+  }
+
+#ifndef O_CLOEXEC
+  if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+    return NULL;
+  }
+#endif
+
+  if (enforce_mode && fchmod(fd, create_mode) < 0) {
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+    return NULL;
+  }
+
+  if (ftruncate(fd, 0) < 0) {
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+    return NULL;
+  }
+
+  FILE *stream = fdopen(fd, "w");
+  if (!stream) {
+    int saved_errno = errno;
+    close(fd);
+    errno = saved_errno;
+  }
+  return stream;
+#endif
+}
 
 /** Lightweight argv short-option scanner (stops at "--"). */
 int zp_has_option(char **argv, char opt) {
