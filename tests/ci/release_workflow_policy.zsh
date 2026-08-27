@@ -25,6 +25,11 @@ grep -q -- '--ctest' "$release" ||
   fail_test 'release workflow does not run the full CTest suite'
 grep -q 'needs: validate' "$release" ||
   fail_test 'release builds are not gated by ref validation'
+if grep -q 'ref:.*needs.validate.outputs.release_commit' "$release"; then
+  fail_test 'release build executes a dynamically selected checkout'
+fi
+grep -q 'Release commit does not match checked-out main' "$release" ||
+  fail_test 'release build does not prove it is executing validated main'
 grep -q -- '--verify-tag' "$release" ||
   fail_test 'release publication does not require the remote tag'
 grep -q -- '--draft' "$release" ||

@@ -38,8 +38,9 @@ git rev-parse --verify "${main_ref}^{commit}" >/dev/null 2>&1 || {
   print -ru2 -- "main reference does not exist: $main_ref"
   exit 1
 }
-if ! git merge-base --is-ancestor "$release_commit" "$main_ref"; then
-  print -ru2 -- "$release_tag ($release_commit) is not reachable from $main_ref"
+main_commit=$(git rev-parse --verify "${main_ref}^{commit}")
+if [[ $release_commit != $main_commit ]]; then
+  print -ru2 -- "$release_tag ($release_commit) is not the current $main_ref tip ($main_commit)"
   exit 1
 fi
 

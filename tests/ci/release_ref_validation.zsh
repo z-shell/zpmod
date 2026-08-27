@@ -59,6 +59,11 @@ remote_actual=$(cd "$consumer" &&
   exit 1
 }
 
+# A reviewed ancestor is insufficient: publication must use the current main
+# tip so the release workflow never executes a dynamically selected checkout.
+git -C "$repo" tag -a v1.3.0 "$base_commit" -m 'v1.3.0 on old main'
+expect_failure 'tag on an old main ancestor' v1.3.0 refs/heads/main
+
 # Lightweight tags are not release boundaries.
 git -C "$repo" tag v1.2.4
 expect_failure 'lightweight tag' v1.2.4 refs/heads/main

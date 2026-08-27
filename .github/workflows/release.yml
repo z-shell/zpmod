@@ -82,9 +82,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.validate.outputs.release_commit }}
+          ref: main
           submodules: recursive
           fetch-depth: 0
+
+      - name: Verify validated main commit
+        env:
+          RELEASE_COMMIT: ${{ needs.validate.outputs.release_commit }}
+        run: |
+          checked_out_commit=$(git rev-parse HEAD)
+          if [[ "$checked_out_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "Release commit does not match checked-out main: $RELEASE_COMMIT != $checked_out_commit" >&2
+            exit 1
+          fi
 
       - name: Install build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
