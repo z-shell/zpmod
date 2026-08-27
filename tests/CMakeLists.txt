@@ -11,6 +11,18 @@ set(ZPMOD_STAGE_MODULE_DIR "${ZPMOD_STAGE_DIR}/${ZPMOD_ZSH_MODDIR}")
 # Test categories for organization
 set(ZPMOD_TEST_LABELS "")
 
+add_test(NAME release_ref_validation
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/release_ref_validation.zsh)
+set_tests_properties(release_ref_validation PROPERTIES
+  TIMEOUT 20
+  LABELS "ci;release;security")
+
+add_test(NAME release_workflow_policy
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/release_workflow_policy.zsh)
+set_tests_properties(release_workflow_policy PROPERTIES
+  TIMEOUT 20
+  LABELS "ci;release;security")
+
 # Ensure the staged module exists before running any tests when invoking ctest directly.
 # We create a CTest fixture that builds the 'stage' target once and have tests require it.
 add_test(NAME stage_fixture
