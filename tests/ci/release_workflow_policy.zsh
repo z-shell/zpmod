@@ -77,6 +77,10 @@ fi
 draft_resolver_invocations=$(grep -c 'resolve-release-draft.zsh' "$release" || true)
 (( draft_resolver_invocations >= 2 )) ||
   fail_test 'creation and cleanup do not both resolve the exact private draft'
+grep -q 'ZPMOD_RELEASE_DRAFT_MAX_ATTEMPTS: "6"' "$release" ||
+  fail_test 'release draft resolution lacks an explicit bounded attempt count'
+grep -q 'ZPMOD_RELEASE_DRAFT_DELAY_SECONDS: "2"' "$release" ||
+  fail_test 'release draft resolution lacks an explicit retry delay'
 grep -q 'gh api -X PATCH' "$release" ||
   fail_test 'release workflow does not publish by numeric release ID'
 grep -q 'draft=false' "$release" ||
