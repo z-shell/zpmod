@@ -21,6 +21,14 @@ if grep -q '^  push:' "$release"; then
 fi
 grep -q 'validate-release-ref.zsh' "$release" ||
   fail_test 'release workflow does not validate the release ref'
+grep -q 'sudo apt-get install -y zsh' "$release" ||
+  fail_test 'release validation does not provision Zsh'
+install_line=$(grep -n -m1 'sudo apt-get install -y zsh' "$release")
+validate_line=$(grep -n -m1 'name: Validate annotated tag' "$release")
+(( ${install_line%%:*} < ${validate_line%%:*} )) ||
+  fail_test 'release validation provisions Zsh after invoking the validator'
+grep -q 'refs/remotes/origin/main origin' "$release" ||
+  fail_test 'release validation does not use a fully qualified main ref'
 grep -q -- '--ctest' "$release" ||
   fail_test 'release workflow does not run the full CTest suite'
 grep -q 'needs: validate' "$release" ||

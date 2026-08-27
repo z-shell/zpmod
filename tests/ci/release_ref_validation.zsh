@@ -48,6 +48,15 @@ remote_actual=$(cd "$consumer" &&
   print -ru2 -- "remote validator returned $remote_actual, expected $base_commit"
   exit 1
 }
+if (cd "$consumer" &&
+  "$validator" v1.2.3 origin/main origin) >/dev/null 2>&1; then
+  print -ru2 -- 'remote validator accepted an ambiguous shorthand main ref'
+  exit 1
+fi
+[[ ! -e "$consumer/.git/refs/heads/origin/main" ]] || {
+  print -ru2 -- 'remote validator created an ambiguous local origin/main branch'
+  exit 1
+}
 git -C "$repo" commit -q --allow-empty -m 'test: move release candidate'
 moved_commit=$(git -C "$repo" rev-parse HEAD)
 git -C "$repo" tag -f -a v1.2.3 -m 'moved v1.2.3' >/dev/null
