@@ -252,15 +252,21 @@ jobs:
           cleanup_draft() {
             [[ "$draft_created" == true ]] || return 0
             if [[ -z "$draft_id" ]]; then
-              draft_id=$(gh api \
-                "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-                --jq 'select(.draft == true) | .id' 2>/dev/null || true)
+              draft_id=$(scripts/resolve-release-draft.zsh \
+                "$GITHUB_REPOSITORY" \
+                "$RELEASE_TAG" \
+                "$RELEASE_COMMIT" 2>/dev/null || true)
             fi
             [[ -n "$draft_id" ]] || return 0
-            current_draft=$(gh api \
-              "repos/$GITHUB_REPOSITORY/releases/$draft_id" \
-              --jq '.draft' 2>/dev/null || true)
-            if [[ "$current_draft" == true ]]; then
+            current_release=$(gh api \
+              "repos/$GITHUB_REPOSITORY/releases/$draft_id" 2>/dev/null || true)
+            if jq -e \
+              --arg tag "$RELEASE_TAG" \
+              --arg commit "$RELEASE_COMMIT" \
+              '.draft == true and
+                .tag_name == $tag and
+                .target_commitish == $commit' \
+              <<< "$current_release" >/dev/null 2>&1; then
               gh api -X DELETE \
                 "repos/$GITHUB_REPOSITORY/releases/$draft_id" \
                 >/dev/null 2>&1 || true
@@ -278,10 +284,21 @@ jobs:
             --generate-notes
 
           draft_created=true
-          draft_id=$(gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            --jq 'select(.draft == true) | .id')
-          [[ -n "$draft_id" ]]
+          draft_id=$(scripts/resolve-release-draft.zsh \
+            "$GITHUB_REPOSITORY" \
+            "$RELEASE_TAG" \
+            "$RELEASE_COMMIT")
+          draft_release=$(gh api \
+            "repos/$GITHUB_REPOSITORY/releases/$draft_id")
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$RELEASE_COMMIT" \
+            --argjson id "$draft_id" \
+            '.id == $id and
+              .draft == true and
+              .tag_name == $tag and
+              .target_commitish == $commit' \
+            <<< "$draft_release" >/dev/null
 
           draft_commit=$(scripts/validate-release-ref.zsh \
             "$RELEASE_TAG" refs/remotes/origin/main origin)
@@ -289,10 +306,22 @@ jobs:
           [[ "$draft_commit" == "$RELEASE_COMMIT" ]]
           [[ "$draft_tag_object" == "$RELEASE_TAG_OBJECT" ]]
 
-          gh release edit "$RELEASE_TAG" \
-            -R "${{ github.repository }}" \
-            --draft=false \
-            --latest
+          gh api -X PATCH \
+            "repos/$GITHUB_REPOSITORY/releases/$draft_id" \
+            -F draft=false \
+            -f make_latest=true >/dev/null
+          published_release=$(gh api \
+            "repos/$GITHUB_REPOSITORY/releases/$draft_id")
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$RELEASE_COMMIT" \
+            --argjson id "$draft_id" \
+            '.id == $id and
+              .draft == false and
+              .tag_name == $tag and
+              .target_commitish == $commit and
+              .published_at != null' \
+            <<< "$published_release" >/dev/null
           draft_created=false
           trap - ERR
 

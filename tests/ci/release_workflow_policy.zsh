@@ -26,6 +26,7 @@ typeset -i job_has_apt_update=0
 typeset -i job_has_zsh=0
 typeset -i validator_invocations=0
 typeset -i qualified_main_refs=0
+typeset -i draft_resolver_invocations=0
 
 while IFS= read -r line || [[ -n $line ]]; do
   if [[ $line == jobs: ]]; then
@@ -70,12 +71,29 @@ grep -q -- '--verify-tag' "$release" ||
   fail_test 'release publication does not require the remote tag'
 grep -q -- '--draft' "$release" ||
   fail_test 'release assets are uploaded directly to a public release'
-grep -q 'gh release edit' "$release" ||
-  fail_test 'release workflow does not publish a validated draft'
+if grep -q 'releases/tags/\$RELEASE_TAG' "$release"; then
+  fail_test 'release workflow uses the published-only tag endpoint for drafts'
+fi
+draft_resolver_invocations=$(grep -c 'resolve-release-draft.zsh' "$release" || true)
+(( draft_resolver_invocations >= 2 )) ||
+  fail_test 'creation and cleanup do not both resolve the exact private draft'
+grep -q 'gh api -X PATCH' "$release" ||
+  fail_test 'release workflow does not publish by numeric release ID'
+grep -q 'draft=false' "$release" ||
+  fail_test 'release workflow does not publish the validated draft'
+if grep -q 'gh release edit.*RELEASE_TAG' "$release"; then
+  fail_test 'release workflow publishes by tag instead of numeric release ID'
+fi
 grep -q 'cleanup_draft' "$release" ||
   fail_test 'failed draft validation does not clean up the private release'
 grep -q 'draft_id=' "$release" ||
   fail_test 'draft cleanup is not scoped to a release ID'
+grep -q 'releases/\$draft_id' "$release" ||
+  fail_test 'draft validation is not bound to the numeric release ID'
+grep -q '\.target_commitish' "$release" ||
+  fail_test 'draft validation is not bound to the release commit'
+grep -q '\.tag_name' "$release" ||
+  fail_test 'draft validation is not bound to the release tag'
 if grep -q 'gh release delete.*RELEASE_TAG' "$release"; then
   fail_test 'draft cleanup can delete a pre-existing release by tag'
 fi

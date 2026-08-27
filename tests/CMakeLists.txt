@@ -23,6 +23,12 @@ set_tests_properties(release_workflow_policy PROPERTIES
   TIMEOUT 20
   LABELS "ci;release;security")
 
+add_test(NAME release_draft_resolution
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/release_draft_resolution.zsh)
+set_tests_properties(release_draft_resolution PROPERTIES
+  TIMEOUT 20
+  LABELS "ci;release;security")
+
 add_test(NAME compatibility_policy
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/compatibility_policy.zsh)
 set_tests_properties(compatibility_policy PROPERTIES
