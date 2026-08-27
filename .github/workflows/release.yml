@@ -35,12 +35,18 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
       - name: Validate annotated tag and ancestry
         id: ref
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          release_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          release_commit=$(scripts/validate-release-ref.zsh \
+            "$RELEASE_TAG" refs/remotes/origin/main origin)
           release_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
           echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"

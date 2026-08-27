@@ -14,6 +14,11 @@ fi
 
 tag_ref="refs/tags/$release_tag"
 if [[ -n $remote ]]; then
+  if [[ $main_ref != refs/* ]]; then
+    print -ru2 -- \
+      "remote validation requires a fully qualified main ref: $main_ref"
+    exit 1
+  fi
   git fetch --quiet --force --no-tags "$remote" \
     "${tag_ref}:${tag_ref}" \
     "refs/heads/main:${main_ref}" >/dev/null || {
