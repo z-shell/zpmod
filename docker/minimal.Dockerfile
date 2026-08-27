@@ -13,6 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Fail closed if the distribution package stops providing the documented floor.
+ARG ZPMOD_MINIMUM_ZSH=5.8.1
+RUN actual_version="$(zsh -fc 'print -r -- "$ZSH_VERSION"')" && \
+    if [ "$actual_version" != "$ZPMOD_MINIMUM_ZSH" ]; then \
+      printf 'Expected Zsh %s, found %s\n' \
+        "$ZPMOD_MINIMUM_ZSH" "$actual_version" >&2; \
+      exit 1; \
+    fi && \
+    printf 'Using minimum supported Zsh %s\n' "$actual_version"
+
 # Create non-root user for running tests so permission checks (EACCES) behave as expected
 RUN useradd -m -u 1000 -U zp
 

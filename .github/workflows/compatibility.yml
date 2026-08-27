@@ -1,0 +1,105 @@
+name: Compatibility
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  latest-zi:
+    name: Latest Zi Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            autotools-dev \
+            autoconf \
+            automake \
+            pkg-config \
+            libtool \
+            texinfo \
+            yodl \
+            libncurses5-dev \
+            libpcre3-dev \
+            libgdbm-dev \
+            zsh
+
+      - name: Prepare latest Zi and candidate revision
+        run: |
+          set -euo pipefail
+          integration_root=$(mktemp -d "$RUNNER_TEMP/zpmod-zi.XXXXXX")
+          zi_home="$integration_root/home"
+          candidate_remote="$integration_root/zpmod-candidate.git"
+          mkdir -p "$zi_home/.zi/zmodules"
+
+          git clone --depth 1 https://github.com/z-shell/zi.git \
+            "$zi_home/.zi/bin"
+          zi_revision=$(git -C "$zi_home/.zi/bin" rev-parse HEAD)
+
+          git init --bare --quiet "$candidate_remote"
+          git push --quiet "$candidate_remote" HEAD:refs/heads/ci-candidate
+          git --git-dir="$candidate_remote" symbolic-ref \
+            HEAD refs/heads/ci-candidate
+          git clone --quiet "$candidate_remote" \
+            "$zi_home/.zi/zmodules/zpmod"
+
+          candidate_revision=$(git rev-parse HEAD)
+          printf 'ZI_TEST_HOME=%s\n' "$zi_home" >> "$GITHUB_ENV"
+          printf 'ZI_REVISION=%s\n' "$zi_revision" >> "$GITHUB_ENV"
+          printf 'ZPMOD_EXPECTED_REVISION=%s\n' \
+            "$candidate_revision" >> "$GITHUB_ENV"
+          printf 'Zi revision: `%s`\n' "$zi_revision" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Candidate revision: `%s`\n' \
+            "$candidate_revision" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build candidate through Zi
+        run: |
+          HOME="$ZI_TEST_HOME" \
+            ZDOTDIR="$ZI_TEST_HOME" \
+            XDG_CACHE_HOME="$ZI_TEST_HOME/.cache" \
+            zsh -f -c '
+            source "$HOME/.zi/bin/zi.zsh" || exit 1
+            zi module build --from-source
+          '
+
+      - name: Verify Zi-managed candidate
+        run: |
+          set -euo pipefail
+          module_root="$ZI_TEST_HOME/.zi/zmodules/zpmod"
+          actual_revision=$(git -C "$module_root" rev-parse HEAD)
+          if [[ "$actual_revision" != "$ZPMOD_EXPECTED_REVISION" ]]; then
+            printf 'Zi built revision %s instead of %s\n' \
+              "$actual_revision" "$ZPMOD_EXPECTED_REVISION" >&2
+            exit 1
+          fi
+          test -s "$module_root/Src/zi/zpmod.so"
+          HOME="$ZI_TEST_HOME" \
+            ZDOTDIR="$ZI_TEST_HOME" \
+            XDG_CACHE_HOME="$ZI_TEST_HOME/.cache" \
+            ZPMOD_MODULE_ROOT="$module_root" \
+            zsh -f -c '
+              emulate -R zsh
+              module_path=( "$ZPMOD_MODULE_ROOT/Src" $module_path )
+              zmodload -i zi/zpmod || exit 1
+              [[ $(whence -w zpmod) == *builtin* ]]
+            '
