@@ -1,0 +1,17 @@
+SPDX-License-Identifier: MIT AND LicenseRef-zsh
+
+zpmod contains material under file-specific licenses:
+
+- Files carrying `SPDX-License-Identifier: MIT` are licensed under the MIT
+  License reproduced in `LICENSES/MIT.txt`.
+- Files without a more specific license notice are covered by the Zsh license
+  reproduced in the repository root `LICENSE` file, unless the file identifies
+  another license.
+- The `vendor/zsh` submodule remains copyright the Zsh Development Group and is
+  governed by its own included license. Its source tree is not installed into
+  zpmod binary packages.
+
+Copyright in each file remains with its respective contributors and upstream
+copyright holders. The license notices installed with binary packages describe
+the combined payload; they do not relicense any file or replace a file-specific
+notice.

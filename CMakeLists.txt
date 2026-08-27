@@ -7,6 +7,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Adopt standard install dir variables and centralize build output directories
 include(GNUInstallDirs)
+set(ZPMOD_DATA_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}" CACHE INTERNAL
+  "Effective architecture-independent data install directory" FORCE)
+set(ZPMOD_LICENSE_INSTALL_DIR "${ZPMOD_DATA_INSTALL_DIR}/licenses/zpmod")
+set(ZPMOD_DOC_INSTALL_DIR "${ZPMOD_DATA_INSTALL_DIR}/doc/zpmod")
 
 # Export compile_commands.json for clang-tidy/clangd and copy to source dir
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -66,6 +70,13 @@ string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" ZPMOD_VERSION_PATCH "
 # Generate version header
 set(GENERATED_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GENERATED_DIR})
+file(READ "${CMAKE_SOURCE_DIR}/NOTICE" ZPMOD_NOTICE_TEXT)
+file(READ "${CMAKE_SOURCE_DIR}/LICENSES/MIT.txt" ZPMOD_MIT_LICENSE_TEXT)
+file(READ "${CMAKE_SOURCE_DIR}/LICENSE" ZPMOD_ZSH_LICENSE_TEXT)
+file(WRITE "${GENERATED_DIR}/copyright"
+  "${ZPMOD_NOTICE_TEXT}\n\nMIT license text\n----------------\n\n"
+  "${ZPMOD_MIT_LICENSE_TEXT}\n\nZsh license text\n----------------\n\n"
+  "${ZPMOD_ZSH_LICENSE_TEXT}\n")
 configure_file(
   ${CMAKE_SOURCE_DIR}/cmake/zpmod_version.h.in
   ${GENERATED_DIR}/zpmod_version.h
@@ -260,10 +271,26 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "zsh")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 
 # RPM package metadata
-set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT AND LicenseRef-zsh")
 set(CPACK_RPM_PACKAGE_GROUP "Shells")
 set(CPACK_RPM_PACKAGE_REQUIRES "zsh")
 set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+# RPM packages are Linux artifacts and install below /usr even when CMake is
+# configured on another host for metadata validation.
+set(ZPMOD_RPM_INSTALL_PREFIX "/usr")
+if(IS_ABSOLUTE "${ZPMOD_LICENSE_INSTALL_DIR}")
+  set(ZPMOD_RPM_LICENSE_DIR "${ZPMOD_LICENSE_INSTALL_DIR}")
+else()
+  set(ZPMOD_RPM_LICENSE_DIR
+    "${ZPMOD_RPM_INSTALL_PREFIX}/${ZPMOD_LICENSE_INSTALL_DIR}")
+endif()
+string(REGEX REPLACE "/+" "/" ZPMOD_RPM_LICENSE_DIR
+  "${ZPMOD_RPM_LICENSE_DIR}")
+set(CPACK_RPM_USER_FILELIST
+  "%license ${ZPMOD_RPM_LICENSE_DIR}/LICENSE"
+  "%license ${ZPMOD_RPM_LICENSE_DIR}/LicenseRef-zsh.txt"
+  "%license ${ZPMOD_RPM_LICENSE_DIR}/MIT.txt"
+  "%license ${ZPMOD_RPM_LICENSE_DIR}/NOTICE")
 
 # macOS DMG (DragNDrop) needs no extra metadata
 
@@ -343,3 +370,22 @@ endif()
 install(FILES ${CMAKE_SOURCE_DIR}/src/completion/_zpmod
         DESTINATION ${CMAKE_INSTALL_DATADIR}/zsh/site-functions
         OPTIONAL)
+
+# Ship every license that applies to the installed binary/completion payload.
+install(FILES
+        ${CMAKE_SOURCE_DIR}/LICENSE
+        ${CMAKE_SOURCE_DIR}/NOTICE
+        DESTINATION ${ZPMOD_LICENSE_INSTALL_DIR}
+        COMPONENT Licenses)
+install(FILES ${CMAKE_SOURCE_DIR}/LICENSE
+        DESTINATION ${ZPMOD_LICENSE_INSTALL_DIR}
+        RENAME LicenseRef-zsh.txt
+        COMPONENT Licenses)
+install(FILES ${CMAKE_SOURCE_DIR}/LICENSES/MIT.txt
+        DESTINATION ${ZPMOD_LICENSE_INSTALL_DIR}
+        RENAME MIT.txt
+        COMPONENT Licenses)
+install(FILES ${GENERATED_DIR}/copyright
+        DESTINATION ${ZPMOD_DOC_INSTALL_DIR}
+        RENAME copyright
+        COMPONENT Licenses)
