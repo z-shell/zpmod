@@ -34,5 +34,6 @@ See [docs/explanation/contributing.md](docs/explanation/contributing.md).
 
 ## License
 
-`zpmod` is distributed under the Zsh license; see [LICENSE](LICENSE). It builds against and vendors Zsh itself (`vendor/zsh`), copyright (c)
-the Zsh Development Group; see that submodule for its own licensing terms.
+zpmod contains file-specific licensing. Project-owned module sources marked `SPDX-License-Identifier: MIT` use the
+[MIT license](LICENSES/MIT.txt); files without a more specific notice use the [Zsh license](LICENSE). See [NOTICE](NOTICE) for the
+package-level scope. The vendored Zsh source remains copyright the Zsh Development Group and retains its own licensing terms.
