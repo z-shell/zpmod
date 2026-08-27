@@ -1,27 +1,70 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build (optional - uses current ref if empty)"
-        required: false
-        default: ""
+        description: "Existing annotated vX.Y.Z tag to publish"
+        required: true
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-publication
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release boundary
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      release_commit: ${{ steps.ref.outputs.release_commit }}
+      release_tag: ${{ steps.ref.outputs.release_tag }}
+      release_tag_object: ${{ steps.ref.outputs.release_tag_object }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate annotated tag and ancestry
+        id: ref
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          release_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          release_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
+          echo "release_commit=$release_commit" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_tag_object=$release_tag_object" >> "$GITHUB_OUTPUT"
+
+      - name: Verify reviewed main provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_COMMIT: ${{ steps.ref.outputs.release_commit }}
+        run: |
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT/pulls" \
+            > "$RUNNER_TEMP/associated-pulls.json"
+          jq -e \
+            'any(.[]; .merged_at != null and .base.ref == "main")' \
+            "$RUNNER_TEMP/associated-pulls.json" >/dev/null || {
+              echo "Release commit is not associated with a merged pull request into main" >&2
+              exit 1
+            }
+
   build:
     name: Build (${{ matrix.platform }})
+    needs: validate
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -39,6 +82,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.validate.outputs.release_commit }}
           submodules: recursive
           fetch-depth: 0
 
@@ -68,11 +112,16 @@ jobs:
           brew update
           brew install autoconf automake libtool ncurses pcre2 gdbm texinfo ninja
 
-      - name: Configure project
+      - name: Configure, build, and run full suite
         run: |
-          ./scripts/cmake.configure.zsh --generator ninja --build-type Release --verbose
+          ./scripts/cmake.configure.zsh \
+            --generator ninja \
+            --build-type Release \
+            --verbose \
+            --ctest \
+            --ctest-jobs 2
 
-      - name: Build and package
+      - name: Package tested commit
         run: |
           # Select OS-specific CPack generators
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
@@ -80,7 +129,11 @@ jobs:
           else
             GEN="TGZ;TXZ"
           fi
-          ./scripts/cmake.configure.zsh --no-submodule --no-vendor-build --package --test --cpack-generators "$GEN"
+          ./scripts/cmake.configure.zsh \
+            --no-submodule \
+            --no-vendor-build \
+            --package \
+            --cpack-generators "$GEN"
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -93,20 +146,20 @@ jobs:
             build-cmake/*.deb
             build-cmake/*.rpm
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   release:
     name: Create Release
-    needs: [build]
+    needs: [validate, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Download all artifacts
@@ -118,20 +171,23 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          find artifacts/ \( -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \) -type f -print0 \
-            | xargs -0 -I {} cp -v {} release-assets/ 2>/dev/null || true
+          find artifacts/ \( -name "*.tar.*" -o -name "*.zip" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" \) \
+            -type f -exec cp -v {} release-assets/ \;
           cd release-assets
-          if compgen -G "*.*" >/dev/null; then
-            sha256sum * > SHA256SUMS
-            sha256sum --check SHA256SUMS
-          fi
+          compgen -G "*.*" >/dev/null || {
+            echo "No release assets were downloaded" >&2
+            exit 1
+          }
+          sha256sum * > SHA256SUMS
+          sha256sum --check SHA256SUMS
           ls -la
 
       - name: Create Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
-          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.release_commit }}
+          RELEASE_TAG_OBJECT: ${{ needs.validate.outputs.release_tag_object }}
         run: |
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           Cross-platform zsh module release built from commit \`$RELEASE_COMMIT\`.
@@ -152,15 +208,72 @@ jobs:
           \`\`\`
           EOF
 
-          EXTRA_FLAGS=()
-          if [[ "$RELEASE_TAG" == *"-"* ]]; then
-            EXTRA_FLAGS+=( --prerelease )
+          current_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          current_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
+          if [[ "$current_commit" != "$RELEASE_COMMIT" ]]; then
+            echo "Release tag commit moved from $RELEASE_COMMIT to $current_commit" >&2
+            exit 1
           fi
+          if [[ "$current_tag_object" != "$RELEASE_TAG_OBJECT" ]]; then
+            echo "Release tag object moved from $RELEASE_TAG_OBJECT to $current_tag_object" >&2
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" \
+            -R "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "A release already exists for $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          draft_created=false
+          draft_id=
+          cleanup_draft() {
+            [[ "$draft_created" == true ]] || return 0
+            if [[ -z "$draft_id" ]]; then
+              draft_id=$(gh api \
+                "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+                --jq 'select(.draft == true) | .id' 2>/dev/null || true)
+            fi
+            [[ -n "$draft_id" ]] || return 0
+            current_draft=$(gh api \
+              "repos/$GITHUB_REPOSITORY/releases/$draft_id" \
+              --jq '.draft' 2>/dev/null || true)
+            if [[ "$current_draft" == true ]]; then
+              gh api -X DELETE \
+                "repos/$GITHUB_REPOSITORY/releases/$draft_id" \
+                >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup_draft ERR
 
           gh release create "$RELEASE_TAG" release-assets/* \
             -R "${{ github.repository }}" \
             --target "$RELEASE_COMMIT" \
+            --verify-tag \
+            --draft \
             --title "zpmod $RELEASE_TAG" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --generate-notes \
-            "${EXTRA_FLAGS[@]}"
+            --generate-notes
+
+          draft_created=true
+          draft_id=$(gh api \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            --jq 'select(.draft == true) | .id')
+          [[ -n "$draft_id" ]]
+
+          draft_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          draft_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
+          [[ "$draft_commit" == "$RELEASE_COMMIT" ]]
+          [[ "$draft_tag_object" == "$RELEASE_TAG_OBJECT" ]]
+
+          gh release edit "$RELEASE_TAG" \
+            -R "${{ github.repository }}" \
+            --draft=false \
+            --latest
+          draft_created=false
+          trap - ERR
+
+          published_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          published_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
+          [[ "$published_commit" == "$RELEASE_COMMIT" ]]
+          [[ "$published_tag_object" == "$RELEASE_TAG_OBJECT" ]]
