@@ -24,6 +24,12 @@ zpmod source-study
   [docs/how-to/install-zpmod-with-cmake.md](docs/how-to/install-zpmod-with-cmake.md).
 - Install to a custom directory: see [docs/how-to/install-custom-dir.md](docs/how-to/install-custom-dir.md).
 
+## Compatibility
+
+The minimum supported Zsh release is 5.8.1. Prebuilt module compatibility is limited to the platform, architecture, and Zsh combinations
+exercised by the release and compatibility workflows. See the [compatibility reference](docs/reference/compatibility.md) for the package ABI
+policy and verification coverage.
+
 ## Documentation
 
 Full documentation lives under [docs/](docs/index.md), organized as tutorials, how-to guides, reference, and explanation.

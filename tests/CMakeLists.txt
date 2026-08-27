@@ -23,6 +23,12 @@ set_tests_properties(release_workflow_policy PROPERTIES
   TIMEOUT 20
   LABELS "ci;release;security")
 
+add_test(NAME compatibility_policy
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/compatibility_policy.zsh)
+set_tests_properties(compatibility_policy PROPERTIES
+  TIMEOUT 20
+  LABELS "ci;compat;package")
+
 add_test(NAME package_license_payload
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/package/license_payload.zsh)
 set_tests_properties(package_license_payload PROPERTIES
@@ -30,6 +36,14 @@ set_tests_properties(package_license_payload PROPERTIES
   FIXTURES_REQUIRED "StageReady"
   TIMEOUT 30
   LABELS "package;license;release")
+
+add_test(NAME package_install_smoke
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/package/install_smoke.zsh)
+set_tests_properties(package_install_smoke PROPERTIES
+  ENVIRONMENT "ZPMOD_BUILD_DIR=${CMAKE_BINARY_DIR}"
+  FIXTURES_REQUIRED "StageReady"
+  TIMEOUT 30
+  LABELS "package;install;compat;release")
 
 # Ensure the staged module exists before running any tests when invoking ctest directly.
 # We create a CTest fixture that builds the 'stage' target once and have tests require it.
