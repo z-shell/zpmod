@@ -36,6 +36,28 @@ print -r -- "$MOCK_RELEASES_JSON"
 MOCK_GH
 chmod +x "$mock_bin/gh"
 
+if ! command -v jq >/dev/null 2>&1; then
+  cat > "$mock_bin/jq" <<'MOCK_JQ'
+#!/usr/bin/env zsh
+emulate -R zsh
+setopt err_exit no_unset pipe_fail
+
+if (( $# != 8 )) ||
+  [[ $1 != -r || $2 != --arg || $3 != tag ]] ||
+  [[ $4 != v2.0.5 || $5 != --arg || $6 != commit ]] ||
+  [[ $7 != ea511d977800e3916776ad43d055afd4dcca734f ]] ||
+  [[ $8 != *'.draft == true'* ]] ||
+  [[ $8 != *'.tag_name == $tag'* ]] ||
+  [[ $8 != *'.target_commitish == $commit'* ]]; then
+  print -ru2 -- "unexpected jq invocation: $*"
+  exit 64
+fi
+
+print -r -- "${MOCK_JQ_OUTPUT-}"
+MOCK_JQ
+  chmod +x "$mock_bin/jq"
+fi
+
 fail_test() {
   print -ru2 -- "$*"
   exit 1
@@ -56,7 +78,8 @@ MOCK_RELEASES_JSON='[
   {"id": 377741043, "draft": true, "tag_name": "v2.0.5", "target_commitish": "ea511d977800e3916776ad43d055afd4dcca734f"}
 ]
 ]'
-export MOCK_RELEASES_JSON
+MOCK_JQ_OUTPUT=377741043
+export MOCK_RELEASES_JSON MOCK_JQ_OUTPUT
 run_resolver || fail_test 'one exact draft did not resolve successfully'
 [[ $(< "$stdout_file") == 377741043 ]] ||
   fail_test 'resolver did not return the exact numeric release ID'
@@ -65,7 +88,8 @@ MOCK_RELEASES_JSON='[[
   {"id": 11, "draft": false, "tag_name": "v2.0.5", "target_commitish": "ea511d977800e3916776ad43d055afd4dcca734f"},
   {"id": 12, "draft": true, "tag_name": "v2.0.5", "target_commitish": "39b02adf471d1f40df0b985565dc16b97add1127"}
 ]]'
-export MOCK_RELEASES_JSON
+MOCK_JQ_OUTPUT=
+export MOCK_RELEASES_JSON MOCK_JQ_OUTPUT
 if run_resolver; then
   fail_test 'resolver accepted zero exact drafts'
 fi
@@ -76,7 +100,8 @@ MOCK_RELEASES_JSON='[[
   {"id": 21, "draft": true, "tag_name": "v2.0.5", "target_commitish": "ea511d977800e3916776ad43d055afd4dcca734f"},
   {"id": 22, "draft": true, "tag_name": "v2.0.5", "target_commitish": "ea511d977800e3916776ad43d055afd4dcca734f"}
 ]]'
-export MOCK_RELEASES_JSON
+MOCK_JQ_OUTPUT=$'21\n22'
+export MOCK_RELEASES_JSON MOCK_JQ_OUTPUT
 if run_resolver; then
   fail_test 'resolver accepted multiple exact drafts'
 fi
@@ -86,7 +111,8 @@ grep -q 'found 2' "$stderr_file" ||
 MOCK_RELEASES_JSON='[[
   {"id": "not-numeric", "draft": true, "tag_name": "v2.0.5", "target_commitish": "ea511d977800e3916776ad43d055afd4dcca734f"}
 ]]'
-export MOCK_RELEASES_JSON
+MOCK_JQ_OUTPUT=not-numeric
+export MOCK_RELEASES_JSON MOCK_JQ_OUTPUT
 if run_resolver; then
   fail_test 'resolver accepted a non-numeric release ID'
 fi
