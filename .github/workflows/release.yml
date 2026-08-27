@@ -178,6 +178,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -224,7 +229,8 @@ jobs:
           \`\`\`
           EOF
 
-          current_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          current_commit=$(scripts/validate-release-ref.zsh \
+            "$RELEASE_TAG" refs/remotes/origin/main origin)
           current_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
           if [[ "$current_commit" != "$RELEASE_COMMIT" ]]; then
             echo "Release tag commit moved from $RELEASE_COMMIT to $current_commit" >&2
@@ -277,7 +283,8 @@ jobs:
             --jq 'select(.draft == true) | .id')
           [[ -n "$draft_id" ]]
 
-          draft_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          draft_commit=$(scripts/validate-release-ref.zsh \
+            "$RELEASE_TAG" refs/remotes/origin/main origin)
           draft_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
           [[ "$draft_commit" == "$RELEASE_COMMIT" ]]
           [[ "$draft_tag_object" == "$RELEASE_TAG_OBJECT" ]]
@@ -289,7 +296,8 @@ jobs:
           draft_created=false
           trap - ERR
 
-          published_commit=$(scripts/validate-release-ref.zsh "$RELEASE_TAG" origin/main origin)
+          published_commit=$(scripts/validate-release-ref.zsh \
+            "$RELEASE_TAG" refs/remotes/origin/main origin)
           published_tag_object=$(git rev-parse "refs/tags/$RELEASE_TAG")
           [[ "$published_commit" == "$RELEASE_COMMIT" ]]
           [[ "$published_tag_object" == "$RELEASE_TAG_OBJECT" ]]

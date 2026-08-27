@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # Static policy checks for release and Pages workflows.
-emulate -L zsh
-set -euo pipefail
+emulate -R zsh
+setopt err_exit no_unset pipe_fail
 
 repo_root=${0:A:h:h:h}
 release="$repo_root/.github/workflows/release.yml"
@@ -19,16 +19,44 @@ grep -q '^        required: true' "$release" ||
 if grep -q '^  push:' "$release"; then
   fail_test 'release workflow still publishes automatically on tag push'
 fi
-grep -q 'validate-release-ref.zsh' "$release" ||
+typeset current_job=''
+typeset line
+typeset -i in_jobs=0
+typeset -i job_has_apt_update=0
+typeset -i job_has_zsh=0
+typeset -i validator_invocations=0
+typeset -i qualified_main_refs=0
+
+while IFS= read -r line || [[ -n $line ]]; do
+  if [[ $line == jobs: ]]; then
+    in_jobs=1
+    continue
+  fi
+  (( in_jobs )) || continue
+
+  if [[ $line == '  '*: && $line != '   '* ]]; then
+    current_job=${${line#  }%:}
+    job_has_apt_update=0
+    job_has_zsh=0
+    continue
+  fi
+
+  [[ $line == *'sudo apt-get update'* ]] && job_has_apt_update=1
+  [[ $line == *'sudo apt-get install -y zsh'* ]] && job_has_zsh=1
+  if [[ $line == *'validate-release-ref.zsh'* ]]; then
+    [[ -n $current_job ]] ||
+      fail_test 'release validator invocation is outside a job'
+    (( ++validator_invocations ))
+    (( job_has_apt_update && job_has_zsh )) ||
+      fail_test "release job $current_job invokes the validator before provisioning Zsh"
+  fi
+done < "$release"
+
+(( validator_invocations > 0 )) ||
   fail_test 'release workflow does not validate the release ref'
-grep -q 'sudo apt-get install -y zsh' "$release" ||
-  fail_test 'release validation does not provision Zsh'
-install_line=$(grep -n -m1 'sudo apt-get install -y zsh' "$release")
-validate_line=$(grep -n -m1 'name: Validate annotated tag' "$release")
-(( ${install_line%%:*} < ${validate_line%%:*} )) ||
-  fail_test 'release validation provisions Zsh after invoking the validator'
-grep -q 'refs/remotes/origin/main origin' "$release" ||
-  fail_test 'release validation does not use a fully qualified main ref'
+qualified_main_refs=$(grep -c 'refs/remotes/origin/main origin' "$release" || true)
+(( qualified_main_refs == validator_invocations )) ||
+  fail_test 'not every release validator invocation uses a fully qualified main ref'
 grep -q -- '--ctest' "$release" ||
   fail_test 'release workflow does not run the full CTest suite'
 grep -q 'needs: validate' "$release" ||
