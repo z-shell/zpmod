@@ -7,6 +7,7 @@
 #include "zpmod.mdh"
 #include "zpmod.pro"
 #include "zpmod_fpath.h"
+#include "zpmod_utils.h"
 #include "zpmod_vendor_shims.h"
 #include <dirent.h>
 #include <stdio.h>
@@ -239,7 +240,7 @@ int cmd_fpath_index(char *nam, char **argv) {
   /* Build / preload */
   FILE *out_fp = stdout;
   if (outfile) {
-    out_fp = fopen(outfile, "w");
+    out_fp = zp_fopen_write_nofollow(outfile, 0644, 0);
     if (!out_fp) {
       zwarnnam(nam, "cannot open for writing: %s", outfile);
       return 1;
