@@ -209,6 +209,8 @@ jobs:
           RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
           RELEASE_COMMIT: ${{ needs.validate.outputs.release_commit }}
           RELEASE_TAG_OBJECT: ${{ needs.validate.outputs.release_tag_object }}
+          ZPMOD_RELEASE_DRAFT_MAX_ATTEMPTS: "6"
+          ZPMOD_RELEASE_DRAFT_DELAY_SECONDS: "2"
         run: |
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
           Cross-platform zsh module release built from commit \`$RELEASE_COMMIT\`.
