@@ -143,6 +143,9 @@ add_zpmod_test(zpmod_source_study core/source_study.zsh
 # performance threshold or regression gate.
 add_zpmod_test(zpmod_benchmark_harness benchmark/harness.zsh
   CATEGORY "benchmark" LABELS "benchmark;smoke" TIMEOUT 30)
+# The harness loads the shared staged module and measures startup behavior.
+# Keep package/install tests from mutating that stage concurrently.
+set_tests_properties(zpmod_benchmark_harness PROPERTIES RUN_SERIAL TRUE)
 
 add_zpmod_test(zpmod_benchmark_publication benchmark/publication.zsh
   CATEGORY "benchmark" LABELS "benchmark;documentation" TIMEOUT 15)
