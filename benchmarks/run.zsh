@@ -279,7 +279,14 @@ ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f "$warm_dir/startup.zsh"
 typeset -a manual_zwc_files=( "$manual_dir"/scripts/*.zwc(N) )
 typeset -a warm_zwc_files=( "$warm_dir"/scripts/*.zwc(N) )
 (( ${#manual_zwc_files} == script_count )) || fail "manual zcompile produced ${#manual_zwc_files} of $script_count expected files"
-(( ${#warm_zwc_files} == script_count )) || fail "zpmod produced ${#warm_zwc_files} of $script_count expected files"
+if (( ${#warm_zwc_files} != script_count )); then
+  print -ru2 -- "benchmark: warm workload directory diagnostics:"
+  command ls -ld -- "$benchmark_root" "$warm_dir" "$warm_dir/scripts" >&2 || true
+  print -ru2 -- "benchmark: warm scripts writable=$([[ -w $warm_dir/scripts ]] && print yes || print no) user=$(id -u):$(id -g)"
+  ZI_MOD_DEBUG=1 ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f "$warm_dir/startup.zsh" >&2 || true
+  warm_zwc_files=( "$warm_dir"/scripts/*.zwc(N) )
+  fail "zpmod produced ${#warm_zwc_files} of $script_count expected files after diagnostic retry"
+fi
 
 prepare_case() {
   builtin emulate -L zsh
