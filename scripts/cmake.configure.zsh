@@ -363,36 +363,34 @@ function _print_artifact_hint() {
 
 if $INSTALL_ZI; then
   _msg "Installing for Zi (ZI[ZMODULES_DIR])"
-  # Resolve Zi modules root
-  zi_modules_root=
-  if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[ZMODULES_DIR]:-} ]]; then
-    zi_modules_root=${ZI[ZMODULES_DIR]}
-  elif [[ -n ${XDG_DATA_HOME:-} && -d ${XDG_DATA_HOME} ]]; then
-    zi_modules_root="$XDG_DATA_HOME/zi/zmodules"
-  else
-    zi_modules_root="$HOME/.zi/zmodules"
-  fi
+  builtin source "$REPO_ROOT/scripts/resolve-zi-paths.zsh" ||
+    _die "Could not load the Zi path resolver"
+  zpmod_resolve_zi_paths || _die "Could not resolve the Zi modules directory"
+  zi_modules_root=$REPLY
+  zi_home=$reply[1]
+  zi_layout=$reply[2]
+  compdir=$reply[3]
+  [[ $zi_layout == ambiguous-* ]] &&
+    _warn "Both legacy and XDG Zi homes were detected; using $zi_home. Set ZI[ZMODULES_DIR] explicitly to select another destination."
   zi_dest="$zi_modules_root/zpmod"
   _copy_so "$STAGED_SO" "$zi_dest" "Zi"
   print -r -- "To load: module_path+=( '$zi_dest' ); zmodload -i zpmod"
 
   # Optionally symlink completion into Zi's completions directory
-  if typeset -p ZI >/dev/null 2>&1 && [[ ${+ZI} -eq 1 && -n ${ZI[COMPLETIONS_DIR]:-} ]]; then
-    compdir=${ZI[COMPLETIONS_DIR]}
   src_comp="$REPO_ROOT/src/completion/_zpmod"
-    if [[ -f $src_comp ]]; then
-      mkdir -p -- "$compdir" || _warn "Cannot create completions dir: $compdir"
-      if [[ -e "$compdir/_zpmod" && ! -L "$compdir/_zpmod" ]]; then
-        _warn "Completion exists and is not a symlink: $compdir/_zpmod (skipping)"
-      else
-        ln -sfn -- "$src_comp" "$compdir/_zpmod" && _ok "Linked completion: $compdir/_zpmod" || _warn "Failed to link completion to $compdir"
-      fi
+  if [[ -f $src_comp ]]; then
+    mkdir -p -- "$compdir" || _warn "Cannot create completions dir: $compdir"
+    if [[ -e "$compdir/_zpmod" && ! -L "$compdir/_zpmod" ]]; then
+      _warn "Completion exists and is not a symlink: $compdir/_zpmod (skipping)"
     else
-      _warn "Completion source not found: $src_comp"
+      ln -sfn -- "$src_comp" "$compdir/_zpmod" &&
+        _ok "Linked completion: $compdir/_zpmod" ||
+        _warn "Failed to link completion to $compdir"
     fi
   else
-    _warn "ZI[COMPLETIONS_DIR] not set; skipping completion link"
+    _warn "Completion source not found: $src_comp"
   fi
+  unfunction zpmod_resolve_zi_paths
 fi
 
 if $INSTALL_USER; then

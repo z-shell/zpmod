@@ -146,6 +146,8 @@ parse_args() {
 done
 }
 parse_args "$@"
+typeset -g ZI_MODE_ACTIVE=0
+typeset -g ZI_MODULES_ROOT= ZI_HOME_DIR= ZI_COMPLETIONS_DIR= ZI_LAYOUT=
 
 # Basic zsh version advisory (not a hard error, but may help debugging older envs)
 if [[ -n ${ZSH_VERSION:-} ]]; then
@@ -164,6 +166,21 @@ if [[ -z $PREFIX ]]; then
     PREFIX=$HOME/.local
   elif (( INSTALL_SYSTEM )); then
     PREFIX=/usr/local
+  elif (( INSTALL_ZI )); then
+    builtin source "$REPO_ROOT/scripts/resolve-zi-paths.zsh" ||
+      _die "Could not load the Zi path resolver" $EXIT_ENV
+    zpmod_resolve_zi_paths ||
+      _die "Could not resolve the Zi modules directory" $EXIT_ENV
+    ZI_MODULES_ROOT=$REPLY
+    ZI_HOME_DIR=$reply[1]
+    ZI_LAYOUT=$reply[2]
+    ZI_COMPLETIONS_DIR=$reply[3]
+    ZI_MODE_ACTIVE=1
+    PREFIX=$ZI_HOME_DIR
+    unfunction zpmod_resolve_zi_paths
+    if [[ $ZI_LAYOUT == ambiguous-* ]]; then
+      _warn "Both legacy and XDG Zi homes were detected; using $ZI_HOME_DIR. Set ZI[ZMODULES_DIR] explicitly to select another destination."
+    fi
   elif [[ -n ${ZPMOD_PREFIX:-} ]]; then
     PREFIX=$ZPMOD_PREFIX
   else
@@ -194,8 +211,13 @@ if (( ! SKIP_COMPLETION )) && [[ ! -f $FUNC_SRC ]]; then
   SKIP_COMPLETION=1
 fi
 
-MOD_DEST_DIR=$DESTDIR$PREFIX/$MODULE_DIR_REL
-FUNC_DEST_DIR=$DESTDIR$PREFIX/share/zsh/site-functions
+if (( ZI_MODE_ACTIVE )); then
+  MOD_DEST_DIR=$DESTDIR$ZI_MODULES_ROOT/zpmod
+  FUNC_DEST_DIR=$DESTDIR$ZI_COMPLETIONS_DIR
+else
+  MOD_DEST_DIR=$DESTDIR$PREFIX/$MODULE_DIR_REL
+  FUNC_DEST_DIR=$DESTDIR$PREFIX/share/zsh/site-functions
+fi
 
 mkdir_p() {
   local d=$1
@@ -240,7 +262,7 @@ fi
 if (( DRY_RUN )); then
   _info "[dry-run] Installation summary"
 else
-  _info "Installed zpmod to $PREFIX ($MODULE_DIR_REL)"
+  _info "Installed zpmod to $MOD_DEST_DIR"
 fi
 
 if (( PRINT_PATHS )); then
@@ -249,7 +271,14 @@ if (( PRINT_PATHS )); then
 fi
 
 # Suggest user configuration if local prefix
-if (( ! QUIET )) && [[ $PREFIX == $HOME/.local ]]; then
+if (( ! QUIET && ZI_MODE_ACTIVE )); then
+  cat <<EOF
+Add to your ~/.zshrc if not already present:
+
+  module_path+=( "$MOD_DEST_DIR" )
+  zmodload -i zpmod
+EOF
+elif (( ! QUIET )) && [[ $PREFIX == $HOME/.local ]]; then
   cat <<EOF
 Add to your ~/.zshrc if not already present:
 
@@ -268,7 +297,7 @@ if (( VERIFY_LOAD )); then
     tmp_script=$(mktemp)
     cat > "$tmp_script" <<EOS
   emulate -LR zsh
-  module_path=( "$PREFIX/$MODULE_DIR_REL" $module_path )
+  module_path=( "$MOD_DEST_DIR" $module_path )
   zmodload -i zpmod || { print -u2 'Failed to load zpmod'; exit 1 }
   # Try calling a benign builtin (if any) or just print success
   print 'zpmod: load OK'
