@@ -139,6 +139,14 @@ add_zpmod_test(zpmod_process_substitution_source builtin/process_substitution_so
 add_zpmod_test(zpmod_source_study core/source_study.zsh
   CATEGORY "core" LABELS "source-study")
 
+# Benchmark harness integrity. This is a functional smoke check, not a
+# performance threshold or regression gate.
+add_zpmod_test(zpmod_benchmark_harness benchmark/harness.zsh
+  CATEGORY "benchmark" LABELS "benchmark;smoke" TIMEOUT 30)
+
+add_zpmod_test(zpmod_benchmark_publication benchmark/publication.zsh
+  CATEGORY "benchmark" LABELS "benchmark;documentation" TIMEOUT 15)
+
 # zpreadarray builtin tests
 add_zpmod_test(zpmod_zpreadarray builtin/zpreadarray.zsh
   CATEGORY "builtin" LABELS "zpreadarray;comprehensive")

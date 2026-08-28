@@ -17,9 +17,10 @@ The zpmod project uses a lightweight, dependency-free testing approach based on:
 
 All tests are under `tests/`:
 
-- `test_helpers.zsh` — Shared assertion functions and utilities
-- `test_template.zsh` — Template for creating new tests
+- `test_helpers.zsh`: Shared assertion functions and utilities
+- `test_template.zsh`: Template for creating new tests
 - Suites in subfolders: `core/`, `builtin/`, `command/`, `filesystem/`, `file_io/`, `platform/`
+- Benchmark harness smoke coverage: `benchmark/harness.zsh`
 
 ### Naming
 
@@ -30,12 +31,13 @@ All tests are under `tests/`:
 
 ### Categories
 
-- `core/` — Smoke and core availability
-- `builtin/` — Builtins like zpreadarray, custom_dot
-- `command/` — `zpmod` CLI and subcommands
-- `filesystem/` — Directory listing and path stat helpers
-- `file_io/` — File reading and parsing
-- `platform/` — OS-specific behaviors
+- `core/`: Smoke and core availability
+- `builtin/`: Builtins like zpreadarray, custom_dot
+- `command/`: `zpmod` CLI and subcommands
+- `filesystem/`: Directory listing and path stat helpers
+- `file_io/`: File reading and parsing
+- `platform/`: OS-specific behaviors
+- `benchmark/`: Benchmark output and renderer integrity, without timing thresholds
 
 ## Writing Tests
 
@@ -286,7 +288,7 @@ Permission errors:
 - Test coverage reporting
 - Faster/parallelized execution
 - CI improvements
-- Performance benchmarks
+- Cross-release benchmark trend views after multiple comparable result sets exist
 - Integration test categories
 
 ---

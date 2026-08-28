@@ -123,6 +123,12 @@ lint:
         - "**/stage/**"
         - ".trunk/out/**"
         - "compile_commands.json"
+    # Published benchmark views are deterministic renderer output. Keep their
+    # byte identity with the TSV source instead of applying a second formatter.
+    - linters: [prettier]
+      paths:
+        - "benchmarks/results/**/*.json"
+        - "benchmarks/results/**/*.md"
     # Avoid running shellcheck & shfmt on zsh/ztst files (not supported and risky)
     - linters: [shellcheck, shfmt]
       paths:

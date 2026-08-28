@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title description" viewBox="0 0 960 438">
+  <title id="title">zpmod startup benchmark</title>
+  <desc id="description">Median startup time bars and p95 markers for plain source, zpmod first run, zpmod warm, and manual compiled Zsh workloads. Exact values follow the chart in the benchmark report.</desc>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <style>text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:#172033}.title{font-family:system-ui,sans-serif;font-weight:700}.subtitle{font-family:system-ui,sans-serif;fill:#4b5563}.track{fill:#eef2f7}.bar{fill:#1769aa}.marker{stroke:#d1495b;stroke-width:4}.axis{stroke:#8091a5;stroke-width:1}.value{font-weight:700}</style>
+  <text class="title" x="30" y="38" font-size="24">Startup cost by compilation mode</text>
+  <text class="subtitle" x="30" y="66" font-size="14">Linux x86_64 local runner, 30 runs, lower is better</text>
+  <rect x="30" y="82" width="16" height="12" fill="#1769aa"/><text x="54" y="93" font-size="13">median</text>
+  <line class="marker" x1="132" x2="132" y1="80" y2="96"/><text x="142" y="93" font-size="13">p95</text>
+  <line class="axis" x1="245" x2="835" y1="104" y2="104"/>
+  <text x="30" y="136" font-size="15">Plain source</text>
+  <rect class="track" x="245" y="118" width="590" height="24" rx="4"/>
+  <rect class="bar" x="245" y="118" width="440.32" height="24" rx="4"/>
+  <line class="marker" x1="752.60" x2="752.60" y1="114" y2="146"/>
+  <text class="value" x="850" y="136" font-size="14">11.564 ms</text>
+  <text x="30" y="208" font-size="15">zpmod first run</text>
+  <rect class="track" x="245" y="190" width="590" height="24" rx="4"/>
+  <rect class="bar" x="245" y="190" width="509.39" height="24" rx="4"/>
+  <line class="marker" x1="835.00" x2="835.00" y1="186" y2="218"/>
+  <text class="value" x="850" y="208" font-size="14">13.378 ms</text>
+  <text x="30" y="280" font-size="15">zpmod warm</text>
+  <rect class="track" x="245" y="262" width="590" height="24" rx="4"/>
+  <rect class="bar" x="245" y="262" width="155.43" height="24" rx="4"/>
+  <line class="marker" x1="405.30" x2="405.30" y1="258" y2="290"/>
+  <text class="value" x="850" y="280" font-size="14">4.082 ms</text>
+  <text x="30" y="352" font-size="15">Manual .zwc</text>
+  <rect class="track" x="245" y="334" width="590" height="24" rx="4"/>
+  <rect class="bar" x="245" y="334" width="143.17" height="24" rx="4"/>
+  <line class="marker" x1="392.74" x2="392.74" y1="330" y2="362"/>
+  <text class="value" x="850" y="352" font-size="14">3.760 ms</text>
+  <text class="subtitle" x="30" y="418" font-size="12">Bars show medians. Red markers show p95. See benchmark.md for raw context and exact values.</text>
+</svg>
