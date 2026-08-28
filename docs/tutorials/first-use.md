@@ -33,8 +33,8 @@ module_path+=("/absolute/path/from/RESOLVED_MODULE_DIR")
 zmodload -i zpmod
 ```
 
-Replace the placeholder with the exact `RESOLVED_MODULE_DIR` printed by the
-installer. This remains correct for explicit, legacy, and XDG Zi layouts.
+Replace the placeholder with the exact `RESOLVED_MODULE_DIR` printed by the installer. This remains correct for explicit, legacy, and XDG Zi
+layouts.
 
 ## 3. Start a New Shell
 
@@ -66,9 +66,8 @@ You will see a list like:
 Pick a sourced script from the list, and look for a sibling `script.zwc`. If it exists and timestamps match or are newer, zpmod is
 successfully compiling.
 
-The installed module is architecture- and Zsh-ABI-sensitive. If your Zi data
-home is shared across different machines or Zsh builds, use a machine-local
-explicit destination or rebuild zpmod in each environment.
+The installed module is architecture- and Zsh-ABI-sensitive. If your Zi data home is shared across different machines or Zsh builds, use a
+machine-local explicit destination or rebuild zpmod in each environment.
 
 ## 6. Enable Debug (Optional)
 

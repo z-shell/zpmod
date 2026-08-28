@@ -1,7 +1,11 @@
 # ZPMod C/C++ Code Formatting Configuration
 # Based on Linux kernel style with ZPMod-specific adaptations
+#
+# No explicit `Language:` key. clang-format 20 split `C` out of `Cpp`, so a
+# config pinned to `Language: Cpp` is rejected as "Unsuitable" for .c files by
+# clang-format >= 20 while remaining valid on 16. Omitting the key lets the
+# tool infer the language per file and keeps one config valid across versions.
 ---
-Language: Cpp
 BasedOnStyle: LLVM
 
 # Indentation and spacing
@@ -30,7 +34,6 @@ AllowAllParametersOfDeclarationOnNextLine: false
 BinPackParameters: false
 BinPackArguments: false
 AlignAfterOpenBracket: Align
-AlignParameters: true
 
 # Alignment
 AlignArrayOfStructures: Right

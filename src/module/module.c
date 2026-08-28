@@ -26,39 +26,47 @@ static struct builtin bintab[] = {
     BUILTIN("zpmod", 0, bin_zpmod, 0, -1, 0, "hV", NULL),
 };
 
-static struct features module_features = {
-    bintab, (int)(sizeof(bintab) / sizeof(*bintab)), NULL, 0, NULL, 0, NULL, 0,
-    0};
+static struct features module_features = {bintab, (int)(sizeof(bintab) / sizeof(*bintab)), NULL, 0, NULL, 0, NULL, 0, 0};
 
 /** Module setup: initialize option mapping and install source overrides. */
-int setup_(UNUSED(Module m)) {
-  extern void zp_setup_options_table(void);
-  zp_setup_options_table();
+int setup_(UNUSED(Module m))
+{
+    extern void zp_setup_options_table(void);
+    zp_setup_options_table();
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
-  extern void zp_source_setup_overrides(void);
-  zp_source_setup_overrides();
+    extern void zp_source_setup_overrides(void);
+    zp_source_setup_overrides();
 #endif
-  return 0;
+    return 0;
 }
 
 /** Provide feature list (builtins) to zsh. */
-int features_(Module m, char ***features) {
-  *features = featuresarray(m, &module_features);
-  return 0;
+int features_(Module m, char ***features)
+{
+    *features = featuresarray(m, &module_features);
+    return 0;
 }
 /** Enable/disable builtins as requested by the shell. */
-int enables_(Module m, int **enables) {
-  return handlefeatures(m, &module_features, enables);
+int enables_(Module m, int **enables)
+{
+    return handlefeatures(m, &module_features, enables);
 }
 /** Optional early boot hook (unused). */
-int boot_(UNUSED(Module m)) { return 0; }
+int boot_(UNUSED(Module m))
+{
+    return 0;
+}
 /** Cleanup features when unloading. */
-int cleanup_(Module m) { return setfeatureenables(m, &module_features, NULL); }
+int cleanup_(Module m)
+{
+    return setfeatureenables(m, &module_features, NULL);
+}
 /** Finalize module: restore original source handlers. */
-int finish_(UNUSED(Module m)) {
+int finish_(UNUSED(Module m))
+{
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
-  extern void zp_source_restore_overrides(void);
-  zp_source_restore_overrides();
+    extern void zp_source_restore_overrides(void);
+    zp_source_restore_overrides();
 #endif
-  return 0;
+    return 0;
 }

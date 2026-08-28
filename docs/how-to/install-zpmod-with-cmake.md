@@ -41,12 +41,10 @@ zmodload -i zpmod
 
 Tip: the script prints a ready-to-copy hint after installing; you can paste that into your `~/.zshrc`.
 
-For `--install-zi`, an active `ZI[ZMODULES_DIR]` wins. Without a loaded Zi, the
-helper retains a recognized legacy `$HOME/.zi` installation; otherwise it uses
-`${XDG_DATA_HOME}/zi` when the variable is absolute, or
-`$HOME/.local/share/zi` when it is unset, empty, or relative. It creates no
-parallel installation and performs no migration. Set `ZI[ZMODULES_DIR]`
-explicitly before running the helper to select a custom Zi destination.
+For `--install-zi`, an active `ZI[ZMODULES_DIR]` wins. Without a loaded Zi, the helper retains a recognized legacy `$HOME/.zi` installation;
+otherwise it uses `${XDG_DATA_HOME}/zi` when the variable is absolute, or `$HOME/.local/share/zi` when it is unset, empty, or relative. It
+creates no parallel installation and performs no migration. Set `ZI[ZMODULES_DIR]` explicitly before running the helper to select a custom
+Zi destination.
 
 ## Build performance options
 
@@ -71,9 +69,8 @@ Notes:
 
 - LTO may increase link time but can improve runtime performance.
 - `-march=native` generates code optimized for your CPU and may not run on older/different machines.
-- A zpmod binary is also tied to its operating system, architecture, and Zsh
-  ABI. Do not reuse one shared Zi-data copy across incompatible environments;
-  rebuild it or use a machine-local explicit destination.
+- A zpmod binary is also tied to its operating system, architecture, and Zsh ABI. Do not reuse one shared Zi-data copy across incompatible
+  environments; rebuild it or use a machine-local explicit destination.
 
 ## Notes
 

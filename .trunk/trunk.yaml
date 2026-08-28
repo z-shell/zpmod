@@ -4,7 +4,7 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.7.2
+      ref: v1.11.0
       uri: https://github.com/trunk-io/plugins
 lint:
   # Don't skip clang tools just because compile_commands.json is missing;
@@ -20,40 +20,53 @@ lint:
     # IWYU conflicts with our gateway include pattern (zpmod.mdh/pro)
     - include-what-you-use
   enabled:
+    - pinact@4.1.1
     - pragma-once
-    - hadolint@2.13.1
+    - hadolint@2.15.1
     - clang-tidy@16.0.3
-    - clang-format@16.0.3
-    - gitleaks@8.28.0
-    - prettier@3.6.2
-    - actionlint@1.7.7
-    - markdownlint@0.45.0
-    - yamllint@1.37.1
+    - clang-format@20.1.0
+    - gitleaks@8.30.1
+    - prettier@3.9.6
+    - actionlint@1.7.12
+    - markdownlint@0.49.1
+    - yamllint@1.38.0
     - git-diff-check
-    - shfmt@3.6.0
+    - shfmt@3.13.1
     - shellcheck@0.11.0
   # Ensure compile_commands.json exists before clang-tidy runs by adding a
   # lightweight prepare step to its lint command. This keeps generation inside
   # trunk runs (CLI/CI/IDE) instead of relying only on git hooks.
   definitions:
+    - name: git-diff-check
+      # Trunk stages targets in a temporary directory. zpmod is a submodule
+      # whose checked-out `.git` file has a path relative to its real root, so
+      # running plain `git diff --check` from that staging directory cannot
+      # resolve the gitdir. Anchor the command at the actual workspace instead.
+      commands:
+        - name: lint
+          output: regex
+          parse_regex: "((?P<path>.*):(?P<line>-?\\d+):(?P<message>.*))"
+          success_codes: [0, 1, 2]
+          run: git -C "${workspace}" diff --check ${target}
+          read_output_from: stdout
+          batch: true
+      environment:
+        - name: PATH
+          list: ["${env.PATH}"]
     - name: clang-tidy
       # Ensure compile_commands.json is generated before Trunk scans it.
       prepare_command:
         - /bin/sh
         - -lc
         - /bin/sh ./scripts/gen-compile-commands.sh
-      # Force clang-tidy to read our pinned config
+      # Keep the root config in Trunk's cache key. clang-tidy discovers the
+      # root `.clang-tidy` while the plugin retains its fixes-file protocol.
       direct_configs:
-        - .trunk/configs/.clang-tidy
-      commands:
-        - name: lint
-          output: llvm
-          run: clang-tidy --config-file=./.trunk/configs/.clang-tidy ${target} -p ${compile_commands_dir}
-          success_codes: [0, 1]
-          read_output_from: stdout
-          run_from: workspace
-          run_when: [cli, monitor, ci]
-          max_concurrency: 4
+        - .clang-tidy
+      # Leave the plugin's command intact. Its `--export-fixes=${tmpfile}` and
+      # `read_output_from: tmp_file` are the protocol Trunk uses to parse
+      # clang-tidy results. Replacing it with stdout diagnostics makes Trunk
+      # parse text such as `file.c:line:column` as a fixes YAML document.
       environment:
         # Ensure clang-tidy runs with both its tool bin and the existing PATH so cmake is resolvable
         - name: PATH
@@ -72,11 +85,31 @@ lint:
       commands:
         - name: format
           output: rewrite
-          run: clang-format -i -style=file -assume-filename=./.trunk/configs/.clang-format "${target}"
+          # `-style=file` searches upward from the *source file* for a
+          # `.clang-format`, and `-assume-filename` only names the file being
+          # formatted; it does not select a config. Because no `.clang-format`
+          # exists at the repo root, the old invocation silently fell back to
+          # built-in LLVM defaults (80-column, 2-space) and the pinned config
+          # under .trunk/configs was never applied. `--style=file:<path>` loads
+          # that exact file.
+          run: clang-format -i "--style=file:${workspace}/.trunk/configs/.clang-format" "${target}"
           formatter: true
           in_place: true
           success_codes: [0]
           run_from: workspace
+    - name: shfmt
+      # Git's configured whitespace policy rejects tab-indented additions in
+      # this repository. Pin two-space indentation rather than shfmt's default
+      # tabs, and keep it aligned with .editorconfig.
+      commands:
+        - name: format
+          output: shfmt
+          run: shfmt -w -s -i 2 ${target}
+          success_codes: [0, 1]
+          cache_results: true
+          formatter: true
+          batch: true
+          in_place: true
   ignore:
     # Exclude vendor and build outputs across all linters
     - linters: [ALL]
@@ -95,12 +128,11 @@ lint:
       paths:
         - "**/*.zsh"
         - "**/*.ztst"
+    # Keep clang-format/clang-tidy on our C sources/headers and exclude
+    # unrelated directories.
     - linters: [clang-tidy, clang-format]
       paths:
         - ".github/**"
-    # Keep clang-format/clang-tidy on our C sources/headers and exclude unrelated dirs
-    - linters: [clang-tidy, clang-format]
-      paths:
         - "docs/**"
         - "tests/**"
         - "scripts/**"
@@ -109,8 +141,12 @@ lint:
         - "src/completion/**"
 runtimes:
   enabled:
-    - python@3.11.1
-    - go@1.21.0
+    - python@3.14.4
+    # gitleaks 8.30.1 requires go >= 1.24.11. A lower pin makes the hermetic
+    # `go install` fall back to downloading a newer toolchain, which is slow and
+    # frequently fails, leaving an empty tool dir and "Unable to find binary in
+    # PATH: gitleaks" on every subsequent run.
+    - go@1.25.13
     - node@24.8.0
 actions:
   enabled:
