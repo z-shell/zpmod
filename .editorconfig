@@ -1,21 +1,19 @@
-# Space or Tabs?
-# https://stackoverflow.com/questions/35649847/objective-reasons-for-using-spaces-instead-of-tabs-for-indentation
-# https://stackoverflow.com/questions/12093748/how-to-use-tabs-instead-of-spaces-in-a-shell-script
-# https://github.com/editorconfig/editorconfig-defaults/blob/master/editorconfig-defaults.json
+# EditorConfig for zpmod: https://editorconfig.org
 #
-# 1. What happens when I press the Tab key in my text editor?
-# 2. What happens when I request my editor to indent one or more lines?
-# 3. What happens when I view a file containing U+0009 HORIZONTAL TAB characters?
+# zpmod is a compiled Zsh module. The languages actually present in this
+# repository are C (src/), Zsh (tests/, src/completion/), CMake, POSIX sh
+# (scripts/, docker/), Markdown, YAML, and Dockerfiles. Sections for languages
+# this repository does not contain are intentionally absent.
 #
-# Answers:
+# Indentation here must agree with the Trunk formatters in .trunk/configs,
+# because shfmt and clang-format both read .editorconfig:
+#   - C sources follow .trunk/configs/.clang-format (IndentWidth 4).
+#   - Shell scripts use two spaces, matching the repository's Git whitespace
+#     policy (which rejects tabs in added indentation). shfmt is configured with
+#     `-i 2` in .trunk/trunk.yaml so the tools agree.
 #
-# 1. Pressing the Tab key should indent the current line (or selected lines) one additional level.
-# 2. As a secondary alternative, I can also tolerate an editor that,
-#    like Emacs, uses this key for a context-sensitive fix-my-indentation command.
-# 3. Indenting one or more lines should follow the reigning convention, if consensus is sufficiently strong; otherwise,
-#    I greatly prefer 2-space indentation at each level. U+0009 characters should shift subsequent characters to the next tab stop.
-#
-# Note: VIM users should use alternate marks [[[ and ]]] as the original ones can confuse nested substitutions, e.g.: ${${${VAR}}}
+# Note: Zsh users should use alternate marks [[[ and ]]] as the original ones
+# can confuse nested substitutions, e.g.: ${${${VAR}}}
 #
 # -*- mode: zsh; sh-indentation: 2; indent-tabs-mode: nil; sh-basic-offset: 2; -*-
 # vim: ft=zsh sw=2 ts=2 et
@@ -24,37 +22,45 @@ root = true
 
 [*]
 charset = utf-8
+end_of_line = lf
 indent_style = space
 indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.sln]
-indent_style = tab
+# C sources and headers. Must match IndentWidth/UseTab in
+# .trunk/configs/.clang-format.
+[*.{c,h}]
+indent_size = 4
 
-[*.{md,mdx,rst}]
-trim_trailing_whitespace = false
+# Zsh sources: plugin code, test suites, and completions.
+[*.{zsh,ztst}]
+indent_size = 2
 
-[*.{cmd,bat}]
-end_of_line = crlf
+[_*]
+indent_size = 2
 
-[*za-*]
-end_of_line = lf
+# POSIX sh helper scripts.
+[*.sh]
+indent_size = 2
 
-[*.{sh,bash,zsh,fish}]
-end_of_line = lf
+# Build system.
+[{CMakeLists.txt,*.cmake,*.cmake.in}]
+indent_size = 2
 
 [Makefile]
 indent_style = tab
 indent_size = 4
 
-[*.{py,rb}]
+# Docs and data. Trailing whitespace is significant in Markdown line breaks.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[Dockerfile*]
 indent_size = 4
 
-[*.{go,java,scala,groovy,kotlin}]
-indent_style = tab
+[*.Dockerfile]
 indent_size = 4
-
-[*.{cs,csx,cake,vb,vbx}]
-# Default Severity for all .NET Code Style rules below
-dotnet_analyzer_diagnostic.severity = warning

@@ -8,8 +8,7 @@ module_path+=("/absolute/path/from/RESOLVED_MODULE_DIR")
 zmodload zpmod
 ```
 
-Use the exact `RESOLVED_MODULE_DIR` printed by the installer in place of the
-placeholder.
+Use the exact `RESOLVED_MODULE_DIR` printed by the installer in place of the placeholder.
 
 You will see warnings when compilation is skipped or when a file cannot be accessed.
 

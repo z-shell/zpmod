@@ -1,0 +1,81 @@
+# ZPMod clang-tidy configuration.
+#
+# `Checks` is a YAML folded scalar: every line inside it is literal text, so a
+# `#` line is NOT a comment there. It is folded into the check list and glues
+# itself to the following entry (e.g. `params.epro) -misc-no-recursion`), which
+# silently voids that negation. Keep the scalar free of `#` and put rationale in
+# real YAML comments outside it, as below.
+#
+# Rationale for the disables:
+#   misc-include-cleaner .............. flaps on generated/indirect headers (params.epro)
+#   bugprone-easily-swappable-parameters  noisy for C/qsort-style APIs
+#   misc-no-recursion ................. recursion is fine for some traversals
+#   cppcoreguidelines-*, google-*,
+#   modernize-*, performance-* ........ C++-only suites; this is a C project
+#   readability-identifier-length ..... zsh module style uses short names
+#   bugprone-lambda-function-name ..... C++-only construct
+#   bugprone-reserved-identifier ...... zsh vendor headers use underscore prefixes
+#   readability-magic-numbers ......... too noisy for this codebase
+#   bugprone-assignment-in-if-condition,
+#   bugprone-narrowing-conversions,
+#   bugprone-implicit-widening-of-multiplication-result,
+#   bugprone-signed-char-misuse ....... style-mismatched for zsh C modules
+#   clang-analyzer-security.insecureAPI.strcpy,
+#   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeFunctions,
+#   clang-analyzer-core.NullDereference  zsh macro-heavy control flow
+Checks: >-
+  clang-analyzer-*,
+  bugprone-*,
+  misc-*,
+  portability-*,
+  readability-*,
+  -misc-include-cleaner,
+  -bugprone-easily-swappable-parameters,
+  -misc-no-recursion,
+  -cppcoreguidelines-*,
+  -google-*,
+  -modernize-*,
+  -performance-*,
+  -readability-identifier-length,
+  -bugprone-assignment-in-if-condition,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-signed-char-misuse,
+  -clang-analyzer-security.insecureAPI.strcpy,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeFunctions,
+  -clang-analyzer-core.NullDereference,
+  -bugprone-lambda-function-name,
+  -bugprone-reserved-identifier,
+  -readability-magic-numbers
+
+# Only analyze project sources; vendored zsh and build artifacts are excluded.
+# This is a top-level clang-tidy option, not a CheckOptions entry.
+HeaderFilterRegex: "^(src|tests)/"
+
+CheckOptions:
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 100
+  - key: readability-function-cognitive-complexity.IgnoreMacros
+    value: true
+  # Lightweight guard against drifting complexity (still permissive).
+  - key: readability-function-cognitive-complexity.WarnThreshold
+    value: 60
+  # Functions intentionally large due to switch tables.
+  - key: readability-function-cognitive-complexity.IgnoredFunctions
+    value: "cmd_fpath_index|custom_source|zp_compaudit_cache_core"
+  - key: bugprone-suspicious-string-compare.WarnOnLogicalNotComparison
+    value: false
+  - key: readability-identifier-naming.IgnoreMainLikeFunctions
+    value: true
+  # Relax identifier length for zsh-style short names.
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: 1
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: 1
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: "i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e"
+  - key: readability-identifier-length.IgnoredParameterNames
+    value: "i|j|k|s|t|fd|cj|us|st|hn|pm|ht|np|pp|bn|po|o|v|d|e"
+
+# NOTE: consider periodically lowering the cognitive-complexity threshold once
+# large legacy functions are refactored.
