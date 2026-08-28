@@ -276,7 +276,7 @@ set_tests_properties(include_order_check PROPERTIES
 
 # Test summary and organization
 message(STATUS "zpmod test suite configured:")
-message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform")
+message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform, benchmark")
 message(STATUS "  Total tests: ${CMAKE_CURRENT_LIST_DIR} test files")
 message(STATUS "  Enhanced features: timeout control, test categories, improved reporting")
 

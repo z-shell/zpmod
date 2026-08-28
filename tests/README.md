@@ -19,8 +19,7 @@ All tests are under `tests/`:
 
 - `test_helpers.zsh`: Shared assertion functions and utilities
 - `test_template.zsh`: Template for creating new tests
-- Suites in subfolders: `core/`, `builtin/`, `command/`, `filesystem/`, `file_io/`, `platform/`
-- Benchmark harness smoke coverage: `benchmark/harness.zsh`
+- Suites in subfolders: `core/`, `builtin/`, `command/`, `filesystem/`, `file_io/`, `platform/`, `benchmark/`
 
 ### Naming
 
