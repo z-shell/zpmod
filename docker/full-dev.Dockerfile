@@ -41,6 +41,15 @@ RUN chown -R zp:zp /workspace
 # Switch to non-root user
 USER zp
 
+# Fresh submodule checkouts do not contain Zsh's ignored generated headers.
+# Build the vendored source to generate the headers before configuring zpmod.
+RUN cd vendor/zsh && \
+        ./Util/preconfig && \
+        ./configure && \
+        make -j 2 && \
+        test -s config.h && \
+        test -s Src/zsh.mdh
+
 RUN rm -rf build-cmake && \
         cmake -S . -B build-cmake \
             -DCMAKE_BUILD_TYPE=Release \

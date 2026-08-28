@@ -139,6 +139,14 @@ add_zpmod_test(zpmod_process_substitution_source builtin/process_substitution_so
 add_zpmod_test(zpmod_source_study core/source_study.zsh
   CATEGORY "core" LABELS "source-study")
 
+# Benchmark harness integrity. This is a functional smoke check, not a
+# performance threshold or regression gate.
+add_zpmod_test(zpmod_benchmark_harness benchmark/harness.zsh
+  CATEGORY "benchmark" LABELS "benchmark;smoke" TIMEOUT 30)
+
+add_zpmod_test(zpmod_benchmark_publication benchmark/publication.zsh
+  CATEGORY "benchmark" LABELS "benchmark;documentation" TIMEOUT 15)
+
 # zpreadarray builtin tests
 add_zpmod_test(zpmod_zpreadarray builtin/zpreadarray.zsh
   CATEGORY "builtin" LABELS "zpreadarray;comprehensive")
@@ -268,7 +276,7 @@ set_tests_properties(include_order_check PROPERTIES
 
 # Test summary and organization
 message(STATUS "zpmod test suite configured:")
-message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform")
+message(STATUS "  Test categories: core, builtin, command, filesystem, file_io, platform, benchmark")
 message(STATUS "  Total tests: ${CMAKE_CURRENT_LIST_DIR} test files")
 message(STATUS "  Enhanced features: timeout control, test categories, improved reporting")
 

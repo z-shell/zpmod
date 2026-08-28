@@ -1,0 +1,81 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: Measure Startup Modes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          submodules: recursive
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@0d6a7d60b009d01c9e7523be22153ff8f19460d3 # v2.2.0
+        with:
+          cmake-version: "3.20"
+
+      - name: Set up Ninja
+        uses: seanmiddleditch/gha-setup-ninja@96bed6edff20d1dd61ecff9b75cc519d516e6401 # v5
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential autoconf automake libtool pkg-config \
+            texinfo yodl libncurses5-dev libpcre3-dev libgdbm-dev zsh
+
+      - name: Build release module
+        shell: zsh {0}
+        run: |
+          scripts/cmake.configure.zsh \
+            --generator ninja \
+            --build-type Release \
+            --verbose
+
+      - name: Run benchmark harness test
+        env:
+          ZPMOD_STAGE_MODULE_DIR: build-cmake/stage/lib/zsh/site-modules
+        run: zsh -f tests/benchmark/harness.zsh
+
+      - name: Capture benchmark evidence
+        run: |
+          cpu_label="$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n 1)"
+          compiler_label="$(cc --version | head -n 1)"
+          zsh -f benchmarks/run.zsh \
+            --module-dir build-cmake/stage/lib/zsh/site-modules \
+            --output-dir benchmark-output \
+            --source-revision "${GITHUB_SHA}" \
+            --environment "GitHub-hosted ubuntu-24.04 x86_64" \
+            --cpu "${cpu_label}" \
+            --compiler "${compiler_label}" \
+            --module-origin "source build from GitHub checkout" \
+            --scripts 40 \
+            --functions 30 \
+            --warmups 5 \
+            --runs 30
+          zsh -f benchmarks/render.zsh \
+            --input benchmark-output/benchmark.tsv \
+            --svg benchmark-output/benchmark.svg \
+            --markdown benchmark-output/benchmark.md
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: benchmark-${{ github.sha }}
+          path: benchmark-output/
+          retention-days: 30
+          if-no-files-found: error
