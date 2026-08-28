@@ -8,8 +8,8 @@ plugin manager does not compile plugins itself (and setups that don't use a plug
 ## Quick start
 
 ```zsh
-# Add to the top of ~/.zshrc
-module_path+=("${HOME}/.zi/zmodules/zpmod")
+# Use the RESOLVED_MODULE_DIR printed by the installer.
+module_path+=("/absolute/path/from/RESOLVED_MODULE_DIR")
 zmodload -i zpmod
 
 # After the shell starts, profile sourced scripts
@@ -23,6 +23,12 @@ zpmod source-study
 - Install with the CMake helper (`zi`, user, or system scope): see
   [docs/how-to/install-zpmod-with-cmake.md](docs/how-to/install-zpmod-with-cmake.md).
 - Install to a custom directory: see [docs/how-to/install-custom-dir.md](docs/how-to/install-custom-dir.md).
+
+`--install-zi` follows Zi's active path configuration. Without a loaded Zi, it
+retains a recognized legacy `$HOME/.zi` home and otherwise uses the absolute
+XDG data home or `$HOME/.local/share`. It never migrates data automatically.
+Because zpmod is a compiled module, rebuild it for each incompatible operating
+system, architecture, or Zsh version instead of sharing one binary install.
 
 ## Compatibility
 

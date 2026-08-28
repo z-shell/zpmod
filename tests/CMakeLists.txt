@@ -35,6 +35,12 @@ set_tests_properties(compatibility_policy PROPERTIES
   TIMEOUT 20
   LABELS "ci;compat;package")
 
+add_test(NAME zi_path_resolution
+  COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/ci/zi_path_resolution.zsh)
+set_tests_properties(zi_path_resolution PROPERTIES
+  TIMEOUT 20
+  LABELS "ci;paths;install")
+
 add_test(NAME package_license_payload
   COMMAND ${ZSH_EXECUTABLE} -f ${CMAKE_CURRENT_SOURCE_DIR}/package/license_payload.zsh)
 set_tests_properties(package_license_payload PROPERTIES

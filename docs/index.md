@@ -10,8 +10,8 @@ Welcome to the zpmod documentation. This site follows the Divio documentation st
 ## Quick Start
 
 ```zsh
-# Add to top of ~/.zshrc
-module_path+=("${HOME}/.zi/zmodules/zpmod")
+# Paste the RESOLVED_MODULE_DIR printed by the installer.
+module_path+=("/absolute/path/from/RESOLVED_MODULE_DIR")
 zmodload -i zpmod
 
 # After shell start, profile sourced scripts
