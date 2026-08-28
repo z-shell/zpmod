@@ -40,10 +40,7 @@ TRAPTERM() {
   exit 143
 }
 
-# Docker overlay filesystems can report a false negative to zpmod's advisory
-# access() precheck. Diagnostic mode bypasses that precheck; the harness still
-# requires zcompile to create every expected .zwc file.
-ZI_MOD_DEBUG=1 zsh -f "$repository_root/benchmarks/run.zsh" \
+zsh -f "$repository_root/benchmarks/run.zsh" \
   --module-dir "$module_dir" \
   --output-dir "$test_root/output" \
   --source-revision test \

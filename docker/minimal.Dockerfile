@@ -5,6 +5,7 @@ FROM ubuntu:22.04
 # Install minimal dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    autoconf \
     cmake \
     zsh \
     git \
@@ -36,6 +37,13 @@ RUN chown -R zp:zp /workspace
 
 # Switch to non-root user
 USER zp
+
+# Fresh submodule checkouts do not contain the ignored config.h. Generate it
+# before CMake configures zpmod so CI does not compile against the placeholder.
+RUN cd vendor/zsh && \
+        ./Util/preconfig && \
+        ./configure && \
+        test -s config.h
 
 RUN rm -rf build-cmake && \
         cmake -S . -B build-cmake \
