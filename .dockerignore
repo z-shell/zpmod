@@ -5,6 +5,28 @@ build-*/
 *.so
 *.a
 
+# Ignored vendored-Zsh configuration artifacts are generated in the image.
+vendor/zsh/config.h
+vendor/zsh/config.log
+vendor/zsh/config.modules*
+vendor/zsh/config.status
+vendor/zsh/configure
+vendor/zsh/Makefile
+vendor/zsh/Config/defs.mk
+vendor/zsh/Src/Makefile
+vendor/zsh/Src/Makemod
+vendor/zsh/Src/Makemod.in
+vendor/zsh/Src/bltinmods.list
+vendor/zsh/Src/*.epro
+vendor/zsh/Src/*.export
+vendor/zsh/Src/*.mdh
+vendor/zsh/Src/[a-zA-Z0-9_]*.pro
+vendor/zsh/Src/*.syms
+vendor/zsh/Src/modules*
+vendor/zsh/Src/zsh
+vendor/zsh/Src/zshcurses.h
+vendor/zsh/Src/zshterm.h
+
 # IDE and editor files
 .vscode/
 .idea/
