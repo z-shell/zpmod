@@ -222,10 +222,7 @@ mkdir -p -- "$isolated_home" "$isolated_zdotdir" || fail "could not create isola
 generate_workload() {
   builtin emulate -L zsh
   local workload_dir=$1
-  local workload_name=$2
-  local include_module=$3
   local scripts_dir="$workload_dir/scripts"
-  local startup_file="$workload_dir/startup.zsh"
   local script_file
   local -i script_index function_index
   local output_fd
@@ -245,27 +242,50 @@ generate_workload() {
     done
     exec {output_fd}>&-
   done
-
-  exec {output_fd}>| "$startup_file" || return
-  print -u "$output_fd" -r -- "# Generated startup workload: $workload_name"
-  if [[ $include_module == yes ]]; then
-    writef "$output_fd" 'module_path=( %q "${module_path[@]}" )\n' "$module_dir"
-    print -u "$output_fd" -r -- "zmodload -i zpmod || exit 70"
-  fi
-  for script_file in "$scripts_dir"/*.zsh(N); do
-    writef "$output_fd" 'source %q || exit 71\n' "$script_file"
-  done
-  exec {output_fd}>&-
 }
 
 typeset plain_dir="$benchmark_root/plain"
 typeset manual_dir="$benchmark_root/manual-zwc"
 typeset cold_dir="$benchmark_root/zpmod-cold"
 typeset warm_dir="$benchmark_root/zpmod-warm"
-generate_workload "$plain_dir" plain no || fail "could not generate plain workload"
-generate_workload "$manual_dir" manual-zwc no || fail "could not generate manual .zwc workload"
-generate_workload "$cold_dir" zpmod-cold yes || fail "could not generate zpmod cold workload"
-generate_workload "$warm_dir" zpmod-warm yes || fail "could not generate zpmod warm workload"
+generate_workload "$plain_dir" || fail "could not generate plain workload"
+generate_workload "$manual_dir" || fail "could not generate manual .zwc workload"
+generate_workload "$cold_dir" || fail "could not generate zpmod cold workload"
+generate_workload "$warm_dir" || fail "could not generate zpmod warm workload"
+
+run_workload_shell() {
+  builtin emulate -L zsh
+  local case_name=$1
+  local scripts_dir
+  local -a source_files=()
+
+  case $case_name in
+    plain) scripts_dir="$plain_dir/scripts" ;;
+    manual_zwc) scripts_dir="$manual_dir/scripts" ;;
+    zpmod_cold) scripts_dir="$cold_dir/scripts" ;;
+    zpmod_warm) scripts_dir="$warm_dir/scripts" ;;
+    *) return 64 ;;
+  esac
+  source_files=( "$scripts_dir"/*.zsh(N) )
+  (( ${#source_files} == script_count )) || return 65
+
+  if [[ $case_name == zpmod_* ]]; then
+    ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f -c '
+      module_path=( "$1" "${module_path[@]}" )
+      zmodload -i zpmod || exit 70
+      shift
+      for script_file in "$@"; do
+        source "$script_file" || exit 71
+      done
+    ' zsh "$module_dir" "${source_files[@]}"
+  else
+    ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f -c '
+      for script_file in "$@"; do
+        source "$script_file" || exit 71
+      done
+    ' zsh "${source_files[@]}"
+  fi
+}
 
 typeset script_file
 for script_file in "$manual_dir"/scripts/*.zsh(N); do
@@ -273,20 +293,13 @@ for script_file in "$manual_dir"/scripts/*.zsh(N); do
     fail "manual zcompile failed for ${script_file:t}"
 done
 
-ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f "$warm_dir/startup.zsh" >/dev/null 2>&1 ||
+run_workload_shell zpmod_warm >/dev/null 2>&1 ||
   fail "zpmod warm-up compilation failed"
 
 typeset -a manual_zwc_files=( "$manual_dir"/scripts/*.zwc(N) )
 typeset -a warm_zwc_files=( "$warm_dir"/scripts/*.zwc(N) )
 (( ${#manual_zwc_files} == script_count )) || fail "manual zcompile produced ${#manual_zwc_files} of $script_count expected files"
-if (( ${#warm_zwc_files} != script_count )); then
-  print -ru2 -- "benchmark: warm workload directory diagnostics:"
-  command ls -ld -- "$benchmark_root" "$warm_dir" "$warm_dir/scripts" >&2 || true
-  print -ru2 -- "benchmark: warm scripts writable=$([[ -w $warm_dir/scripts ]] && print yes || print no) user=$(id -u):$(id -g)"
-  ZI_MOD_DEBUG=1 ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f "$warm_dir/startup.zsh" >&2 || true
-  warm_zwc_files=( "$warm_dir"/scripts/*.zwc(N) )
-  fail "zpmod produced ${#warm_zwc_files} of $script_count expected files after diagnostic retry"
-fi
+(( ${#warm_zwc_files} == script_count )) || fail "zpmod produced ${#warm_zwc_files} of $script_count expected files"
 
 prepare_case() {
   builtin emulate -L zsh
@@ -303,21 +316,17 @@ typeset -F 6 measured_ms
 measure_case() {
   builtin emulate -L zsh
   local case_name=$1
-  local startup_file
+  local -a compiled_files=()
   local -F 9 started_at finished_at
-
-  case $case_name in
-    plain) startup_file="$plain_dir/startup.zsh" ;;
-    manual_zwc) startup_file="$manual_dir/startup.zsh" ;;
-    zpmod_cold) startup_file="$cold_dir/startup.zsh" ;;
-    zpmod_warm) startup_file="$warm_dir/startup.zsh" ;;
-    *) return 64 ;;
-  esac
 
   prepare_case "$case_name" || return
   started_at=$EPOCHREALTIME
-  ZDOTDIR="$isolated_zdotdir" HOME="$isolated_home" zsh -f "$startup_file" >/dev/null 2>&1 || return
+  run_workload_shell "$case_name" >/dev/null 2>&1 || return
   finished_at=$EPOCHREALTIME
+  if [[ $case_name == zpmod_cold ]]; then
+    compiled_files=( "$cold_dir"/scripts/*.zwc(N) )
+    (( ${#compiled_files} == script_count )) || return 66
+  fi
   (( measured_ms = (finished_at - started_at) * 1000.0 ))
 }
 
