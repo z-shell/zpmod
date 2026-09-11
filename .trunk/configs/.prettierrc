@@ -44,7 +44,7 @@
       }
     },
     {
-      "files": ".github/skills/code-review/SKILL.md",
+      "files": "../../.github/skills/code-review/SKILL.md",
       "options": {
         "proseWrap": "preserve",
         "embeddedLanguageFormatting": "off"
