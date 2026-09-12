@@ -42,6 +42,13 @@
         "tabWidth": 2,
         "trailingComma": "none"
       }
+    },
+    {
+      "files": "../../.github/skills/code-review/SKILL.md",
+      "options": {
+        "proseWrap": "preserve",
+        "embeddedLanguageFormatting": "off"
+      }
     }
   ]
 }
