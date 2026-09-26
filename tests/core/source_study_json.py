@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate real source-study JSON with the standard-library JSON parser."""
 import argparse
+import errno
 import json
 import os
 from pathlib import Path
@@ -91,10 +92,21 @@ class SourceStudyJSON(unittest.TestCase):
 
     def test_non_utf8_path_is_lossless(self):
         path = os.fsencode(self.root) + b"/non-utf8-\xff.zsh"
-        with open(path, "wb") as stream:
-            stream.write(b":\n")
-        report = self.shell('for f in "$2"/non-utf8-*; do source "$f"; done; zpmod source-study --json')
+        expected_status = 0
+        try:
+            with open(path, "wb") as stream:
+                stream.write(b":\n")
+        except OSError as error:
+            if error.errno != errno.EILSEQ:
+                raise
+            # Some filesystems reject these bytes. The failed source attempt
+            # must still retain the exact identity in JSON.
+            expected_status = 1
+        self.child = Path(os.fsdecode(path))
+        report = self.shell('source "$3" 2>/dev/null; zpmod source-study --json')
         self.assertEqual(self.paths(report), [path])
+        self.assertEqual(report["events"][0]["source_status"], expected_status)
+        self.assertEqual(report["events"][0]["exit_status"], 127 if expected_status else 0)
 
     def test_installed_package_json(self):
         packages = self.root / "packages"
