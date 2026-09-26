@@ -19,10 +19,10 @@ ztst_it "toggle PATH_DIRS safely" \
   --cmd $'setopt path_dirs; unsetopt path_dirs; print -r -- ""' \
   --stdout $'' --status 0
 
-# 2) SOURCE_TRACE off, run source-study; only assert it succeeds (suite doesn't pre-populate events)
+# 2) SOURCE_TRACE off: an available profiler reports empty history explicitly.
 ztst_it "source-study runs without crash" \
   --cmd $'setopt no_source_trace; zpmod source-study' \
-  --stdout $'' --status 0
+  --stdout $'No source events recorded.' --status 0
 
 # 3) Emulate can flip option semantics; ensure no crash when switching
 ztst_it "emulate sh; restore; no crash" \

@@ -20,7 +20,7 @@ Appends `<body>` to `ZI_REPORTS[plugin-ID]`. Non-zero status if plugin ID missin
 ## source-study
 
 ```zsh
-zpmod source-study [ -l ]
+zpmod source-study [ -l ] [count]
 ```
 
 Outputs timed listing of sourced files.
@@ -28,7 +28,11 @@ Outputs timed listing of sourced files.
 Notes:
 
 - By default, only basenames are printed (e.g., `init.zsh`).
-- Pass `-l` to print full absolute paths (e.g., `/home/user/.zshrc.d/init.zsh`).
+- Pass `-l` to print full absolute paths (e.g., `/home/user/.zshrc.d/init.zsh`); it does not clear history.
+- The default (or count `0`) prints every recorded event. A positive decimal count prints the newest events in source-completion order.
+- Empty history prints `No source events recorded.` and succeeds. Unavailable profiling or invalid arguments fail.
+- Human-readable times are rounded to whole milliseconds and include nested sourcing. They are diagnostic observations, not a CI performance
+  gate.
 
 ## dir-list
 

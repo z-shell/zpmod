@@ -28,7 +28,6 @@ int cleanup_(Module m);
 int finish_(Module m);
 
 /* Custom helpers used within this module */
-char *zp_build_source_report(int no_paths, int *rep_size);
 char *zp_unmetafy_zalloc(const char *to_copy, int *new_len);
 char *my_ztrdup_glen(const char *s, unsigned *len_ret);
 void  zp_freeparamnode(HashNode hn);
