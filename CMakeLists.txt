@@ -155,6 +155,9 @@ add_custom_target(include-order-check
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Running include order checker" VERBATIM)
 
+option(ZPMOD_MONOTONIC_CLOCK "Use a monotonic source-study clock when the platform supports it" ON)
+target_compile_definitions(zpmod PRIVATE ZPMOD_MONOTONIC_CLOCK=$<BOOL:${ZPMOD_MONOTONIC_CLOCK}>)
+
 # Define ZPMOD_HAVE_SOURCE_STUDY if source.c is included
 if(EXISTS "${ZSH_HEADERS_DIR}/zsh.mdh")
   target_compile_definitions(zpmod PRIVATE ZPMOD_HAVE_SOURCE_STUDY=1)

@@ -281,3 +281,21 @@ message(STATUS "  Total tests: ${CMAKE_CURRENT_LIST_DIR} test files")
 message(STATUS "  Enhanced features: timeout control, test categories, improved reporting")
 
 # Note: legacy upstream zsh *.ztst tests present in this folder are ignored by CTest.
+
+# JSON verification is test-only; module users do not need Python.
+find_package(Python3 3.8 REQUIRED COMPONENTS Interpreter)
+set(ZPMOD_EXPECTED_CLOCK auto)
+if(NOT ZPMOD_MONOTONIC_CLOCK)
+  set(ZPMOD_EXPECTED_CLOCK wall)
+endif()
+add_test(NAME zpmod_source_study_json
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/core/source_study_json.py
+    --zsh ${ZSH_EXECUTABLE} --module-dir ${ZPMOD_STAGE_MODULE_DIR}
+    --build-dir ${CMAKE_BINARY_DIR} --clock ${ZPMOD_EXPECTED_CLOCK})
+set_tests_properties(zpmod_source_study_json PROPERTIES
+  FIXTURES_REQUIRED "StageReady" TIMEOUT 30 LABELS "core;source-study;package")
+
+add_executable(zpmod_source_clock_test core/source_clock.c)
+target_include_directories(zpmod_source_clock_test PRIVATE ${CMAKE_SOURCE_DIR}/src/include)
+add_test(NAME zpmod_source_clock COMMAND zpmod_source_clock_test)
+set_tests_properties(zpmod_source_clock PROPERTIES TIMEOUT 10 LABELS "core;source-study")

@@ -1,37 +1,19 @@
 # Profiling Design
 
-## Objectives
+The source evaluator records each completed source attempt with an increasing ID, nesting depth, lexical absolute path, source and command
+statuses, and an integer elapsed duration. It snapshots paths before execution and retains repeated source events. PATH probes rejected
+before evaluation are not recorded.
 
-- Capture every sourced path early (even before plugin manager logic).
-- Provide user-friendly timing table with minimal overhead.
+The default clock is monotonic where the platform supports it, with an explicitly identified `gettimeofday` fallback. Duration arithmetic
+preserves sub-millisecond values, detects backwards intervals and overflow, and marks unavailable samples instead of inventing zero
+durations. Nanosecond units do not imply nanosecond clock resolution.
 
-## Data Model
+Timings include nested sourcing and the module's compilation behavior. Parent and child durations overlap, so adding every event does not
+measure startup wall time. Instrumented runs also differ from ordinary execution because zpmod may create or use `.zwc` files.
 
-Hashtable `zp_source_events` entries contain:
+`zpmod source-study` retains the human-readable whole-millisecond table; `-l` selects full paths. `--json` emits the
+[versioned source-study contract](../reference/cli.md#json-schema-1), including capture completeness, clock provenance and lossless path
+identities. Reporting does not clear history. Formatting is deferred until reporting.
 
-- Incrementing ID
-- Start timestamp (ms)
-- Directory path
-- File name
-- Full path
-- Duration (ms)
-- Load result (success / error code)
-
-## Timing Method
-
-`gettimeofday()` at entry and exit; difference stored as floating milliseconds.
-
-## Reporting
-
-`zpmod source-study` builds a string buffer sized adaptively. `-l` toggles full vs basename output.
-
-## Overhead Considerations
-
-- Allocation minimized by reusing stack buffers where possible.
-- Only simple arithmetic performed in the hot path; formatting deferred to report generation.
-
-## Future Enhancements (Potential)
-
-- Aggregated totals per directory / plugin.
-- Percent contribution of each script to total startup time.
-- Threshold filtering (show entries above N ms).
+Use this output to locate expensive source calls. Reproducible performance comparisons still need an external harness controlling workload,
+environment, warmups, repeated samples and an A/A control. This profiler is not a universal benchmark dependency or a CI slowdown gate.

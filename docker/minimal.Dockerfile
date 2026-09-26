@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     autoconf \
     cmake \
+    python3 \
     zsh \
     git \
     ca-certificates \

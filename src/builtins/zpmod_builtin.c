@@ -103,7 +103,7 @@ void zpmod_usage(void)
     fprintf(stdout, "%s Usage:\n", zp_icon("📘 "));
     fprintf(stdout, "  zpmod [--help|-h] [--version|-V]\n");
     fprintf(stdout, "  zpmod report-append <plugin-id> <text>\n");
-    fprintf(stdout, "  zpmod source-study [-l] [count]\n");
+    fprintf(stdout, "  zpmod source-study [-l] [--json] [count]\n");
     fprintf(stdout, "  zpmod dir-list [-a] [-d|-f] out_array dir\n");
     fprintf(stdout, "  zpmod path-stat [-L] [-f fields] out_array in_array\n");
     fprintf(stdout, "  zpmod path-warmup [-q] [--prune-missing] [--dry-run]\n");
@@ -309,10 +309,16 @@ int cmd_source_study(char *nam, char **argv)
 {
     int report_count = 0;
     int full_paths = 0;
+    int json = 0;
     while (*argv && argv[0][0] == '-') {
         if (strcmp(argv[0], "--") == 0) {
             argv++;
             break;
+        }
+        if (strcmp(argv[0], "--json") == 0) {
+            json = 1;
+            argv++;
+            continue;
         }
         if (strcmp(argv[0], "-l") != 0) {
             zwarnnam(nam, "source-study: unknown option: %s", argv[0]);
@@ -340,7 +346,7 @@ int cmd_source_study(char *nam, char **argv)
             return 1;
         }
     }
-    return zp_source_study_core(nam, report_count, full_paths);
+    return zp_source_study_core(nam, report_count, full_paths, json);
 }
 
 int cmd_dirlist(char *nam, char **argv)

@@ -13,7 +13,9 @@ Thanks for your interest in improving zpmod! This page gathers developer-facing 
 - Build: use CMake from the repository root
   - Out-of-tree build directory: `build-cmake/`
   - Docs target: `cmake --build build-cmake --target docs`
-- Tests: run the ztst-based suite under `tests/` via CTest wrappers
+- Tests: run the suite under `tests/` via CTest wrappers. JSON contract checks require Python 3.8 or newer (standard library only); module
+  installation and use do not. Configure with `-DBUILD_TESTING=OFF` for a build without the test dependency.
+- Clock portability: `-DZPMOD_MONOTONIC_CLOCK=OFF` exercises the explicitly marked wall-clock fallback and its JSON contract checks.
 - Zsh compatibility: verify across multiple zsh versions; prefer zsh allocators (zalloc/zsfree)
 
 ## Pull requests
