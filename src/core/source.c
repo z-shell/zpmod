@@ -20,7 +20,9 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #if defined(__has_include)
 #if __has_include(<sys/mman.h>)
@@ -28,6 +30,7 @@
 #define USE_MMAP 1
 #endif
 #endif
+#include "zpmod_clock.h"
 #include "zpmod_compat.h"
 #include "zpmod_emoji.h"
 #include "zpmod_source.h"
@@ -37,6 +40,90 @@
 static HandlerFunc original_dot = NULL, original_source = NULL;
 static HashTable zp_source_events = NULL;
 static int zp_sevent_count = 0;
+static int zp_source_depth = 0;
+static int zp_profile_incomplete = 0;
+
+#if ZPMOD_MONOTONIC_CLOCK && defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
+#if defined(__APPLE__) && defined(CLOCK_MONOTONIC_RAW)
+#define ZP_CLOCK_ID   CLOCK_MONOTONIC_RAW
+#define ZP_CLOCK_NAME "CLOCK_MONOTONIC_RAW"
+#else
+#define ZP_CLOCK_ID   CLOCK_MONOTONIC
+#define ZP_CLOCK_NAME "CLOCK_MONOTONIC"
+#endif
+#define ZP_CLOCK_MONOTONIC "true"
+#else
+#define ZP_CLOCK_NAME      "gettimeofday"
+#define ZP_CLOCK_MONOTONIC "false"
+#endif
+
+static int zp_read_clock(struct timespec *sample)
+{
+#ifdef ZP_CLOCK_ID
+    return clock_gettime(ZP_CLOCK_ID, sample) == 0;
+#else
+    struct timeval sample_tv;
+    if (gettimeofday(&sample_tv, NULL) != 0) {
+        return 0;
+    }
+    sample->tv_sec = sample_tv.tv_sec;
+    sample->tv_nsec = sample_tv.tv_usec * 1000L;
+    return 1;
+#endif
+}
+
+/* Snapshot the lexical absolute source path before a script can change pwd. */
+static char *zp_source_path(const char *source)
+{
+    if (source[0] == '/') {
+        return ztrdup(source);
+    }
+    const char *relative = source + (source[0] == '.' && source[1] == '/' ? 2 : 0);
+    size_t length = strlen(pwd) + strlen(relative) + 2;
+    char *full = (char *)zalloc(length);
+    if (full) {
+        snprintf(full, length, "%s/%s", pwd, relative);
+    }
+    return full;
+}
+
+static void zp_record_source(char *full_path, struct timespec start, int start_valid, int depth, int source_status, int exit_status)
+{
+    struct timespec end = {0, 0};
+    int end_valid = zp_read_clock(&end);
+    if (!zp_source_events || !full_path || zp_sevent_count == INT_MAX) {
+        zsfree(full_path);
+        zp_profile_incomplete = 1;
+        return;
+    }
+    SEventNode node = (SEventNode)zshcalloc(sizeof(struct zp_sevent_node));
+    if (!node) {
+        zsfree(full_path);
+        zp_profile_incomplete = 1;
+        return;
+    }
+    node->event.full_path = full_path;
+    const char *slash = strrchr(full_path, '/');
+    node->event.file_name = ztrdup(slash ? slash + 1 : full_path);
+    if (!node->event.file_name) {
+        zsfree(full_path);
+        zfree(node, sizeof(struct zp_sevent_node));
+        zp_profile_incomplete = 1;
+        return;
+    }
+    node->event.id = ++zp_sevent_count;
+    node->event.depth = depth;
+    node->event.load_error = source_status;
+    node->event.exit_status = exit_status;
+    node->event.timing_valid =
+        start_valid && end_valid && zp_elapsed_ns(start.tv_sec, start.tv_nsec, end.tv_sec, end.tv_nsec, &node->event.duration_ns);
+    if (!node->event.timing_valid) {
+        zp_profile_incomplete = 1;
+    }
+    char key[32];
+    snprintf(key, sizeof(key), "%d", node->event.id);
+    addhashnode(zp_source_events, ztrdup(key), (void *)node);
+}
 
 /* dot/source replacement */
 /**
@@ -501,14 +588,18 @@ mod_export enum source_return custom_source(char *s)
     int otrap_state = trap_state;
     struct funcstack fstack;
     enum source_return ret = SOURCE_OK;
-    SEventNode zp_node;
-    struct timeval zp_tv;
-    struct timezone zp_dummy_tz;
-    double zp_prev_tv;
-    zp_tv.tv_sec = zp_tv.tv_usec = 0;
-    gettimeofday(&zp_tv, &zp_dummy_tz);
-    zp_prev_tv = ((((double)zp_tv.tv_sec) * 1000.0) + (((double)zp_tv.tv_usec) / 1000.0));
-    if (!s || (!(prog = custom_try_source_file((us = unmeta(s)))) && (tempfd = movefd(open(us, O_RDONLY | O_NOCTTY))) == -1)) {
+    if (!s) {
+        return SOURCE_NOT_FOUND;
+    }
+    struct timespec started = {0, 0};
+    int timer_valid = zp_read_clock(&started);
+    char *record_path = zp_source_path(s);
+    int depth = ++zp_source_depth;
+    if (!(prog = custom_try_source_file((us = unmeta(s)))) && (tempfd = movefd(open(us, O_RDONLY | O_NOCTTY))) == -1) {
+        int saved_errno = errno;
+        --zp_source_depth;
+        zp_record_source(record_path, started, timer_valid, depth, SOURCE_NOT_FOUND, 128 - SOURCE_NOT_FOUND);
+        errno = saved_errno;
         return SOURCE_NOT_FOUND;
     }
     fd = SHIN;
@@ -591,93 +682,112 @@ mod_export enum source_return custom_source(char *s)
     zfree(cmdstack, CMDSTACKSZ);
     cmdstack = ocs;
     cmdsp = ocsp;
-    zp_tv.tv_sec = zp_tv.tv_usec = 0;
-    gettimeofday(&zp_tv, &zp_dummy_tz);
-    zp_node = (SEventNode)zshcalloc(sizeof(struct zp_sevent_node));
-    if (zp_node) {
-        char bkp;
-        char *dir_path;
-        char *file_name;
-        char *full_path;
-        char *slash;
-        int is_dot_slash;
-        if (s[0] == '/') {
-            full_path = ztrdup(s);
-        } else {
-            size_t pwd_len;
-            size_t rel_len;
-            size_t off;
-            is_dot_slash = (s[0] == '.' && s[1] == '/');
-            pwd_len = strlen(pwd);
-            off = is_dot_slash ? 2U : 0U;
-            rel_len = strlen(s) - off;
-            full_path = (char *)zalloc(sizeof(char) * (pwd_len + rel_len + 2U));
-            int n1 = snprintf(full_path, pwd_len + 1, "%s", pwd);
-            (void)n1;
-            snprintf(full_path + pwd_len, rel_len + 2U, "/%s", s + off);
-        }
-        slash = strrchr(full_path, '/');
-        file_name = ztrdup(slash + 1);
-        bkp = slash[1];
-        slash[1] = '\0';
-        dir_path = ztrdup(full_path);
-        slash[1] = bkp;
-        ++zp_sevent_count;
-        zp_node->event.id = zp_sevent_count;
-        zp_node->event.ts = (long)zp_prev_tv;
-        zp_node->event.dir_path = dir_path;
-        zp_node->event.file_name = file_name;
-        zp_node->event.full_path = full_path;
-        zp_node->event.duration = ((((double)zp_tv.tv_sec) * 1000.0) + (((double)zp_tv.tv_usec) / 1000.0)) - zp_prev_tv;
-        zp_node->event.load_error = ret;
-        char zp_tmp[20];
-        snprintf(zp_tmp, sizeof(zp_tmp), "%d", zp_node->event.id);
-        zp_tmp[sizeof(zp_tmp) - 1] = '\0';
-        if (zp_source_events) {
-            addhashnode(zp_source_events, ztrdup(zp_tmp), (void *)zp_node);
-        }
-    }
+    --zp_source_depth;
+    zp_record_source(record_path, started, timer_valid, depth, ret, ret == SOURCE_OK ? lastval : 128 - ret);
     return ret;
 }
 
-int zp_source_study_core(const char *nam, int report_count, int full_paths)
+int zp_source_study_core(const char *nam, int report_count, int full_paths, int json)
 {
+    const char *state = "empty";
     if (!zp_source_events) {
+        state = "unavailable";
+    } else if (zp_profile_incomplete) {
+        state = "incomplete";
+    } else if (zp_sevent_count) {
+        state = "complete";
+    }
+    int failed = !zp_source_events || zp_profile_incomplete;
+    if (json) {
+        if (fprintf(stdout,
+                    "{\"schema_version\":1,\"status\":\"%s\",\"clock\":\"%s\",\"monotonic\":%s,"
+                    "\"unit\":\"nanoseconds\",\"inclusive\":true,\"order\":\"completion\","
+                    "\"execution_mode\":\"instrumented-auto-compile\",\"events\":[",
+                    state,
+                    ZP_CLOCK_NAME,
+                    ZP_CLOCK_MONOTONIC) < 0) {
+            return 1;
+        }
+    } else if (!zp_source_events) {
         zwarnnam(nam, "source-study: profiling is unavailable");
         return 1;
-    }
-    if (zp_sevent_count == 0) {
+    } else if (!zp_sevent_count) {
         if (fputs("No source events recorded.\n", stdout) == EOF) {
             return 1;
         }
-        return fflush(stdout) == EOF;
+        return fflush(stdout) == EOF || failed;
     }
 
-    /* Events are numbered when sourcing completes, including nested sources. */
     int first = 1;
     if (report_count > 0 && report_count < zp_sevent_count) {
         first = zp_sevent_count - report_count + 1;
     }
-    for (int idx = first; idx <= zp_sevent_count; ++idx) {
+    int printed = 0;
+    for (int idx = first; zp_source_events && idx <= zp_sevent_count; ++idx) {
         char key[32];
         snprintf(key, sizeof(key), "%d", idx);
         SEventNode node = (SEventNode)gethashnode2(zp_source_events, key);
         if (!node) {
             continue;
         }
-        if (fprintf(stdout, "%s%4.0lf ms    ", zp_icon("⏱️ "), node->event.duration) < 0 ||
-            zputs(full_paths ? node->event.full_path : node->event.file_name, stdout) == EOF || fputc('\n', stdout) == EOF) {
-            return 1;
+        if (json) {
+            if (fprintf(stdout,
+                        "%s{\"id\":%d,\"depth\":%d,\"source_status\":%d,\"exit_status\":%d,\"path_hex\":\"",
+                        printed ? "," : "",
+                        node->event.id,
+                        node->event.depth,
+                        node->event.load_error,
+                        node->event.exit_status) < 0) {
+                return 1;
+            }
+            /* POSIX paths are bytes, not necessarily UTF-8. Hex is lossless and
+             * cannot inject JSON delimiters, control characters or bad Unicode. */
+            const unsigned char *byte = (const unsigned char *)unmeta(node->event.full_path);
+            for (; *byte; ++byte) {
+                if (fprintf(stdout, "%02x", (unsigned int)*byte) < 0) {
+                    return 1;
+                }
+            }
+            if (fputs("\",\"duration_ns\":", stdout) == EOF) {
+                return 1;
+            }
+            if (node->event.timing_valid) {
+                if (fprintf(stdout, "%llu", node->event.duration_ns) < 0) {
+                    return 1;
+                }
+            } else if (fputs("null", stdout) == EOF) {
+                return 1;
+            }
+            if (fputc('}', stdout) == EOF) {
+                return 1;
+            }
+        } else {
+            if (node->event.timing_valid) {
+                if (fprintf(stdout, "%s%4.0lf ms    ", zp_icon("⏱️ "), (double)node->event.duration_ns / 1000000.0) < 0) {
+                    return 1;
+                }
+            } else if (fputs(" n/a ms    ", stdout) == EOF) {
+                return 1;
+            }
+            if (zputs(full_paths ? node->event.full_path : node->event.file_name, stdout) == EOF || fputc('\n', stdout) == EOF) {
+                return 1;
+            }
+        }
+        ++printed;
+        if (idx == INT_MAX) {
+            break;
         }
     }
-    return fflush(stdout) == EOF;
+    if (json && fputs("]}\n", stdout) == EOF) {
+        return 1;
+    }
+    return fflush(stdout) == EOF || failed;
 }
 
 void zp_free_sevent_node(HashNode hn)
 {
     SEventNode s = (SEventNode)hn;
     zsfree(hn->nam);
-    zsfree(s->event.dir_path);
     zsfree(s->event.file_name);
     zsfree(s->event.full_path);
     zfree(s, sizeof(struct zp_sevent_node));
@@ -686,6 +796,9 @@ void zp_free_sevent_node(HashNode hn)
 /* Setup/finish helpers for overriding builtin handlers and hashtable */
 void zp_source_setup_overrides(void)
 {
+    zp_sevent_count = 0;
+    zp_source_depth = 0;
+    zp_profile_incomplete = 0;
     Builtin bn = (Builtin)builtintab->getnode2(builtintab, ".");
     if (bn) {
         original_dot = bn->handlerfunc;

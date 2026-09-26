@@ -16,7 +16,7 @@ Primary entrypoint with subcommands:
 ```zsh
 zpmod [ -h | -V ]
 zpmod report-append <plugin-ID> <body>
-zpmod source-study [ -l ] [count]
+zpmod source-study [-l] [--json] [count]
 ```
 
 Flags:
@@ -27,7 +27,8 @@ Flags:
 Subcommands:
 
 - `report-append` – append body text to `ZI_REPORTS[plugin-ID]`
-- `source-study` – print profile table (use -l for full paths)
+- `source-study` – print profile table (`-l` for full paths) or versioned JSON (`--json`); see
+  [the source-study contract](cli.md#source-study)
 
 Return codes:
 

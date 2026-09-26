@@ -1,5 +1,7 @@
 #compdef zpmod
 
+builtin emulate -L zsh
+
 _arguments \
   '-h[show help]' \
   '-V[show version]' \
@@ -13,7 +15,7 @@ case $state in
         _arguments '2:plugin-id:_guard "^-*" plugin' '3:body:->body'
         ;;
       source-study)
-        _arguments '-l[show full paths]'
+        _arguments '-l[show full paths]' '--json[emit versioned source events]' '2:count:'
         ;;
       dir-list)
         _arguments '-a[include dotfiles]' '-d[only directories]' '-f[only files]' \
@@ -32,4 +34,4 @@ case $state in
         ;;
     esac
   ;;
-end
+esac

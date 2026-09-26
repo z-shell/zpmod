@@ -19,11 +19,12 @@ typedef struct zp_sevent_node *SEventNode;
  */
 struct source_event {
     int id;
-    long ts;
-    char *dir_path;
     char *file_name;
     char *full_path;
-    double duration;
+    unsigned long long duration_ns;
+    int timing_valid;
+    int depth;
+    int exit_status;
     int load_error;
 };
 
@@ -40,4 +41,4 @@ mod_export enum source_return custom_source(char *s);
 Eprog custom_try_source_file(char *file);
 
 /** Print all events (count 0), or the newest count events, without clearing them. */
-int zp_source_study_core(const char *nam, int report_count, int full_paths);
+int zp_source_study_core(const char *nam, int report_count, int full_paths, int json);
