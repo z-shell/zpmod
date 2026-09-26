@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/refs/heads/main/json-schema/pinact.json
+# pinact: https://github.com/suzuki-shunsuke/pinact
+version: 3
+ignore_actions:
+  # Organization reusable workflows are pinned to a full commit SHA of
+  # z-shell/.github with a `# main` branch comment (z-shell/.github PATTERNS.md).
+  # pinact requires a version-tag comment on SHA pins and cannot verify a branch
+  # name, so it rejects that shape. The SHA pin is still enforced here.
+  - name: z-shell/\.github/\.github/workflows/.*
+    ref: "[0-9a-f]{40}"
