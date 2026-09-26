@@ -16,7 +16,7 @@ Primary entrypoint with subcommands:
 ```zsh
 zpmod [ -h | -V ]
 zpmod report-append <plugin-ID> <body>
-zpmod source-study [ -l ]
+zpmod source-study [ -l ] [count]
 ```
 
 Flags:

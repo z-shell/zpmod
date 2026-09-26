@@ -49,4 +49,12 @@ autoload -Uz _zpmod
 [[ $(whence -w _zpmod) == *function* ]] ||
   fail_test 'packaged completion is not autoloadable'
 
+# The installed payload must report real sourced events, not only load a builtin.
+print -r -- ':' > "$scratch/packaged-source.zsh" || fail_test 'fixture creation failed'
+source "$scratch/packaged-source.zsh" || fail_test 'packaged source hook failed'
+typeset source_report
+source_report=$(zpmod source-study -l) || fail_test 'packaged profiler failed'
+[[ "$source_report" == *"$scratch/packaged-source.zsh"* ]] ||
+  fail_test 'packaged profiler omitted the sourced fixture'
+
 print -r -- 'package_install_smoke OK'

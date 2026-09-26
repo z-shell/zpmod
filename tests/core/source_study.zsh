@@ -1,61 +1,68 @@
 #!/usr/bin/env zsh
-# Validate source-study report formatting and options
+# Native Zsh test fixture for the sourced-script profiling interface.
+emulate -R zsh
 
 TEST_NAME="core/source_study"
+source "${0:A:h}/../test_helpers.zsh" || exit 1
 
-# shell options expected by harness
-setopt EXTENDED_GLOB
+typeset scratch_dir rep rep_full rep_again invalid
+typeset -a rows
+scratch_dir=$(mktemp -d "${TMPDIR:-/tmp}/zpmod-srcstudy-XXXXXX") || exit 1
+trap 'rm -rf -- "$scratch_dir"' EXIT
+mkdir -p -- "$scratch_dir/home" "$scratch_dir/zdotdir" || exit 1
+export HOME="$scratch_dir/home" ZDOTDIR="$scratch_dir/zdotdir"
 
-# Load test helpers
-. ${(q-)0:A:h}/../test_helpers.zsh || {
-  print -ru2 -- "FATAL: couldn't source test_helpers.zsh"; return 1
-}
-
-# Ensure module loads and builtins are available
-load_zpmod || die "Failed to load zpmod"
+load_zpmod || exit 1
 assert_builtin_exists zpmod
+rep=$(zpmod source-study) || exit 1
+assert_equal "$rep" 'No source events recorded.'
 
-# Create temporary scripts to source
-scratch_dir=$(mktemp -d ${TMPDIR:-/tmp}/zpmod-srcstudy-XXXXXX)
-cleanup() { rm -rf -- $scratch_dir }
-trap cleanup EXIT INT QUIT TERM
+print -r -- ':' > "$scratch_dir/a.zsh" || exit 1
+print -r -- ':' > "$scratch_dir/b.zsh" || exit 1
+. "$scratch_dir/a.zsh" || exit 1
+source "$scratch_dir/b.zsh" || exit 1
 
-cat >! $scratch_dir/a.zsh <<'EOF'
-#!/usr/bin/env zsh
-emulate -LR zsh -o no_unset
-# tiny work
-: ${ZSH_VERSION+1}
-EOF
+rep=$(zpmod source-study) || exit 1
+assert_contains "$rep" 'a.zsh'
+assert_contains "$rep" 'b.zsh'
+assert_contains "$rep" ' ms    '
+assert_not_contains "$rep" "$scratch_dir"
+rows=( "${(@f)rep}" )
+assert_equal "${#rows}" 2
 
-cat >! $scratch_dir/b.zsh <<'EOF'
-#!/usr/bin/env zsh
-emulate -LR zsh
-# small sleep to ensure non-zero duration
-builtin sleep 0.01 2>/dev/null || true
-EOF
+rep_full=$(zpmod source-study -l) || exit 1
+assert_contains "$rep_full" "$scratch_dir/a.zsh"
+assert_contains "$rep_full" "$scratch_dir/b.zsh"
+rep_again=$(zpmod source-study) || exit 1
+assert_equal "$rep_again" "$rep" '-l must not clear history'
 
-# Source them via our custom dot
-. $scratch_dir/a.zsh
-source $scratch_dir/b.zsh
+# Explicit counts retain the newest entries, in completion order; zero is all.
+rep=$(zpmod source-study 1) || exit 1
+assert_contains "$rep" 'b.zsh'
+assert_not_contains "$rep" 'a.zsh'
+rep=$(zpmod source-study -l -- 1) || exit 1
+assert_contains "$rep" "$scratch_dir/b.zsh"
+rep=$(zpmod source-study 0) || exit 1
+assert_equal "$rep" "$rep_again"
 
-# Ask for a report (basenames only)
-local rep
-rep=$(zpmod source-study 2>&1)
+for invalid in -x -1 abc '' 9999999999999999999999999999; do
+  if zpmod source-study "$invalid" >/dev/null 2>&1; then
+    print -ru2 -- "unexpected success for argument: ${(qqq)invalid}"
+    exit 1
+  fi
+done
+if zpmod source-study 1 2 >/dev/null 2>&1 ||
+   zpmod source-study -- 1 extra >/dev/null 2>&1; then
+  print -ru2 -- 'unexpected success for excess operands'
+  exit 1
+fi
 
-# It should contain timing lines with emoji prefix and basenames
-assert_match "⏱️" $rep
-assert_match "a.zsh" $rep
-assert_match "b.zsh" $rep
-assert_not_match "/" $rep # no paths when -l not passed
+# Default output is not silently capped at the old stub parser's ten entries.
+repeat 11; do
+  source "$scratch_dir/a.zsh" || exit 1
+done
+rep=$(zpmod source-study) || exit 1
+rows=( "${(@f)rep}" )
+assert_equal "${#rows}" 13
 
-# Now request full paths
-local rep_full
-rep_full=$(zpmod source-study -l 2>&1)
-assert_match $scratch_dir $rep_full
-assert_match "/a.zsh" $rep_full
-assert_match "/b.zsh" $rep_full
-
-# Quick sanity on formatting: ' ms    '
-assert_match ' ms    ' $rep
-
-print -r -- "source_study OK"
+print -r -- 'source_study OK'

@@ -140,7 +140,6 @@ add_library(zpmod MODULE
   src/core/emoji.c
   src/core/fpath.c
   src/core/source_hot.c
-  src/core/source_study_stub.c
   src/core/compaudit_cache.c
   src/core/rehash_diff.c
   src/core/bundle_build.c
