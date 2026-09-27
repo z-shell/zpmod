@@ -326,7 +326,7 @@ int zp_bundle_build_core(char *nam, const char *from_dir, const char *out_path, 
             break;
         }
 #ifdef O_NOFOLLOW
-        int input = open(entry->abs, O_RDONLY | O_NOFOLLOW);
+        int input = open(entry->abs, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
 #else
         errno = ENOTSUP;
         int input = -1;

@@ -253,7 +253,13 @@ static int zp_cc_zwc_insecure(const char *directory)
     }
     int insecure = 0;
     struct dirent *entry;
-    while ((entry = readdir(dir))) {
+    for (;;) {
+        errno = 0;
+        entry = readdir(dir);
+        if (!entry) {
+            insecure = errno != 0;
+            break;
+        }
         size_t len = strlen(entry->d_name);
         if (len < 4 || strcmp(entry->d_name + len - 4, ".zwc") != 0) {
             continue;
