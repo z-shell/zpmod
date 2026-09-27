@@ -182,6 +182,9 @@ add_zpmod_test(zpmod_bundle_build command/zpmod_bundle_build.zsh
 add_zpmod_test(zpmod_compaudit_cache command/zpmod_compaudit_cache.zsh
   CATEGORY "command" LABELS "security;cache;regression")
 
+add_zpmod_test(zpmod_rehash_diff command/zpmod_rehash_diff.zsh
+  CATEGORY "command" LABELS "path;cache;regression")
+
 # PATH warmup subcommand (performance helper)
 add_zpmod_test(zpmod_path_warmup command/zpmod_path_warmup.zsh
   CATEGORY "command" LABELS "performance;path")
