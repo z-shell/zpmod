@@ -39,17 +39,18 @@ RUN useradd -m -u 1000 -U zp
 COPY --chown=zp:zp . .
 RUN chown -R zp:zp /workspace
 
-# Switch to non-root user
-USER zp
+# Switch to non-root user (zp, created above with uid and gid 1000)
+USER 1000:1000
 
 # Fresh submodule checkouts do not contain Zsh's ignored generated headers.
 # Build the vendored source to generate the headers before configuring zpmod.
-RUN cd vendor/zsh && \
-        ./Util/preconfig && \
+WORKDIR /workspace/vendor/zsh
+RUN ./Util/preconfig && \
         ./configure && \
         make -j 2 && \
         test -s config.h && \
         test -s Src/zsh.mdh
+WORKDIR /workspace
 
 RUN rm -rf build-cmake && \
         cmake -S . -B build-cmake \
