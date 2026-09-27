@@ -127,9 +127,20 @@ The controlled workflow supplements the historical graph. It does not replace or
 
 The manual `Controlled Zd Validation` workflow uses the shared `run-zd` and `benchmark-report` actions.
 
-It pins published organization/zd commit SHAs. Dispatch selects a qualified registry image digest.
+It pins reviewed organization and zd merge commits. Dispatch selects a qualified registry image digest.
 
-The draft pins require prerequisite review before use.
+Qualified Linux amd64 module-build images are available for both supported ABI boundaries:
+
+```text
+5.8.1: ghcr.io/z-shell/zd@sha256:a5159a3fc2bc1745ad7b70110015386f54ad64c50f23765e81ef06beb9869e04
+5.9.2: ghcr.io/z-shell/zd@sha256:6b2e8f8841ad3434c1344b0cdcd1d24b412da2935b8617866077475c4689d6f8
+```
+
+These images were built from reviewed zd commit `7c52bb894cc93d3bfcd2e0f6a359aa8ff0d45490`.
+
+The 5.9.2 image includes zd's declared trap-bounds patch and PCRE2; the 5.8.1 profile has no PCRE module.
+
+Select the digest in the manual workflow's `image` input. Compare like runtime and patch profiles when interpreting results.
 
 The existing native workflow remains available. Enable automatic PR runs only after hosted qualification passes.
 
