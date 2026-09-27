@@ -39,12 +39,32 @@ Use `--cpu` to override CPU detection when a virtualized runner exposes an inacc
 
 ## Interpret results carefully
 
+- zpmod trades compilation work on the first run for reuse on later startups. A warm sample is still a fresh shell process.
+- Manual `.zwc` compilation happens before measurement. This control measures native bytecode loading without zpmod's overhead.
 - The fixture is synthetic. It isolates parsing and compilation behavior but does not represent every real Zsh setup.
 - "First run" means the workload starts without `.zwc` files. It does not mean the operating-system filesystem cache was cleared.
 - Hosted CI runners can vary in hardware and load. Their results are useful as downloadable evidence, but they are not a blocking
   performance regression gate.
 - Compare results only when the workload, Zsh version, module revision, architecture, and environment metadata are compatible.
 - Do not turn one result into a universal "N times faster" claim.
+
+## Isolation controls and coverage
+
+- Each mode uses its own generated workload directory, and each sample starts a fresh `zsh -f` process.
+- Temporary `HOME` and `ZDOTDIR` directories isolate user configuration. Other environment variables are inherited.
+- The first-run case removes its `.zwc` files before each sample; the warm case retains compiled files between samples.
+- Cases rotate their execution order. The published result uses five warmup rounds and thirty measured samples per mode.
+- The harness does not launch a container, pin CPUs, control host load, or clear operating-system filesystem caches.
+
+The committed v2.0.6 dataset identifies a local Linux x86_64 runner, but records no container image or digest.
+
+It provides one measured environment, not a container/native comparison or a real-user startup workload.
+
+`tests/benchmark/harness.zsh` uses two scripts, two functions per script, one warmup, and two samples to test output integrity.
+
+Running that smoke test in Docker verifies the harness works there; it does not establish a representative performance result.
+
+The dedicated `Benchmark` workflow captures the full workload directly on an Ubuntu runner, rather than inside a container.
 
 ## Published evidence
 
@@ -56,3 +76,61 @@ measured from the SHA-256-verified release archive and identifies the exact rele
 
 The `Benchmark` GitHub Actions workflow also supports manual and published release runs. It uploads raw and rendered outputs as non-gating
 workflow artifacts; publishing a new committed result remains a reviewed source change.
+
+## Controlled zd execution
+
+Use zd's `module-build` profile to build and test against a specific Zsh runtime.
+
+Prepare a qualified image before running. Select an immutable registry digest or a local image ID.
+
+The workload runs without networking, with a clean home and a writable copy of Git source files.
+
+The checkout and ignored host build caches are outside the container build tree.
+
+```sh
+python3 /path/to/zd/bin/zd run \
+  --image "$ZD_IMAGE" --profile module-build --source . \
+  --output /path/outside/checkout/zpmod-evidence --mode benchmark \
+  --cpuset "$BENCHMARK_CPU" -- \
+  zsh -f scripts/zd-check.zsh benchmark --warmups 5 --runs 30
+```
+
+`scripts/zd-check.zsh` builds the module from vendored headers and runs CTest with the image's Zsh executable.
+
+A failing build or test stops measurement. Evidence includes the test log, staged module and CTest command inventory.
+
+zd adds execution identity and the package manifest.
+
+`compare.py` wraps the four-mode workload in a same-run baseline, candidate and A/A control comparison.
+
+The default compares the same module to itself. This qualifies evidence collection, not a code improvement.
+
+Six rotating permutations balance variant positions. Each fresh harness invocation has its own warmups.
+
+Raw per-trial JSON, TSV and logs are retained for the organization's `benchmark-report` action.
+
+For a code comparison, provide `--baseline-module-dir` and its full `--baseline-source-revision`.
+
+Build the baseline module for the same runtime and ABI.
+
+Functional failures or inconsistent identities invalidate the report.
+
+Median changes over 10 percent and p95 changes over 15 percent are review flags, never timing-based exit failures.
+
+A/A flags indicate noise. Resolve them before attributing a change to code.
+
+zd controls the container environment; it does not reserve the host CPU or reset filesystem caches.
+
+Keep native platform checks and realistic startup workloads alongside controlled Linux results.
+
+The controlled workflow supplements the historical graph. It does not replace or reclassify that dataset.
+
+The manual `Controlled Zd Validation` workflow uses the shared `run-zd` and `benchmark-report` actions.
+
+It pins published organization/zd commit SHAs. Dispatch selects a qualified registry image digest.
+
+The draft pins require prerequisite review before use.
+
+The existing native workflow remains available. Enable automatic PR runs only after hosted qualification passes.
+
+Before enabling those runs, pin the caller to the reviewed immutable action revision.

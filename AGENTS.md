@@ -67,6 +67,11 @@ ctest --test-dir build --output-on-failure
 ```
 
 Validate the full suite and supported Zsh ABI boundaries before proposing releases.
+For controlled Linux reproduction, run `scripts/zd-check.zsh` in the selected image.
+
+See the [zd benchmark guide](benchmarks/README.md#controlled-zd-execution).
+
+Keep native platform checks alongside container evidence.
 
 ## Key org cross-references
 
