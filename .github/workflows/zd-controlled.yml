@@ -2,12 +2,6 @@ name: Controlled Zd Validation
 on:
   workflow_dispatch:
     inputs:
-      org-ref:
-        description: Full reviewed organization commit containing run-zd and report-root support.
-        required: true
-      zd-ref:
-        description: Full reviewed zd commit containing scripts/zd.py.
-        required: true
       image:
         description: Qualified supported-Zsh module-build registry image digest.
         required: true
@@ -22,16 +16,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Validate immutable bootstrap revisions
+      - name: Validate immutable image
         env:
-          ORG_REF: ${{ inputs.org-ref }}
-          ZD_REF: ${{ inputs.zd-ref }}
           ZD_IMAGE: ${{ inputs.image }}
         run: |
           python3 - <<'PY'
           import os, re
-          for name in ('ORG_REF', 'ZD_REF'):
-              assert re.fullmatch('[0-9a-f]{40}', os.environ[name]), name
           assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}', os.environ['ZD_IMAGE'])
           PY
       - name: Check out repository workload
@@ -40,18 +30,18 @@ jobs:
           path: candidate
           submodules: recursive
           persist-credentials: false
-      - name: Check out reviewed organization tooling
+      - name: Check out pinned organization tooling
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: z-shell/.github
-          ref: ${{ inputs.org-ref }}
+          ref: faab9840039a37b742d474010b64ae052917dd64 # Prerequisite PR 699
           path: org-tools
           persist-credentials: false
       - name: Build module, test selected runtime and collect benchmark
         id: execution
         uses: ./org-tools/actions/run-zd
         with:
-          zd-ref: ${{ inputs.zd-ref }}
+          zd-ref: f8d74a1c916d42c99fea2600adff3607f67ee4bc # Prerequisite zd PR 126
           image: ${{ inputs.image }}
           profile: module-build
           source: ${{ github.workspace }}/candidate

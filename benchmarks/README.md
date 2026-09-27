@@ -127,7 +127,9 @@ The controlled workflow supplements the historical graph. It does not replace or
 
 The manual `Controlled Zd Validation` workflow uses the shared `run-zd` and `benchmark-report` actions.
 
-It requires reviewed full organization/zd commit SHAs and a qualified registry image digest.
+It pins published organization/zd commit SHAs. Dispatch selects a qualified registry image digest.
+
+The draft pins require prerequisite review before use.
 
 The existing native workflow remains available. Enable automatic PR runs only after hosted qualification passes.
 
