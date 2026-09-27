@@ -31,3 +31,6 @@ build-*/
 
 # Trunk output
 /.trunk/out/
+
+# Qualification evidence
+/qualification-results/
