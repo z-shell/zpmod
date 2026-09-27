@@ -115,6 +115,8 @@ jobs:
         env:
           PACKAGE_FORMAT: ${{ matrix.format }}
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/vendor/zsh"
           zsh -f scripts/cmake.configure.zsh --generator ninja --jobs 2
           bash scripts/qualify-package.sh
       - name: Retain package evidence
