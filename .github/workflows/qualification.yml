@@ -1,0 +1,129 @@
+name: Runtime Qualification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: Native ${{ matrix.os }} ${{ matrix.version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        version: ["5.8.1", "5.9.2"]
+        include:
+          - version: "5.8.1"
+            patch: none
+          - version: "5.9.2"
+            patch: trap-bounds-a3547fd4
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install selected runtime
+        id: runtime
+        uses: z-shell/.github/actions/setup-zsh@00d5d47783fb80c739edf89e39ae47274b9f503e # main
+        with:
+          version: ${{ matrix.version }}
+          patch-set: ${{ matrix.patch }}
+      - name: Install build tools
+        shell: bash
+        run: |
+          if [[ $RUNNER_OS == Linux ]]; then
+            sudo apt-get install -y cmake ninja-build autoconf automake libtool pkg-config texinfo yodl libpcre3-dev libgdbm-dev
+          else
+            brew install cmake ninja autoconf automake libtool pkg-config texinfo gdbm
+          fi
+      - name: Build and qualify exact runtime
+        shell: bash
+        env:
+          ZSH_EXECUTABLE: ${{ steps.runtime.outputs.executable }}
+          RUNTIME_PROVENANCE: ${{ steps.runtime.outputs.provenance }}
+        run: |
+          "$ZSH_EXECUTABLE" -f scripts/cmake.configure.zsh --generator ninja --jobs 2
+          cmake -S . -B build-cmake -DZSH_EXECUTABLE="$ZSH_EXECUTABLE"
+          ctest --test-dir build-cmake --output-on-failure --no-tests=error -j2
+          mkdir -p qualification-results
+          cp "$RUNTIME_PROVENANCE" qualification-results/runtime.json
+          git rev-parse HEAD > qualification-results/candidate.txt
+          git -C vendor/zsh rev-parse HEAD > qualification-results/headers.txt
+          bash scripts/qualify-installed.sh
+          bash scripts/qualify-zi.sh
+      - name: Retain qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qualification-${{ matrix.os }}-${{ matrix.version }}
+          path: |
+            qualification-results/
+            build-cmake/Testing/
+          retention-days: 30
+          if-no-files-found: error
+
+  packages:
+    name: Package ${{ matrix.format }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - format: DEB
+            image: ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+          - format: RPM
+            image: fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+    steps:
+      - name: Install native build and package tools
+        shell: bash
+        env:
+          PACKAGE_FORMAT: ${{ matrix.format }}
+        run: |
+          if [[ $PACKAGE_FORMAT == DEB ]]; then
+            apt-get update
+            apt-get install -y git build-essential cmake ninja-build autoconf automake libtool \
+              pkg-config texinfo yodl libncurses-dev libpcre3-dev libgdbm-dev zsh python3
+          else
+            dnf install -y git gcc make cmake ninja-build autoconf automake libtool pkgconf \
+              texinfo ncurses-devel pcre-devel gdbm-devel zsh python3 rpm-build \
+              tar gzip xz diffutils findutils procps-ng
+          fi
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build and exercise native package
+        shell: bash
+        env:
+          PACKAGE_FORMAT: ${{ matrix.format }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/vendor/zsh"
+          zsh -f scripts/cmake.configure.zsh --generator ninja --jobs 2
+          bash scripts/qualify-package.sh
+      - name: Retain package evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: qualification-package-${{ matrix.format }}
+          path: qualification-results/
+          retention-days: 30
+          if-no-files-found: error

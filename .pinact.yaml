@@ -8,3 +8,6 @@ ignore_actions:
   # name, so it rejects that shape. The SHA pin is still enforced here.
   - name: z-shell/\.github/\.github/workflows/.*
     ref: "[0-9a-f]{40}"
+  # setup-zsh is unreleased and intentionally pinned to its reviewed merge.
+  - name: z-shell/\.github/actions/setup-zsh
+    ref: "00d5d47783fb80c739edf89e39ae47274b9f503e"
