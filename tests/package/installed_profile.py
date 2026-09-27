@@ -16,7 +16,8 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
     prefix = args.prefix.resolve()
-    modules = list((prefix / 'lib/zsh/site-modules').glob('zpmod.*'))
+    modules = [module for lib in ('lib', 'lib64')
+               for module in (prefix / lib / 'zsh/site-modules').glob('zpmod.*')]
     if len(modules) != 1 or not modules[0].is_file():
         raise SystemExit('expected exactly one installed module')
     for relative in ('share/zsh/site-functions/_zpmod', 'share/licenses/zpmod/LICENSE',
@@ -30,7 +31,7 @@ def main():
         # Zsh test-fixture under standalone native state, floor 5.8.1.
         script = '''
           emulate -R zsh
-          module_path=( "$1/lib/zsh/site-modules" $module_path )
+          module_path=( "$3" $module_path )
           zmodload zpmod || exit 90
           fpath=( "$1/share/zsh/site-functions" $fpath )
           autoload -Uz _zpmod
@@ -38,7 +39,8 @@ def main():
           source "$2" || exit 92
           zpmod source-study --json
         '''
-        result = subprocess.run([args.zsh, '-f', '-c', script, '--', str(prefix), str(fixture)],
+        result = subprocess.run([args.zsh, '-f', '-c', script, '--', str(prefix),
+                                 str(fixture), str(modules[0].parent)],
                                 env={'PATH': os.environ['PATH'], 'HOME': home,
                                      'ZDOTDIR': home, 'LC_ALL': 'C'},
                                 cwd=home, capture_output=True, check=True, timeout=30)
@@ -56,6 +58,7 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps({
         'schema': 'z-shell/zpmod-installed-qualification/v1',
+        'module_path': str(modules[0].relative_to(prefix)),
         'module_sha256': hashlib.sha256(modules[0].read_bytes()).hexdigest(),
         'source_study': 'passed', 'payload': 'passed',
     }, indent=2) + '\n')

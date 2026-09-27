@@ -26,7 +26,7 @@ python3 tests/package/installed_profile.py --zsh "${runtime}" \
   --prefix /usr --report qualification-results/package-install.json
 remove_package
 trap - EXIT
-[[ ! -e /usr/lib/zsh/site-modules/zpmod.so ]]
+[[ ! -e /usr/lib/zsh/site-modules/zpmod.so && ! -e /usr/lib64/zsh/site-modules/zpmod.so ]]
 python3 - "${packages[0]}" <<'PY'
 import hashlib
 import json
