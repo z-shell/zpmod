@@ -308,3 +308,8 @@ add_executable(zpmod_source_clock_test core/source_clock.c)
 target_include_directories(zpmod_source_clock_test PRIVATE ${CMAKE_SOURCE_DIR}/src/include)
 add_test(NAME zpmod_source_clock COMMAND zpmod_source_clock_test)
 set_tests_properties(zpmod_source_clock PROPERTIES TIMEOUT 10 LABELS "core;source-study")
+
+add_test(NAME zpmod_benchmark_comparison
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/benchmark/test_compare.py)
+set_tests_properties(zpmod_benchmark_comparison PROPERTIES
+  TIMEOUT 15 LABELS "benchmark;integrity")

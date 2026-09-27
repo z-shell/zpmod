@@ -1,0 +1,69 @@
+name: Controlled Zd Validation
+on:
+  workflow_dispatch:
+    inputs:
+      org-ref:
+        description: Full reviewed organization commit containing run-zd and report-root support.
+        required: true
+      zd-ref:
+        description: Full reviewed zd commit containing scripts/zd.py.
+        required: true
+      image:
+        description: Qualified supported-Zsh module-build registry image digest.
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  controlled:
+    name: Controlled Module Evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Validate immutable bootstrap revisions
+        env:
+          ORG_REF: ${{ inputs.org-ref }}
+          ZD_REF: ${{ inputs.zd-ref }}
+          ZD_IMAGE: ${{ inputs.image }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          for name in ('ORG_REF', 'ZD_REF'):
+              assert re.fullmatch('[0-9a-f]{40}', os.environ[name]), name
+          assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}', os.environ['ZD_IMAGE'])
+          PY
+      - name: Check out repository workload
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: candidate
+          submodules: recursive
+          persist-credentials: false
+      - name: Check out reviewed organization tooling
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: z-shell/.github
+          ref: ${{ inputs.org-ref }}
+          path: org-tools
+          persist-credentials: false
+      - name: Build module, test selected runtime and collect benchmark
+        id: execution
+        uses: ./org-tools/actions/run-zd
+        with:
+          zd-ref: ${{ inputs.zd-ref }}
+          image: ${{ inputs.image }}
+          profile: module-build
+          source: ${{ github.workspace }}/candidate
+          timeout: "1200"
+          mode: benchmark
+          cpuset: "0"
+          command: '["zsh", "-f", "scripts/zd-check.zsh", "benchmark"]'
+          artifact-name: zd-zpmod-execution
+      - name: Validate and present comparison
+        if: always() && steps.execution.outputs.evidence-directory != ''
+        uses: ./org-tools/actions/benchmark-report
+        with:
+          root: ${{ steps.execution.outputs.evidence-directory }}
+          report: execution/comparison/comparison.json
+          artifact-name: zd-zpmod-report
