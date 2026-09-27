@@ -52,7 +52,8 @@ Reason meanings:
 - ancestor_perms: an ancestor directory is insecure causing propagation
 - zwc_perms: a compiled completion `.zwc` inside is writable by group/world
 
-`zwc_perms` is cached in the on-disk entry and refreshed on rebuild or when a secure directory becomes insecure.
+`zwc_perms` is cached in the on-disk entry and checked on every validation, including for otherwise secure directories. Changing a compiled
+file's permissions invalidates its directory verdict without requiring `--rebuild`.
 
 ## Migration
 

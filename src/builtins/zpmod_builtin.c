@@ -11,6 +11,7 @@
 #include "zpmod_rehash.h"
 #include "zpmod_source.h"
 #include "zpmod_utils.h"
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -270,8 +271,9 @@ int bin_zpmod(char *nam, char **argv, Options ops, int func)
             if (!strcmp(argv[0], "--max")) {
                 if (argv[1]) {
                     char *end = NULL;
+                    errno = 0;
                     long v = strtol(argv[1], &end, 10);
-                    if (*end == '\0' && v >= 0) {
+                    if (end != argv[1] && *end == '\0' && errno != ERANGE && v >= 0 && (unsigned long)v <= ULONG_MAX / 1024) {
                         max_kb = v;
                     } else {
                         zwarnnam(nam, "bundle-build: invalid --max value: %s", argv[1]);
