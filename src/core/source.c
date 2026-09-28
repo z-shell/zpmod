@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#if defined(__has_include)
+#ifdef __has_include
 #if __has_include(<sys/mman.h>)
 #include <sys/mman.h>
 #define USE_MMAP 1
@@ -457,6 +457,18 @@ Eprog custom_try_source_file(char *file)
     return NULL;
 }
 
+/* Autoload style a dump header records: 2 ksh, 0 zsh, 1 unspecified. */
+static int custom_dump_ksh_mode(FDHead h)
+{
+    if (FDHFLAGS(h) & FDHF_KSHLOAD) {
+        return 2;
+    }
+    if (FDHFLAGS(h) & FDHF_ZSHLOAD) {
+        return 0;
+    }
+    return 1;
+}
+
 static Eprog custom_check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh, int test_only)
 {
     int isrec = 0;
@@ -510,7 +522,7 @@ rec:
                 *pp++ = dummy_patprog1;
             }
             if (ksh) {
-                *ksh = ((FDHFLAGS(h) & FDHF_KSHLOAD) ? 2 : ((FDHFLAGS(h) & FDHF_ZSHLOAD) ? 0 : 1));
+                *ksh = custom_dump_ksh_mode(h);
             }
             return prog;
         }
@@ -554,7 +566,7 @@ rec:
                 *pp++ = dummy_patprog1;
             }
             if (ksh) {
-                *ksh = ((FDHFLAGS(h) & FDHF_KSHLOAD) ? 2 : ((FDHFLAGS(h) & FDHF_ZSHLOAD) ? 0 : 1));
+                *ksh = custom_dump_ksh_mode(h);
             }
             return prog;
         }

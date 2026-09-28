@@ -15,6 +15,19 @@
 int bin_custom_dot(char *name, char **argv, Options ops, int func);
 /* zpreadarray builtin (implemented in builtins/zpreadarray.c) */
 int bin_zpreadarray(char *nam, char **argv, Options ops, int func);
+/* Filesystem builtins (builtins/fs_builtins.c) and the zpmod command
+ * (builtins/zpmod_builtin.c), registered in module/module.c */
+int bin_zppathstat(char *nam, char **argv, Options ops, int func);
+int bin_zpdirlist(char *nam, char **argv, Options ops, int func);
+int bin_zpreadfile(char *nam, char **argv, Options ops, int func);
+int bin_zpmod(char *nam, char **argv, Options ops, int func);
+struct builtin *zp_get_fs_builtins(size_t *count);
+struct builtin *zp_get_self_builtins(size_t *count);
+
+/* dot/source overrides (core/source.c), installed in setup_ and restored in
+ * finish_ */
+void zp_source_setup_overrides(void);
+void zp_source_restore_overrides(void);
 
 /* zpmod command */
 void zpmod_usage(void);

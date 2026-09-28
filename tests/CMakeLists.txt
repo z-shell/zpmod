@@ -139,6 +139,9 @@ add_zpmod_test(zpmod_process_substitution_source builtin/process_substitution_so
 add_zpmod_test(zpmod_source_study core/source_study.zsh
   CATEGORY "core" LABELS "source-study")
 
+add_zpmod_test(zpmod_source_hot_args command/source_hot_args.zsh
+  CATEGORY "command" LABELS "source-hot;edge_cases")
+
 # Benchmark harness integrity. This is a functional smoke check, not a
 # performance threshold or regression gate.
 add_zpmod_test(zpmod_benchmark_harness benchmark/harness.zsh
@@ -165,6 +168,9 @@ add_zpmod_test(zpmod_zpreadarray_large builtin/zpreadarray_large.zsh
 
 add_zpmod_test(zpmod_zpreadarray_fd_t builtin/zpreadarray_fd_t.zsh
   CATEGORY "builtin" LABELS "zpreadarray;file_descriptor;trim")
+
+add_zpmod_test(zpmod_zpreadarray_fd_invalid builtin/zpreadarray_fd_invalid.zsh
+  CATEGORY "builtin" LABELS "zpreadarray;file_descriptor;edge_cases")
 
 # zpmod command and subcommand tests
 add_zpmod_test(zpmod_report_append command/zpmod_report_append.zsh

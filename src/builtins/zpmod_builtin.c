@@ -341,7 +341,7 @@ int cmd_source_study(char *nam, char **argv)
                 zwarnnam(nam, "source-study: invalid report count: %s", argv[0]);
                 return 1;
             }
-            report_count = report_count * 10 + (*digit - '0');
+            report_count = (report_count * 10) + (*digit - '0');
         }
         if (argv[1]) {
             zwarnnam(nam, "source-study: too many arguments");

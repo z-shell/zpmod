@@ -610,11 +610,10 @@ int zp_compaudit_cache_core(char *nam, int rebuild, int show, int json)
                 if (v2path) {
                     memcpy(v2path, cache_path, prefix);
                     strcpy(v2path + prefix, rep);
-                    if (unlink(v2path) == 0) {
-                        rebuild = 1;
-                    } else if (errno != ENOENT) {
-                        /* A legacy path exists but cannot be removed. Rebuild the current
-                         * cache without a separate check/use window. */
+                    /* Rebuild after removing a legacy path, and also when one exists
+                     * but cannot be removed: rebuilding the current cache avoids a
+                     * separate check/use window. */
+                    if (unlink(v2path) == 0 || errno != ENOENT) {
                         rebuild = 1;
                     }
                     zsfree(v2path);

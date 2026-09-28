@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 #pragma once
 #include "zpmod.mdh"
-#include "zpmod.pro"
 
 /**
  * @file zpmod_source.h

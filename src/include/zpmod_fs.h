@@ -31,8 +31,7 @@
  */
 /* Parameter order is (reporting name, output array name, input array name,
  * follow-symlinks, fields) */
-int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
-                     char *fields);
+int zp_pathstat_core(char *nam, char *outname, char *inname, int follow, char *fields);
 
 /**
  * @brief List directory entries into an output array with filters.
@@ -47,8 +46,7 @@ int zp_pathstat_core(char *nam, char *outname, char *inname, int follow,
  */
 /* Parameter order is (reporting name, output array name, directory,
  * include-dotfiles, only-dirs, only-files) */
-int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
-                    int only_dirs, int only_files);
+int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all, int only_dirs, int only_files);
 
 /**
  * @brief Read a file into a scalar or split into an array by delimiter.
@@ -63,8 +61,7 @@ int zp_dirlist_core(char *nam, char *outname, char *dir, int inc_all,
  */
 /* Parameter order is (reporting name, output var/array, path, use-mmap,
  * split-mode, delimiter) */
-int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
-                     int split, int delim);
+int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap, int split, int delim);
 
 /**
  * @brief Scan $PATH directories to warm filesystem caches and prepare command
@@ -79,5 +76,4 @@ int zp_readfile_core(char *nam, char *outname, char *path, int use_mmap,
  * @param prune_missing Reserved for future integration (currently no-op).
  * @return number of executables observed (>=0) on success; negative on error.
  */
-int zp_path_warmup_core(const char *nam, int quiet, int prune_missing,
-                        int dry_run);
+int zp_path_warmup_core(const char *nam, int quiet, int prune_missing, int dry_run);

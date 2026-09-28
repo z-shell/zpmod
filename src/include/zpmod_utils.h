@@ -76,5 +76,17 @@ int zp_take_opt_with_arg(char ***argvp, char opt, char **out_arg);
  * @param enforce_mode Whether to apply create_mode to an existing file too.
  * @return Writable stream, or NULL with errno preserved on failure.
  */
-FILE *zp_fopen_write_nofollow(const char *path, mode_t create_mode,
-                              int enforce_mode);
+FILE *zp_fopen_write_nofollow(const char *path, mode_t create_mode, int enforce_mode);
+
+/**
+ * @brief Parse a whole string as a base-10 long.
+ *
+ * Accepts an optional sign followed by digits only: an empty string, leading
+ * whitespace, trailing characters and values outside the range of long are
+ * rejected, unlike atoi/atol, which return 0 or an unspecified value for them.
+ *
+ * @param s   String to parse (may be NULL, which is rejected).
+ * @param out Receives the value on success; left unchanged on failure.
+ * @return 0 on success, -1 on failure.
+ */
+int zp_parse_long(const char *s, long *out);
