@@ -12,13 +12,13 @@ int zp_conv_opt(int zp_opt_num);
  * in C code or tests. Never mirror the full upstream option list here.
  */
 enum {
-  ZP_OPT_INVALID__ = 0,
-  FUNCTIONARGZERO__,
-  PATHDIRS__,
-  POSIXBUILTINS__,
-  SHINSTDIN__,
-  SOURCETRACE__,
-  ZP_OPT_COUNT__
+    ZP_OPT_INVALID__ = 0,
+    FUNCTIONARGZERO__,
+    PATHDIRS__,
+    POSIXBUILTINS__,
+    SHINSTDIN__,
+    SOURCETRACE__,
+    ZP_OPT_COUNT__
 };
 
 /* Some upstream structs referenced via vendor headers rely on system types

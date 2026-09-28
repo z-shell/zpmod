@@ -9,11 +9,6 @@
 #include "zpmod_vendor_shims.h"
 #include "zpmod_version.h"
 
-/* Declare builtin handlers implemented in other TUs */
-int bin_zppathstat(char *nam, char **argv, Options ops, int func);
-int bin_zpdirlist(char *nam, char **argv, Options ops, int func);
-int bin_zpreadfile(char *nam, char **argv, Options ops, int func);
-
 /* Unified builtin table (static, like original) */
 static struct builtin bintab[] = {
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
@@ -34,7 +29,6 @@ int setup_(UNUSED(Module m))
     extern void zp_setup_options_table(void);
     zp_setup_options_table();
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
-    extern void zp_source_setup_overrides(void);
     zp_source_setup_overrides();
 #endif
     return 0;
@@ -65,7 +59,6 @@ int cleanup_(Module m)
 int finish_(UNUSED(Module m))
 {
 #ifdef ZPMOD_HAVE_SOURCE_STUDY
-    extern void zp_source_restore_overrides(void);
     zp_source_restore_overrides();
 #endif
     return 0;

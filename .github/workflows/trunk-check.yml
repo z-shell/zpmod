@@ -2,16 +2,16 @@ name: Trunk Code Quality
 
 # Thin caller for the organization Trunk workflow, so the linters enabled in
 # .trunk/trunk.yaml also run on pull requests and main, not only in local git
-# hooks. Pull request and push runs report only issues the change introduces.
-# There is no scheduled full scan yet: main still has formatter and hadolint
-# findings that a full scan would report on every run. A manual run is a
-# full scan.
+# hooks. Pull request and push runs report only issues the change introduces;
+# the weekly and manual runs scan the whole repository.
 
 on:
   push:
     branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
+  schedule:
+    - cron: "0 5 * * 5"
   workflow_dispatch: {}
 
 permissions:
@@ -29,7 +29,14 @@ jobs:
     uses: z-shell/.github/.github/workflows/trunk.yml@18433229ccbfc9e59332710ee3cc1ba5b920b49c # main
     with:
       arguments: --no-progress
-      # clang-tidy and clang-format read compile_commands.json. Trunk's own
-      # prepare step does not leave one behind on a clean checkout, so every C
-      # file would fail include scanning; generate it before Trunk runs.
-      setup-command: sh scripts/gen-compile-commands.sh
+      # clang-tidy reads compile_commands.json, which Trunk's own prepare step
+      # does not leave behind on a clean checkout. Generate it against a
+      # configured vendor/zsh (config.h and the generated headers and
+      # prototypes, as docker/*.Dockerfile build them); an unconfigured tree
+      # makes clang-tidy report Zsh's own macros as zpmod findings.
+      setup-command: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends autoconf libncurses-dev
+        git submodule update --init vendor/zsh
+        (cd vendor/zsh && ./Util/preconfig && ./configure && make -C Src headers proto)
+        sh scripts/gen-compile-commands.sh

@@ -11,7 +11,6 @@
  * lexical) up to an optional size cap, writing a single bundle suitable for
  * zcompile.
  */
-int zp_bundle_build_core(char *nam, const char *from_dir, const char *out_path,
-                         long max_kb);
+int zp_bundle_build_core(char *nam, const char *from_dir, const char *out_path, long max_kb);
 
 #endif /* ZPMOD_BUNDLE_H */

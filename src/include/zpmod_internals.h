@@ -33,7 +33,7 @@ struct builtin;
 typedef struct builtin *Builtin;     /* Builtin */
 typedef struct funcstack *Funcstack; /* Funcstack */
 typedef struct features *Features;   /* Features */
-typedef struct module *Module; /* Module (single typedef; duplicate removed) */
+typedef struct module *Module;       /* Module (single typedef; duplicate removed) */
 
 /* Core global variables (match volatile & types) */
 extern volatile long lastval; /* zlong lastval (assume long when unknown) */
