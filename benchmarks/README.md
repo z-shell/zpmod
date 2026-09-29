@@ -148,3 +148,6 @@ Compare like runtime and patch profiles when interpreting results. Artifacts are
 The controlled runs are non-gating evidence collection. The native workflows are unchanged.
 
 Update the pinned digests and revisions only after a reviewed image publication and hosted qualification.
+
+The qualified digests are declared in `.github/workflows/zd-controlled.yml`, which is authoritative. Update the list above to match it in
+the same change; `scripts/check_zd_digests.zsh` runs in CI and fails when the two differ.
