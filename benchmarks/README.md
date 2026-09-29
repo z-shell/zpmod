@@ -125,8 +125,8 @@ Keep native platform checks and realistic startup workloads alongside controlled
 
 The controlled workflow supplements the historical graph. It does not replace or reclassify that dataset.
 
-The `Controlled Zd Validation` workflow runs on pull requests that touch source, tests, benchmarks or scripts, and on manual dispatch. It
-uses the shared `run-zd` and `benchmark-report` actions.
+The `Controlled Zd Validation` workflow runs on pull requests that touch source, tests, benchmarks, scripts, CMake inputs, the vendored Zsh
+headers or the workflow itself, and on manual dispatch. It uses the shared `run-zd` and `benchmark-report` actions.
 
 It pins reviewed organization and zd merge commits. Both runs use a matrix of the two digests below; dispatch may name a single qualified
 digest in the `image` input instead.
