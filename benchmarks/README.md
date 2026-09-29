@@ -125,9 +125,12 @@ Keep native platform checks and realistic startup workloads alongside controlled
 
 The controlled workflow supplements the historical graph. It does not replace or reclassify that dataset.
 
-The manual `Controlled Zd Validation` workflow uses the shared `run-zd` and `benchmark-report` actions.
+The `Controlled Zd Validation` workflow runs on pull requests that touch source, tests, benchmarks, scripts, CMake inputs, the vendored Zsh
+headers, license files or the workflow itself, and on manual dispatch. It uses the shared `run-zd` and `benchmark-report` actions.
 
-It pins reviewed organization and zd merge commits. Dispatch selects a qualified registry image digest.
+It pins reviewed organization and zd merge commits. Pull requests, and dispatch with an empty `image` input, run a matrix of the two
+qualified digests below. Dispatch may instead name one custom immutable digest. That image is not qualified by this workflow, and its
+artifacts carry the suffix `custom`.
 
 Qualified Linux amd64 module-build images are available for both supported ABI boundaries:
 
@@ -140,8 +143,8 @@ These images were built from reviewed zd commit `7c52bb894cc93d3bfcd2e0f6a359aa8
 
 The 5.9.2 image includes zd's declared trap-bounds patch and PCRE2; the 5.8.1 profile has no PCRE module.
 
-Select the digest in the manual workflow's `image` input. Compare like runtime and patch profiles when interpreting results.
+Compare like runtime and patch profiles when interpreting results. Artifacts are named per Zsh version.
 
-The existing native workflow remains available. Enable automatic PR runs only after hosted qualification passes.
+The controlled runs are non-gating evidence collection. The native workflows are unchanged.
 
-Before enabling those runs, pin the caller to the reviewed immutable action revision.
+Update the pinned digests and revisions only after a reviewed image publication and hosted qualification.
