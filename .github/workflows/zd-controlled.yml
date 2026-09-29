@@ -1,29 +1,59 @@
 name: Controlled Zd Validation
 on:
+  pull_request:
+    paths:
+      - src/**
+      - tests/**
+      - benchmarks/**
+      - scripts/**
+      - CMakeLists.txt
+      - .github/workflows/zd-controlled.yml
   workflow_dispatch:
     inputs:
       image:
-        description: Qualified supported-Zsh module-build registry image digest.
-        required: true
+        description: Qualified module-build registry image digest. Empty runs both supported Zsh boundaries.
+        required: false
+        default: ""
 permissions:
   contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  controlled:
-    name: Controlled Module Evidence
+  plan:
+    name: Select Qualified Images
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
     steps:
-      - name: Validate immutable image
+      - name: Select and validate immutable images
+        id: select
         env:
           ZD_IMAGE: ${{ inputs.image }}
         run: |
           python3 - <<'PY'
-          import os, re
-          assert re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}', os.environ['ZD_IMAGE'])
+          import json, os, re
+          qualified = [
+              {"zsh": "5.8.1", "image": "ghcr.io/z-shell/zd@sha256:a5159a3fc2bc1745ad7b70110015386f54ad64c50f23765e81ef06beb9869e04"},
+              {"zsh": "5.9.2", "image": "ghcr.io/z-shell/zd@sha256:6b2e8f8841ad3434c1344b0cdcd1d24b412da2935b8617866077475c4689d6f8"},
+          ]
+          override = os.environ["ZD_IMAGE"].strip()
+          matrix = [{"zsh": "custom", "image": override}] if override else qualified
+          for entry in matrix:
+              assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}", entry["image"])
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write("matrix=" + json.dumps({"include": matrix}) + "\n")
           PY
+  controlled:
+    name: Controlled Module Evidence (Zsh ${{ matrix.zsh }})
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
       - name: Check out repository workload
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -42,18 +72,18 @@ jobs:
         uses: ./org-tools/actions/run-zd
         with:
           zd-ref: 7c52bb894cc93d3bfcd2e0f6a359aa8ff0d45490 # Reviewed main
-          image: ${{ inputs.image }}
+          image: ${{ matrix.image }}
           profile: module-build
           source: ${{ github.workspace }}/candidate
           timeout: "1200"
           mode: benchmark
           cpuset: "0"
           command: '["zsh", "-f", "scripts/zd-check.zsh", "benchmark"]'
-          artifact-name: zd-zpmod-execution
+          artifact-name: zd-zpmod-execution-${{ matrix.zsh }}
       - name: Validate and present comparison
         if: always() && steps.execution.outputs.evidence-directory != ''
         uses: ./org-tools/actions/benchmark-report
         with:
           root: ${{ steps.execution.outputs.evidence-directory }}
           report: execution/comparison/comparison.json
-          artifact-name: zd-zpmod-report
+          artifact-name: zd-zpmod-report-${{ matrix.zsh }}
