@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: Custom immutable module-build registry image digest, not qualified by this workflow. Empty runs both qualified Zsh boundaries.
+        description: Custom immutable image digest, not qualified here. Empty runs both qualified Zsh boundaries.
         required: false
         default: ""
 permissions:
