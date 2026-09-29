@@ -10,11 +10,14 @@ on:
       - cmake/**
       - vendor/**
       - .gitmodules
+      - NOTICE
+      - LICENSE
+      - LICENSES/**
       - .github/workflows/zd-controlled.yml
   workflow_dispatch:
     inputs:
       image:
-        description: Qualified module-build registry image digest. Empty runs both supported Zsh boundaries.
+        description: Custom immutable module-build registry image digest, not qualified by this workflow. Empty runs both qualified Zsh boundaries.
         required: false
         default: ""
 permissions:
