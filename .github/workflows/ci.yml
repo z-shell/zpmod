@@ -37,7 +37,7 @@ jobs:
           cmake-version: "3.20"
 
       - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@96bed6edff20d1dd61ecff9b75cc519d516e6401 # v5
+        uses: seanmiddleditch/gha-setup-ninja@3b1f8f94a2f8254bd26914c4ab9474d4f0015f67 # v6
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
