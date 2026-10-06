@@ -10,7 +10,6 @@ Organization policy is owned by [`z-shell/.github` `AGENTS.md`](https://github.c
 Before acting, select every surface below whose tasks and file patterns both match the work, and read each one. If your runtime does not load a listed file automatically, open it explicitly.
 
 - `AGENTS.md` (this file): tasks `all`; files `**`
-- `.github/copilot-instructions.md`: tasks `all`; files `**`
 - `.github/skills/code-review/SKILL.md`: tasks `code-review`, `review-readiness`, `organization-review`, `project-health`, `repository-health`, `repository-health-audit`, `repository-health-check`; files `**`; organization skill vendored at approved revision `5593b7d28430`
 
 Organization-wide surfaces are routed by the [organization manifest](https://github.com/z-shell/.github/blob/main/.github/instruction-surfaces.json). This block is delivered and verified under [decision 0031](https://github.com/z-shell/.github/blob/main/decisions/0031-per-repository-instruction-routing-delivery.md).
@@ -72,6 +71,39 @@ For controlled Linux reproduction, run `scripts/zd-check.zsh` in the selected im
 See the [zd benchmark guide](benchmarks/README.md#controlled-zd-execution).
 
 Keep native platform checks alongside container evidence.
+
+Run `ctest --test-dir build -R zpmod_smoke --output-on-failure` for a quick check when behavior does not change, and the full
+suite when it does and before a pull request. Tests are Zsh scripts in the suites under `tests/`; they use `tests/test_helpers.zsh`
+and find the staged module through `ZPMOD_STAGE_MODULE_DIR`. See the [testing guide](tests/README.md).
+
+## Architecture
+
+- `src/core/*`: core logic, for example `source.c` for `source-study` and the `source` overrides.
+- `src/builtins/*`: builtin implementations.
+- `src/module/*`: module glue and the static builtin table in `module.c`.
+- `src/include/*`: public cross-unit headers (`zpmod_*.h`); do not leak internal Zsh headers through them.
+- `src/compat/*`: shims, including the stable option mapping in `options.c` and `sigcount.h`.
+- `src/completion/_zpmod`: completion script.
+
+Invariants:
+
+- Builtins are registered statically. Features go through `features_` and `enables_`; `setup_` installs overrides and `finish_` restores them.
+- Use the Zsh allocators (`zalloc`, `zsfree`) and free with the exact length when one is provided.
+- Map options through the stable enum (`zp_conv_opt`) declared in `src/include/zpmod_compat.h` and implemented in `src/compat/options.c`.
+- Prefer the vendored Zsh headers under `vendor/zsh`; out-of-tree stubs live in `src/module/zpmod.mdh` and `src/module/zpmod.pro`.
+- Version strings come from CMake (for example `ZPMOD_VERSION_STR`).
+
+This module depends on Zsh internals: verify a change against several Zsh versions and add or update tests in the matching suite
+when behavior changes. Architecture documentation lives in `docs/explanation/` and CLI reference in `docs/reference/`, including
+the `source-study -l` behavior checked by `tests/core/source_study.zsh`.
+
+## Optional tool integrations
+
+Follow the organization
+[tool integration guidance](https://github.com/z-shell/.github/blob/main/.github/instructions/agents/tool-integration.instructions.md).
+Discover tools in the current runtime before use. Use repository files, local search, vendored headers, and official documentation
+when an integration is unavailable; no external service is required to work here. Keep external services read-only unless the
+maintainer explicitly authorizes writes. GitHub issues and pull requests own active work.
 
 ## Key org cross-references
 
