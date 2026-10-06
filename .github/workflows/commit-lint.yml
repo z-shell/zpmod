@@ -24,4 +24,4 @@ jobs:
     name: Policy
     permissions:
       contents: read
-    uses: z-shell/.github/.github/workflows/commit-lint.yml@6ab97b23f3e6f38dd8721b06bfb628f58f30a06a # main
+    uses: z-shell/.github/.github/workflows/commit-lint.yml@020487ffd1bb1c209f317c855fb9a0ea0d107be5 # main

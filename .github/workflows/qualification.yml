@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - name: Install selected runtime
         id: runtime
-        uses: z-shell/.github/actions/setup-zsh@00d5d47783fb80c739edf89e39ae47274b9f503e # main
+        uses: z-shell/.github/actions/setup-zsh@020487ffd1bb1c209f317c855fb9a0ea0d107be5 # main
         with:
           version: ${{ matrix.version }}
           patch-set: ${{ matrix.patch }}
