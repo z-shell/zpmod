@@ -111,6 +111,12 @@ lint:
           batch: true
           in_place: true
   ignore:
+    # The vendored organization code-review skill is installed at a pinned
+    # revision, and org-routing.py check compares its resource files byte for
+    # byte; formatting them would break the pin.
+    - linters: [prettier, markdownlint]
+      paths:
+        - .github/skills/code-review/**
     # Exclude vendor and build outputs across all linters
     - linters: [ALL]
       paths:
