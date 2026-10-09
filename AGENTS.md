@@ -12,6 +12,15 @@ Before acting, select every surface below whose tasks and file patterns both mat
 - `AGENTS.md` (this file): tasks `all`; files `**`
 - `.github/skills/code-review/SKILL.md`: tasks `code-review`, `review-readiness`, `organization-review`, `project-health`, `repository-health`, `repository-health-audit`, `repository-health-check`; files `**`; organization skill vendored at approved revision `ede9ed985dd2`
 
+## Reporting issues
+
+File an issue as [Filing a new issue](https://github.com/z-shell/.github/blob/main/runbooks/triage.md#filing-a-new-issue) describes: one `###` heading per field of the effective issue form, in form order. In the version or environment field, give the output of `zpmod -V`.
+
+After the form's fields, add these headings, writing `Not applicable` and the reason when one does not apply:
+
+- `### Build environment`: Compiler and version, CMake version and generator, OS and architecture, and the vendored Zsh header revision (`git -C vendor/zsh rev-parse HEAD`).
+- `### Module loading`: How the module was installed, the exact `zmodload` error if any, and whether it was rebuilt for the running Zsh after a Zsh upgrade.
+
 Organization-wide surfaces are routed by the [organization manifest](https://github.com/z-shell/.github/blob/main/.github/instruction-surfaces.json). This block is delivered and verified under [decision 0031](https://github.com/z-shell/.github/blob/main/decisions/0031-per-repository-instruction-routing-delivery.md).
 
 <!-- END org-routing -->
