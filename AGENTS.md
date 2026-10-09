@@ -21,6 +21,8 @@ After the form's fields, add these headings, writing `Not applicable` and the re
 - `### Build environment`: Compiler and version, CMake version and generator, OS and architecture, and the vendored Zsh header revision (`git -C vendor/zsh rev-parse HEAD`).
 - `### Module loading`: How the module was installed, the exact `zmodload` error if any, and whether it was rebuilt for the running Zsh after a Zsh upgrade.
 
+These facts come from this repository's [project profile](https://github.com/z-shell/.github/blob/main/knowledge/domains/governance/data/project-profiles.json) under [decision 0040](https://github.com/z-shell/.github/blob/main/decisions/0040-central-project-profiles-for-issue-intake.md); change them there, not here.
+
 Organization-wide surfaces are routed by the [organization manifest](https://github.com/z-shell/.github/blob/main/.github/instruction-surfaces.json). This block is delivered and verified under [decision 0031](https://github.com/z-shell/.github/blob/main/decisions/0031-per-repository-instruction-routing-delivery.md).
 
 <!-- END org-routing -->
