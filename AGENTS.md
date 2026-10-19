@@ -49,7 +49,8 @@ This project follows the organization-wide [Z-Shell Organization Guidelines](htt
 ## Branching and commits
 
 - All work branches from `main`, and pull requests target `main`.
-- Use `feature-<id>`, `bug-<id>`, or `hotfix-<id>` branch names.
+- Name branches by the pattern `commit-lint.yml` enforces: `feature-<issue>`, `bug-<issue>` or `hotfix-<issue>` with an
+  optional `-<slug>`, or `<type>/<slug>` ([pull-request runbook](https://github.com/z-shell/.github/blob/main/runbooks/pull-requests.md#1-before-the-branch)).
 - Commit format: [Conventional Commits](https://www.conventionalcommits.org/); see
   [decision 0003](https://github.com/z-shell/.github/blob/main/decisions/0003-conventional-commits.md).
 - Branch model: [decision 0019](https://github.com/z-shell/.github/blob/main/decisions/0019-trunk-on-main-default.md).
