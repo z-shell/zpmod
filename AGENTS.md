@@ -87,6 +87,12 @@ Run `ctest --test-dir build -R zpmod_smoke --output-on-failure` for a quick chec
 suite when it does and before a pull request. Tests are Zsh scripts in the suites under `tests/`; they use `tests/test_helpers.zsh`
 and find the staged module through `ZPMOD_STAGE_MODULE_DIR`. See the [testing guide](tests/README.md).
 
+`.trunk/trunk.yaml` enables `trunk-fmt-pre-commit`, which reformats staged C files. A commit that restores `src/` from `main`
+to drop a formatting pass therefore comes out empty: to drop C changes, rebuild the branch from `main` with only the wanted
+files, and check `git show --stat HEAD` before describing what a commit contains. The required Trunk check compares findings
+by line, so reformatting lines that carry existing clang-tidy findings reports them as new; formatting lands together with
+those fixes ([#129](https://github.com/z-shell/zpmod/issues/129)).
+
 ## Architecture
 
 - `src/core/*`: core logic, for example `source.c` for `source-study` and the `source` overrides.
