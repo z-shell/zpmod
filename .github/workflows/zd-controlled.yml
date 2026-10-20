@@ -28,7 +28,7 @@ concurrency:
 jobs:
   plan:
     name: Select Qualified Images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
@@ -54,7 +54,7 @@ jobs:
   controlled:
     name: Controlled Module Evidence (Zsh ${{ matrix.zsh }})
     needs: plan
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
