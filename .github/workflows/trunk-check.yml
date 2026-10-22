@@ -26,7 +26,7 @@ jobs:
     name: Trunk Code Quality
     permissions:
       contents: read
-    uses: z-shell/.github/.github/workflows/trunk.yml@18433229ccbfc9e59332710ee3cc1ba5b920b49c # main
+    uses: z-shell/.github/.github/workflows/trunk.yml@cf854972f5d84a4a71229a4208ac9d3570b6ee48 # main
     with:
       arguments: --no-progress
       # clang-tidy reads compile_commands.json, which Trunk's own prepare step

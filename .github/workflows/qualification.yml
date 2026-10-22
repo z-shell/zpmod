@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - name: Install selected runtime
         id: runtime
-        uses: z-shell/.github/actions/setup-zsh@00d5d47783fb80c739edf89e39ae47274b9f503e # main
+        uses: z-shell/.github/actions/setup-zsh@cf854972f5d84a4a71229a4208ac9d3570b6ee48 # main
         with:
           version: ${{ matrix.version }}
           patch-set: ${{ matrix.patch }}
@@ -66,7 +66,7 @@ jobs:
           bash scripts/qualify-zi.sh
       - name: Retain qualification evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qualification-${{ matrix.os }}-${{ matrix.version }}
           path: |
@@ -121,7 +121,7 @@ jobs:
           bash scripts/qualify-package.sh
       - name: Retain package evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qualification-package-${{ matrix.format }}
           path: qualification-results/
