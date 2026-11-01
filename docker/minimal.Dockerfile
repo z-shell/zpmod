@@ -1,6 +1,6 @@
 # Minimal zpmod test environment
 # Simulates CI environment with basic zsh installation (no development headers)
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11
 
 # Install minimal dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

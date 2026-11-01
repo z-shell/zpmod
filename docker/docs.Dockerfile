@@ -1,6 +1,6 @@
 # Documentation build environment for zpmod
 # Provides consistent documentation generation with Doxygen, GraphViz, and LaTeX support
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
